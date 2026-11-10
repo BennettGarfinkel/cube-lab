@@ -2825,18 +2825,21 @@ const Viewer = (() => {
   function loop(){ if(!open) return; const st=$('#vStage'); const w=st.clientWidth; if(renderer.domElement.width!==Math.round(w*renderer.getPixelRatio())) renderer.setSize(w,w,false);
     const r=7.6; camera.position.set(r*Math.cos(phi)*Math.sin(theta), r*Math.sin(phi), r*Math.cos(phi)*Math.cos(theta)); camera.lookAt(0,0,0); camera.aspect=1; camera.updateProjectionMatrix();
     renderer.render(scene,camera); raf=requestAnimationFrame(loop); }
-  function animate(tok, dur){ return new Promise(res=>{
+  function animate(tok, dur, start){ return new Promise(res=>{
     const [[m,k]] = Cube.parse(tok); const n=AXIS[m]; const whole = m===m.toLowerCase();
     const sel = cubies.filter(c=> whole || (c.userData.p[0]*n[0]+c.userData.p[1]*n[1]+c.userData.p[2]*n[2])>0);
     const total = (k===3? Math.PI/2 : -Math.PI/2*k); const axis=new THREE.Vector3(n[0],n[1],n[2]);
-    sel.forEach(c=>pivot.attach(c)); const t0=performance.now();
+    sel.forEach(c=>pivot.attach(c)); const t0=start ?? performance.now(), len=dur*(k===2?1.4:1);
+    // at fast speeds turns blend into each other: mostly steady speed with a little easing, instead of a full stop between turns
+    const w = dur<=80 ? 0.25 : dur<=140 ? 0.55 : 1;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const step=()=>{ let t=reduce?1:Math.min(1,(performance.now()-t0)/(dur*(k===2?1.4:1))); const e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    const step=()=>{ let t=reduce?1:Math.min(1,(performance.now()-t0)/len); const e=(1-w)*t + w*(t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2);
       pivot.quaternion.setFromAxisAngle(axis,total*e);
       if(t<1) requestAnimationFrame(step); else { sel.forEach(c=>{ root.attach(c); c.position.copy(c.userData.home); c.quaternion.identity(); }); pivot.quaternion.identity();
-        state=Cube.apply(state,tok); paint(); res(); } };
+        state=Cube.apply(state,tok); paint(); res(t0+len); } };
     step(); }); }
-  async function run(){ if(busy) return; busy=true; while(queue.length){ const [tok,dur,after]=queue.shift(); await animate(tok,dur); if(after) after(); renderToks(); } busy=false; if(playing&&pos<toks.length) playNext(); else { playing=false; renderToks(); } }
+  let clock=null;   // when the last turn was due to end; Play queues one turn at a time, so this outlives each run
+  async function run(){ if(busy) return; busy=true; while(queue.length){ const [tok,dur,after]=queue.shift(); const now=performance.now(); clock = await animate(tok,dur, clock!==null && now-clock<50 ? clock : now); if(after) after(); renderToks(); } busy=false; if(playing&&pos<toks.length) playNext(); else { playing=false; renderToks(); } }
   const speed = () => +$('#vSpeed').value;
   if (D.prefs.vSpeed && [...$('#vSpeed').options].some(o=>o.value===String(D.prefs.vSpeed))) $('#vSpeed').value = String(D.prefs.vSpeed);
   $('#vSpeed').addEventListener('change', ()=>{ D.prefs.vSpeed = $('#vSpeed').value; save(); });
@@ -4283,18 +4286,21 @@ const Viewer = (() => {
   function loop(){ if(!open) return; const st=$('#vStage'); const w=st.clientWidth; if(renderer.domElement.width!==Math.round(w*renderer.getPixelRatio())) renderer.setSize(w,w,false);
     const r=11.2; camera.position.set(r*Math.cos(phi)*Math.sin(theta), r*Math.sin(phi), r*Math.cos(phi)*Math.cos(theta)); camera.lookAt(0,0,0); camera.aspect=1; camera.updateProjectionMatrix();
     renderer.render(scene,camera); raf=requestAnimationFrame(loop); }
-  function animate(tok, dur){ return new Promise(res=>{
+  function animate(tok, dur, start){ return new Promise(res=>{
     const [[m,k]] = Cube.parse(tok); const [ax, layers] = Cube.MV[m], n = Cube.FN[ax];
     const sel = cubies.filter(c=>layers.includes(c.userData.p[0]*n[0]+c.userData.p[1]*n[1]+c.userData.p[2]*n[2]));
     const total = (k===3? Math.PI/2 : -Math.PI/2*k); const axis=new THREE.Vector3(n[0],n[1],n[2]);
-    sel.forEach(c=>pivot.attach(c)); const t0=performance.now();
+    sel.forEach(c=>pivot.attach(c)); const t0=start ?? performance.now(), len=dur*(k===2?1.4:1);
+    // at fast speeds turns blend into each other: mostly steady speed with a little easing, instead of a full stop between turns
+    const w = dur<=80 ? 0.25 : dur<=140 ? 0.55 : 1;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const step=()=>{ let t=reduce?1:Math.min(1,(performance.now()-t0)/(dur*(k===2?1.4:1))); const e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    const step=()=>{ let t=reduce?1:Math.min(1,(performance.now()-t0)/len); const e=(1-w)*t + w*(t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2);
       pivot.quaternion.setFromAxisAngle(axis,total*e);
       if(t<1) requestAnimationFrame(step); else { sel.forEach(c=>{ root.attach(c); c.position.copy(c.userData.home); c.quaternion.identity(); }); pivot.quaternion.identity();
-        state=Cube.apply(state,tok); paint(); res(); } };
+        state=Cube.apply(state,tok); paint(); res(t0+len); } };
     step(); }); }
-  async function run(){ if(busy) return; busy=true; while(queue.length){ const [tok,dur,after]=queue.shift(); if(inited) await animate(tok,dur); else state=Cube.apply(state,tok); if(after) after(); renderToks(); } busy=false; if(playing&&pos<toks.length) playNext(); else { playing=false; renderToks(); } }
+  let clock=null;   // when the last turn was due to end; Play queues one turn at a time, so this outlives each run
+  async function run(){ if(busy) return; busy=true; while(queue.length){ const [tok,dur,after]=queue.shift(); const now=performance.now(); if(inited) clock = await animate(tok,dur, clock!==null && now-clock<50 ? clock : now); else state=Cube.apply(state,tok); if(after) after(); renderToks(); } busy=false; if(playing&&pos<toks.length) playNext(); else { playing=false; renderToks(); } }
   const speed = () => +$('#vSpeed').value;
   if (D.prefs.vSpeed && [...$('#vSpeed').options].some(o=>o.value===String(D.prefs.vSpeed))) $('#vSpeed').value = String(D.prefs.vSpeed);
   $('#vSpeed').addEventListener('change', ()=>{ D.prefs.vSpeed = $('#vSpeed').value; save(); });
