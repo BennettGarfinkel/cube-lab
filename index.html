@@ -658,7 +658,7 @@ window.CubeLabHost = {
       <textarea id="bkOut" readonly rows="3" aria-label="Your backup code"></textarea>
       <div class="row"><button class="btn alt" id="bkCopy">Copy code</button><span class="msg" id="bkCopyMsg" aria-live="polite"></span></div>
       <label class="label" for="bkIn">Paste a code to restore</label>
-      <textarea id="bkIn" rows="3" placeholder="CUBELAB1:…" autocomplete="off" spellcheck="false"></textarea>
+      <textarea id="bkIn" autocapitalize="off" autocorrect="off" rows="3" placeholder="CUBELAB1:…" autocomplete="off" spellcheck="false"></textarea>
       <div class="row"><button class="btn" id="bkRestore">Restore</button><span class="msg" id="bkMsg" aria-live="polite"></span></div>
     </details>
     <details class="sdrop" id="ctBox"><summary>csTimer import and export</summary>
@@ -862,7 +862,7 @@ window.CubeLabHost = {
       <textarea id="bkOut" readonly rows="3" aria-label="Your backup code"></textarea>
       <div class="row"><button class="btn alt" id="bkCopy">Copy code</button><span class="msg" id="bkCopyMsg" aria-live="polite"></span></div>
       <label class="label" for="bkIn3">Paste a code to restore</label>
-      <textarea id="bkIn3" rows="3" placeholder="CUBELAB1:…" autocomplete="off" spellcheck="false"></textarea>
+      <textarea id="bkIn3" autocapitalize="off" autocorrect="off" rows="3" placeholder="CUBELAB1:…" autocomplete="off" spellcheck="false"></textarea>
       <div class="row"><button class="btn" id="bkRestore">Restore</button><span class="msg" id="bkMsg" aria-live="polite"></span></div>
     </details>
     <details class="sdrop" id="ctBox"><summary>csTimer import and export</summary>
@@ -1007,7 +1007,7 @@ const CubeLab = (() => {
   // one backup code and one csTimer file cover both puzzles
   const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))), dec = t => JSON.parse(decodeURIComponent(escape(atob(t))));
   function backupCode(){ const o = {v:1}; for (const [pz, a] of Object.entries(apps)) o['p' + pz] = a.exportData(); return 'CUBELAB1:' + enc(o); }
-  function parseBackup(raw){ raw = String(raw || '').replace(/\s+/g, ''); const ok = d => !!d && typeof d === 'object' && !!d.status && typeof d.status === 'object';
+  function parseBackup(raw){ raw = String(raw || '').replace(/\s+/g, '').replace(/^(cubelab1|2x2lab1|3x3lab1):/i, m => m.toUpperCase()); const ok = d => !!d && typeof d === 'object' && !!d.status && typeof d.status === 'object';
     try {
       if (raw.startsWith('CUBELAB1:')){ const o = dec(raw.slice(9)), out = {}; for (const pz of ['2', '3']) if (o && ok(o['p' + pz])) out[pz] = o['p' + pz]; return Object.keys(out).length ? out : null; }
       if (raw.startsWith('2X2LAB1:')){ const d = dec(raw.slice(8)); return ok(d) ? {'2': d} : null; }
@@ -2311,6 +2311,7 @@ function renderAtk(fresh){ const box=$('#tResult'), l=atkPool(), a=l.length ? (D
 $('#tResult').addEventListener('click', e=>{ if(!e.target.closest('[data-atkdel]') || tKind!=='atk') return; const l=atkPool(), key=atkKey(l), a=D.atk[key]; if(!a||!a.length) return; a.pop(); if(!a.length) delete D.atk[key]; save(); renderAtk(); });
 // ---- first side practice: random scrambles, timed, then the shortest first face or layer ----
 // states here are as drawn (white on top, green in front)
+const fsCn = () => !!D.prefs.cn;   // cnOn is defined later in this script
 const FS_W = {U:'D',D:'U',R:'L',L:'R',F:'F',B:'B'}, FS_ORDER = ['D','U','F','B','L','R'], FS_HOLDS = ['', 'x2', "x'", 'x', 'z', "z'"];
 const FS = (() => {
   // the 4 stickers of one color, tracked through every turn; distance tables are built once, the first time they're needed
@@ -2343,14 +2344,14 @@ const FS = (() => {
 })();
 let fsGen = 0, fsCur = null, fsQ = null;
 const fsWord = () => fsGoal==='face' ? 'face' : 'layer';
-const fsKey = () => 'fs-' + (cnOn() ? 'cn-' : '') + fsGoal;
+const fsKey = () => 'fs-' + (fsCn() ? 'cn-' : '') + fsGoal;
 function fsRandom(){ let st; do { const cp = [0,1,2,3,4,5,6]; for (let i=6; i>0; i--){ const j = rnd(i+1); [cp[i], cp[j]] = [cp[j], cp[i]]; } cp.push(7);
     const co = [0,0,0,0,0,0].map(()=>rnd(3)); co.push((3 - co.reduce((a,b)=>a+b,0)%3)%3); co.push(0); st = Cube.fromCubies(cp, co); } while (Cube.prun[Cube.coordOf(st)] < 4); return st; }
 const fsMake = (goal, cn) => new Promise(res => whenReady(() => setTimeout(() => { let scr, st, best; for (let t=0; t<20; t++){ scr = wcaScramble(fsRandom()); st = Cube.apply(S0, scr).map(c=>FS_W[c]); best = FS.best(st, goal, cn); if (best && best.n >= 2) break; } res({scr, st, goal, best}); }, 20)));  // skip the rare scramble that's already done
-const fsFetch = () => (fsQ = {key: fsKey(), p: fsMake(fsGoal, cnOn())});
+const fsFetch = () => (fsQ = {key: fsKey(), p: fsMake(fsGoal, fsCn())});
 function fsSetup(){ const my = ++fsGen; tCase = null; $('#tScr').closest('.scrbox').classList.remove('keep');
   $('#tScrLabel').textContent = 'Scramble'; $('#tNext').textContent = 'New scramble';
-  const th = $('#tHold'); th.hidden = false; th.textContent = cnOn() ? `White on top, green in front. Build a ${fsWord()} on any color, then time it.` : `White on top, green in front. Build the white ${fsWord()}, then time it.`;
+  const th = $('#tHold'); th.hidden = false; th.textContent = fsCn() ? `White on top, green in front. Build a ${fsWord()} on any color, then time it.` : `White on top, green in front. Build the white ${fsWord()}, then time it.`;
   $('#tScr').innerHTML = '<span class="loading">Building a scramble…</span>'; if (tState==='idle') $('#tHint').textContent = HINTS.idle;
   const q = fsQ && fsQ.key===fsKey() ? fsQ : fsFetch(); fsQ = null;
   q.p.then(r => { if (my!==fsGen || tPrac==='algs') return; fsCur = r; tCase = {id:'fs'}; $('#tScr').textContent = r.scr; if (tState==='idle') setTState('idle'); fsFetch(); }); }
@@ -2360,10 +2361,10 @@ function fsStats(key){ const a = (D.prac[key]||[]).map(x=>x[0]); if (!a.length) 
   return [`best ${fmtF(Math.min(...a))}`, ao(5)!==null ? `ao5 ${fmtF(ao(5))}` : '', ao(12)!==null ? `ao12 ${fmtF(ao(12))}` : '', `${a.length} timed`].filter(Boolean).join(' · '); }
 function fsStop(ms){ const r = fsCur; if (!r) return; const key = fsKey(), a = D.prac[key] || (D.prac[key] = []), t = +(ms/1000).toFixed(2), ts = Math.round(Date.now()/1000), prior = a.map(x=>x[0]);
   a.push([t, ts]); if (a.length > 200) a.shift(); touchDay(); save();
-  const b = r.best || {col:'D', rot:'', sol:'', n:0}; fsLast = {key, goal:r.goal, cn:cnOn(), scr:r.scr, st:r.st, col:b.col, rot:b.rot, sol:b.sol, n:b.n, t, ts, rated:false, pb: prior.length>0 && t < Math.min(...prior)};
+  const b = r.best || {col:'D', rot:'', sol:'', n:0}; fsLast = {key, goal:r.goal, cn:fsCn(), scr:r.scr, st:r.st, col:b.col, rot:b.rot, sol:b.sol, n:b.n, t, ts, rated:false, pb: prior.length>0 && t < Math.min(...prior)};
   fsCur = null; renderFsRes(); newScramble(); }
 function fsNote(withStats){ const m = D.crs[fsKey()];
-  $('#pracNote').textContent = [cnOn() ? `Shortest ${fsWord()} on any color` : `Shortest white ${fsWord()}`, withStats===false ? '' : fsStats(fsKey()) || '', m && m.n ? `shortest found ${m.c} of ${m.n} times` : ''].filter(Boolean).join(' · '); }
+  $('#pracNote').textContent = [fsCn() ? `Shortest ${fsWord()} on any color` : `Shortest white ${fsWord()}`, withStats===false ? '' : fsStats(fsKey()) || '', m && m.n ? `shortest found ${m.c} of ${m.n} times` : ''].filter(Boolean).join(' · '); }
 function renderFsRes(){ const box = $('#tResult'), r = fsLast;
   if (!r || r.key!==fsKey()){ box.hidden = true; fsNote(); return; }
   fsNote(false); box.hidden = false; const w = r.goal==='face' ? 'face' : 'layer', col = CNAME[r.col], n = r.n;
