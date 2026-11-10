@@ -509,6 +509,10 @@ body.focus .scrbox.keep{opacity:1}
   .vright>.ctrl{order:-2;position:sticky;top:0;z-index:1;background:var(--surface);padding-bottom:6px}
   .vright>#vNote{order:-1}
 }
+
+/* dragging the cube or tapping controls never highlights them; algorithms and scrambles stay selectable for copying */
+.stage3d,.stage3d *,.ctrl,.pad,.toks,.seg,.chip,.btn,.x,nav.tabs,.timer,.dbtn,.mods{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.stage3d canvas{outline:none;-webkit-tap-highlight-color:transparent}
 </style>
 <script>
 // Cube Lab runs as a plain web page. Anything the page needs from the place it's hosted goes through here.
