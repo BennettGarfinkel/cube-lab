@@ -496,6 +496,19 @@ body.focus .scrbox.keep{opacity:1}
 .nxrow>div{min-width:0;display:flex;flex-direction:column;gap:6px;flex:1}
 .nextup a.btn{text-decoration:none;display:inline-block}
 .sgoal{max-width:150px}
+
+/* the 3D viewer: on a wide screen the cube stays on the left while the controls and steps sit on the right */
+.vcol{display:contents}
+@media (min-width:900px) and (min-height:560px){
+  #sheet .inner{max-width:min(1080px,94vw);max-height:92vh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);column-gap:28px;row-gap:12px}
+  #sheet .inner>.head{grid-column:1/-1}
+  .vcol{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}
+  .vleft{grid-column:1;grid-row:2;align-self:start;align-items:center}
+  .vleft .stage3d{max-width:min(100%,calc(92vh - 150px))}
+  .vright{grid-column:2;grid-row:2;overflow-y:auto;padding-right:4px}
+  .vright>.ctrl{order:-2;position:sticky;top:0;z-index:1;background:var(--surface);padding-bottom:6px}
+  .vright>#vNote{order:-1}
+}
 </style>
 <script>
 // Cube Lab runs as a plain web page. Anything the page needs from the place it's hosted goes through here.
@@ -695,8 +708,11 @@ window.CubeLabHost = {
 <div class="sheet" id="sheet" hidden>
   <div class="inner" role="dialog" aria-modal="true" aria-labelledby="vTitle">
     <div class="head"><div><span class="gbadge" id="vGroup"></span><h2 id="vTitle">Case</h2><p class="spot" id="vSpot" hidden></p></div><button class="x" id="vClose" aria-label="Close">×</button></div>
+    <div class="vcol vleft">
     <div class="stage3d" id="vStage"></div>
     <p class="stats" style="text-align:center" id="vHint">Drag to look around. The cube starts at the case, held as the algorithm expects.</p>
+    </div>
+    <div class="vcol vright">
     <div class="algopts" id="vAlgSel" role="group" aria-label="Choose an algorithm"></div>
     <div class="row" id="vMineRow" hidden><button class="btn alt sm" id="vMine">This is my alg</button><span class="stats" id="vMineMsg" aria-live="polite"></span></div>
     <div class="toks" id="vToks"></div>
@@ -717,6 +733,7 @@ window.CubeLabHost = {
     <div class="row" style="justify-content:space-between"><span class="label">Turn it yourself</span>
       <div class="mods seg" id="vMods"><button aria-pressed="true" data-mod="">CW</button><button aria-pressed="false" data-mod="'">Prime</button><button aria-pressed="false" data-mod="2">Double</button></div></div>
     <div class="pad" id="vPad"><button>R</button><button>U</button><button>F</button><button>L</button><button>D</button><button>B</button><button class="rot">x</button><button class="rot">y</button><button class="rot">z</button></div>
+    </div>
   </div>
 </div>
 
@@ -899,8 +916,11 @@ window.CubeLabHost = {
 <div class="sheet" id="sheet" hidden>
   <div class="inner" role="dialog" aria-modal="true" aria-labelledby="vTitle3">
     <div class="head"><div><span class="gbadge" id="vGroup"></span><h2 id="vTitle3">Case</h2><p class="spot" id="vSpot" hidden></p></div><button class="x" id="vClose" aria-label="Close">×</button></div>
+    <div class="vcol vleft">
     <div class="stage3d" id="vStage"></div>
     <p class="stats" style="text-align:center" id="vHint">Drag to look around. The cube starts at the case, yellow on top, green in front.</p>
+    </div>
+    <div class="vcol vright">
     <div class="algopts" id="vAlgSel" role="group" aria-label="Choose an algorithm"></div>
     <div class="row" id="vMineRow" hidden><button class="btn alt sm" id="vMine">This is my alg</button><span class="stats" id="vMineMsg" aria-live="polite"></span></div>
     <div class="toks" id="vToks"></div>
@@ -920,6 +940,7 @@ window.CubeLabHost = {
     <div class="row" style="justify-content:space-between"><span class="label">Turn it yourself</span>
       <div class="mods seg" id="vMods"><button aria-pressed="true" data-mod="">CW</button><button aria-pressed="false" data-mod="'">Prime</button><button aria-pressed="false" data-mod="2">Double</button></div></div>
     <div class="pad" id="vPad"><button>R</button><button>U</button><button>F</button><button>L</button><button>D</button><button>B</button><button>M</button><button>r</button><button>u</button><button class="rot">x</button><button class="rot">y</button><button class="rot">z</button></div>
+    </div>
   </div>
 </div>
 </div>
