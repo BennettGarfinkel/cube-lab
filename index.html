@@ -1754,6 +1754,32 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   if (o.sessions!==undefined){ if (!Array.isArray(o.sessions)) delete o.sessions;
     else o.sessions = o.sessions.filter(x=>isObj(x) && typeof x.id==='string').map(x=>{ x.name = typeof x.name==='string' && x.name ? x.name : 'Session';
       x.solves = Array.isArray(x.solves) ? x.solves.filter(v=>Array.isArray(v) && typeof v[0]==='number' && isFinite(v[0])) : []; return x; }); }
+  // everything below guards against a damaged or hand-edited backup code: saved values go into the page, so their types and shapes are checked first
+  const num = v => typeof v==='number' && isFinite(v);
+  const counts = (v, keys) => { for (const a of Object.keys(v)) if (!num(v[a])) delete v[a]; for (const a of keys) if (!num(v[a])) v[a] = 0; };
+  for (const [k,v] of Object.entries(o.status)) if (!['new','learning','learned'].includes(v)) delete o.status[k];
+  for (const [k,v] of Object.entries(o.custom)){ let ok = v.length <= 300; if (ok) try { Cube.parse(v); } catch(e){ ok = false; } if (!ok) delete o.custom[k]; }
+  for (const [k,v] of Object.entries(o.notes)) if (v.length > 2000) o.notes[k] = v.slice(0, 2000);
+  for (const v of Object.values(o.cstat)) counts(v, ['n','d']);
+  for (const v of Object.values(o.cards)) counts(v, ['h','m']);
+  for (const v of Object.values(o.crs)) counts(v, ['n','c']);
+  for (const v of Object.values(o.algt)) for (const a of Object.keys(v)) v[a] = v[a].filter(num);
+  for (const f of ['prac','atk']) for (const k of Object.keys(o[f])) o[f][k] = o[f][k].filter(x=>x.every(num));
+  for (const f of ['ol','rd']){ const v = o[f]; if (!isObj(v)) continue; for (const a of ['n','c']) if (!num(v[a])) v[a] = 0;
+    if (v.miss!==undefined){ if (!isObj(v.miss)) delete v.miss; else for (const a of Object.keys(v.miss)) if (!num(v.miss[a])) delete v.miss[a]; }
+    if (v.bot!==undefined){ if (!isObj(v.bot)) delete v.bot; else counts(v.bot, ['n','c']); }
+    if (v.by!==undefined){ if (!isObj(v.by)) delete v.by; else for (const a of Object.keys(v.by)){ if (!isObj(v.by[a])) delete v.by[a]; else counts(v.by[a], ['n','c']); } } }
+  o.recent = o.recent.map(r=>({id:r.id, base: num(r.base) ? r.base : r.cur, pen: ['+2','DNF'].includes(r.pen) ? r.pen : '', cur:r.cur, k: r.k==='a' ? 'a' : '', ak: typeof r.ak==='string' ? r.ak.slice(0, 300) : '', mv: num(r.mv) ? r.mv : 0})).filter(r=>num(r.cur));
+  if (o.stamp) for (const a of Object.keys(o.stamp)) if (!num(o.stamp[a])) delete o.stamp[a];
+  if (o.daily){ o.daily.ids = o.daily.ids.filter(x=>typeof x==='string'); o.daily.done = Array.isArray(o.daily.done) ? o.daily.done.filter(x=>typeof x==='string') : []; if (typeof o.daily.date!=='string') o.daily = null; }
+  for (const k of ['tG','tSel','olG','rdSel']) if (o.prefs[k]!==undefined && !(Array.isArray(o.prefs[k]) && o.prefs[k].every(x=>typeof x==='string'))) delete o.prefs[k];
+  for (const k of ['goals','sharedT']) if (o.prefs[k]!==undefined){ if (!isObj(o.prefs[k])) delete o.prefs[k]; else for (const a of Object.keys(o.prefs[k])) if (!num(o.prefs[k][a])) delete o.prefs[k][a]; }
+  for (const [k,v] of Object.entries(o.prefs)) if (!['tG','tSel','olG','rdSel','goals','sharedT'].includes(k) && v!==null && !(typeof v==='string' && v.length <= 100) && typeof v!=='number' && typeof v!=='boolean') delete o.prefs[k];
+  if (o.sessions){ const seen = new Set();
+    o.sessions = o.sessions.filter(x=>/^[A-Za-z0-9_-]{1,64}$/.test(x.id) && !seen.has(x.id) && seen.add(x.id)).map(x=>{ const s = {id:x.id, name:x.name.slice(0, 40), solves:x.solves.map(v=>{
+        const r = [v[0], v[1]===1 || v[1]===2 ? v[1] : 0, num(v[2]) ? v[2] : 0, typeof v[3]==='string' ? v[3].slice(0, 200) : ''];
+        if (Array.isArray(v[4]) && v[4].length && v[4].length <= 6 && v[4].every(num)) r.push(v[4]); return r; })};
+      if (x.comp) s.comp = true; return s; }); }
   return o; }
 try { const r = localStorage.getItem(K); if (r){ try { Object.assign(D, JSON.parse(r)); } catch(e){ try { localStorage.setItem(K+'-unreadable', r); } catch(e2){} } } } catch(e){}
 sanitize(D);
@@ -1899,7 +1925,7 @@ const dayKeyOf = t => { const d=new Date(t); return d.getFullYear()+'-'+String(d
 function touchDay(){ const k=dayKeyOf(Date.now()); D.act[k]=(D.act[k]||0)+1; const ks=Object.keys(D.act); if(ks.length>400) for(const x of ks.sort().slice(0, ks.length-400)) delete D.act[x]; }
 function actDays(){ const set=new Set(Object.keys(D.act||{})); for(const ss of (D.sessions||[])) for(const x of (ss.solves||[])) if(x[2]) set.add(dayKeyOf(x[2]*1000)); return [...set]; }
 // progress
-let learnGroup=D.prefs.learnGroup||'CLL', learnFilter=D.prefs.learnFilter||'All';
+let learnGroup=GROUPS.includes(D.prefs.learnGroup)?D.prefs.learnGroup:'CLL', learnFilter=D.prefs.learnFilter||'All';
 function renderProgress(){
   const learned = CASES.filter(c=>status(c.id)==='learned').length;
   $('#overall').innerHTML = `<b>${learned}</b> / ${CASES.length} learned`;
@@ -2372,7 +2398,7 @@ const fsWord = () => fsGoal==='face' ? 'face' : 'layer';
 const fsKey = () => 'fs-' + (fsCn() ? 'cn-' : '') + fsGoal;
 function fsRandom(){ let st; do { const cp = [0,1,2,3,4,5,6]; for (let i=6; i>0; i--){ const j = rnd(i+1); [cp[i], cp[j]] = [cp[j], cp[i]]; } cp.push(7);
     const co = [0,0,0,0,0,0].map(()=>rnd(3)); co.push((3 - co.reduce((a,b)=>a+b,0)%3)%3); co.push(0); st = Cube.fromCubies(cp, co); } while (Cube.prun[Cube.coordOf(st)] < 4); return st; }
-const fsMake = (goal, cn) => new Promise(res => whenReady(() => setTimeout(() => { let scr, st, best; for (let t=0; t<20; t++){ scr = wcaScramble(fsRandom()); st = Cube.apply(S0, scr).map(c=>FS_W[c]); best = FS.best(st, goal, cn); if (best && best.n >= 2) break; } res({scr, st, goal, best}); }, 20)));  // skip the rare scramble that's already done
+const fsMake = (goal, cn) => new Promise(res => whenReady(() => setTimeout(() => { let scr, st, best; for (let t=0; t<20; t++){ scr = wcaScramble(fsRandom()); st = Cube.apply(S0, scr).map(c=>FS_W[c]); best = FS.best(st, goal, cn); if (best && best.n >= 2) break; } res({scr, st, goal, best, key:'fs-' + (cn ? 'cn-' : '') + goal}); }, 20)));  // skip the rare scramble that's already done
 const fsFetch = () => (fsQ = {key: fsKey(), p: fsMake(fsGoal, fsCn())});
 function fsSetup(){ const my = ++fsGen; tCase = null; $('#tScr').closest('.scrbox').classList.remove('keep');
   $('#tScrLabel').textContent = 'Scramble'; $('#tNext').textContent = 'New scramble';
@@ -2934,7 +2960,7 @@ function route(){ leaveRun(location.hash.slice(1)); if(!$('#sheet').hidden) View
   $('#gearBtn').setAttribute('aria-current', v==='prefs' ? 'page' : 'false'); if (!$('#helpSheet').hidden) Help.close();
   document.querySelectorAll('nav.tabs a').forEach(a=>a.setAttribute('aria-current', a.getAttribute('href')==='#'+(v==='case'?'learn':v)?'page':'false'));
   if(v==='cards'){ if(!cardCur) nextCard(); else if(!cardShown) renderCard(); }
-  if(v==='timer'){ renderCaseStats(); if(!tCase) newScramble(); }
+  if(v==='timer'){ renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && fsCur && fsCur.key!==fsKey())) newScramble(); }
   if(v==='onelook') { renderOl(); olStats(); }
   if(v==='solve') SV.show();
   if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; requestAnimationFrame(()=>window.scrollTo(0, y)); } }
@@ -3004,7 +3030,7 @@ const Help = (() => { const sh = $('#helpSheet');
 const NAV=$('nav.tabs'); const navFade=()=>NAV.classList.toggle('more', NAV.scrollLeft+NAV.clientWidth < NAV.scrollWidth-4);
 NAV.addEventListener('scroll', navFade, {passive:true}); window.addEventListener('resize', navFade);
 function refreshAll(){
-  learnGroup=D.prefs.learnGroup||'CLL'; learnFilter=D.prefs.learnFilter||'All';
+  learnGroup=GROUPS.includes(D.prefs.learnGroup)?D.prefs.learnGroup:'CLL'; learnFilter=D.prefs.learnFilter||'All';
   tG.clear(); (D.prefs.tG||['CLL']).forEach(g=>{ if(GROUPS.includes(g)) tG.add(g); }); if(!tG.size) tG.add('CLL'); fixSets();
   tSel.clear(); (D.prefs.tSel||['Sune','Anti-Sune']).forEach(s=>{ if(SETS.includes(s)) tSel.add(s); }); if(!tSel.size) tSel.add('Sune');
   tStatus=tStatusOf(); renderTStatus();
@@ -3452,6 +3478,32 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   if (o.sessions!==undefined){ if (!Array.isArray(o.sessions)) delete o.sessions;
     else o.sessions = o.sessions.filter(x=>isObj(x) && typeof x.id==='string').map(x=>{ x.name = typeof x.name==='string' && x.name ? x.name : 'Session';
       x.solves = Array.isArray(x.solves) ? x.solves.filter(v=>Array.isArray(v) && typeof v[0]==='number' && isFinite(v[0])) : []; return x; }); }
+  // everything below guards against a damaged or hand-edited backup code: saved values go into the page, so their types and shapes are checked first
+  const num = v => typeof v==='number' && isFinite(v);
+  const counts = (v, keys) => { for (const a of Object.keys(v)) if (!num(v[a])) delete v[a]; for (const a of keys) if (!num(v[a])) v[a] = 0; };
+  for (const [k,v] of Object.entries(o.status)) if (!['new','learning','learned'].includes(v)) delete o.status[k];
+  for (const [k,v] of Object.entries(o.custom)){ let ok = v.length <= 300; if (ok) try { Cube.parse(v); } catch(e){ ok = false; } if (!ok) delete o.custom[k]; }
+  for (const [k,v] of Object.entries(o.notes)) if (v.length > 2000) o.notes[k] = v.slice(0, 2000);
+  for (const v of Object.values(o.cstat)) counts(v, ['n','d']);
+  for (const v of Object.values(o.cards)) counts(v, ['h','m']);
+  for (const v of Object.values(o.crs)) counts(v, ['n','c']);
+  for (const v of Object.values(o.algt)) for (const a of Object.keys(v)) v[a] = v[a].filter(num);
+  for (const f of ['prac','atk']) for (const k of Object.keys(o[f])) o[f][k] = o[f][k].filter(x=>x.every(num));
+  for (const f of ['ol','rd']){ const v = o[f]; if (!isObj(v)) continue; for (const a of ['n','c']) if (!num(v[a])) v[a] = 0;
+    if (v.miss!==undefined){ if (!isObj(v.miss)) delete v.miss; else for (const a of Object.keys(v.miss)) if (!num(v.miss[a])) delete v.miss[a]; }
+    if (v.bot!==undefined){ if (!isObj(v.bot)) delete v.bot; else counts(v.bot, ['n','c']); }
+    if (v.by!==undefined){ if (!isObj(v.by)) delete v.by; else for (const a of Object.keys(v.by)){ if (!isObj(v.by[a])) delete v.by[a]; else counts(v.by[a], ['n','c']); } } }
+  o.recent = o.recent.map(r=>({id:r.id, base: num(r.base) ? r.base : r.cur, pen: ['+2','DNF'].includes(r.pen) ? r.pen : '', cur:r.cur, k: r.k==='a' ? 'a' : '', ak: typeof r.ak==='string' ? r.ak.slice(0, 300) : '', mv: num(r.mv) ? r.mv : 0})).filter(r=>num(r.cur));
+  if (o.stamp) for (const a of Object.keys(o.stamp)) if (!num(o.stamp[a])) delete o.stamp[a];
+  if (o.daily){ o.daily.ids = o.daily.ids.filter(x=>typeof x==='string'); o.daily.done = Array.isArray(o.daily.done) ? o.daily.done.filter(x=>typeof x==='string') : []; if (typeof o.daily.date!=='string') o.daily = null; }
+  for (const k of ['tG','tSel','olG','rdSel']) if (o.prefs[k]!==undefined && !(Array.isArray(o.prefs[k]) && o.prefs[k].every(x=>typeof x==='string'))) delete o.prefs[k];
+  for (const k of ['goals','sharedT']) if (o.prefs[k]!==undefined){ if (!isObj(o.prefs[k])) delete o.prefs[k]; else for (const a of Object.keys(o.prefs[k])) if (!num(o.prefs[k][a])) delete o.prefs[k][a]; }
+  for (const [k,v] of Object.entries(o.prefs)) if (!['tG','tSel','olG','rdSel','goals','sharedT'].includes(k) && v!==null && !(typeof v==='string' && v.length <= 100) && typeof v!=='number' && typeof v!=='boolean') delete o.prefs[k];
+  if (o.sessions){ const seen = new Set();
+    o.sessions = o.sessions.filter(x=>/^[A-Za-z0-9_-]{1,64}$/.test(x.id) && !seen.has(x.id) && seen.add(x.id)).map(x=>{ const s = {id:x.id, name:x.name.slice(0, 40), solves:x.solves.map(v=>{
+        const r = [v[0], v[1]===1 || v[1]===2 ? v[1] : 0, num(v[2]) ? v[2] : 0, typeof v[3]==='string' ? v[3].slice(0, 200) : ''];
+        if (Array.isArray(v[4]) && v[4].length && v[4].length <= 6 && v[4].every(num)) r.push(v[4]); return r; })};
+      if (x.comp) s.comp = true; return s; }); }
   return o; }
 try { const r = localStorage.getItem(K); if (r){ try { Object.assign(D, JSON.parse(r)); } catch(e){ try { localStorage.setItem(K+'-unreadable', r); } catch(e2){} } } } catch(e){}
 sanitize(D);
@@ -4030,19 +4082,22 @@ let crLvl = CR_LEVELS.includes(D.prefs.crLevel) ? D.prefs.crLevel : 'any', pracC
 const pracKey = () => (tPrac==='cross' ? 'cross-' : 'f2l') + (cnOn() ? 'cn' + (tPrac==='cross' ? '-' : '') : '') + (tPrac==='cross' ? crLvl : '');
 const mvCount = a => a ? a.split(' ').length : 0;
 const rTurns = n => { const out = []; let last = -1; while (out.length < n){ const f = rnd(6); if (f===last) continue; last = f; out.push('URFDLB'[f] + ['','2',"'"][rnd(3)]); } return out.join(' '); };
-function pracGen(kind, lvl){ const cn = cnOn();
-  if (kind==='cross' && lvl==='any') return Scr.random().then(scr=>{ if (!scr) return null; const st = Cube.apply(S0, scr).map(c=>PRAC_W2[c]); return {scr, st, best: crossBest(st)}; });
-  return new Promise(res=>setTimeout(()=>{ let st = null, best = null, col = 'D';
-    for (let t=0; t<300 && !st; t++){ col = cn ? CR_ORDER[rnd(6)] : 'D'; const rot = CR_HOLD[col], back = x => CR_INV[rot] ? Cube.apply(x, CR_INV[rot]) : x;
-      const raw = Cube.apply(S0, rTurns(30)).map(c=>PRAC_W2[c]), s0 = rot ? Cube.apply(raw, rot) : raw, c = AutoSolve.engine.crossSearch(s0, 8); if (c===null) continue; const mv = c ? c.split(' ') : [];
-      if (kind==='f2l'){ if (!c) continue; st = back(Cube.apply(s0, c)); break; }
-      if (mv.length < lvl) continue; const cut = mv.length - lvl, cand = back(cut ? Cube.apply(s0, mv.slice(0, cut).join(' ')) : s0);
-      if (cn){ const b = crossBest(cand); if (!b || b.n!==lvl) continue; best = b; } else best = {col:'D', rot, sol: mv.slice(cut).join(' '), n: lvl};
-      st = cand; }
-    if (!st) return res(null);
-    Scr.forState(st.map(c=>PRAC_W2[c])).then(scr=>res(scr ? {scr, st, best, col} : null)); }, 30)); }
+function pracGen(kind, lvl){ const cn = cnOn(), key = pracKey();
+  if (kind==='cross' && lvl==='any') return Scr.random().then(scr=>{ if (!scr) return null; const st = Cube.apply(S0, scr).map(c=>PRAC_W2[c]); return {scr, st, best: crossBest(st), key}; });
+  // Tries run one at a time with a pause between them, so a hard-to-find scramble never freezes the page.
+  // Taking moves off the front of the shortest cross leaves that cross exactly lvl moves long, and no other color can get shorter than that:
+  // each of those turns changes any cross by at most one move, and the other colors started at least as long.
+  return (async () => { const until = performance.now() + 6000;
+    while (performance.now() < until){ await new Promise(r=>setTimeout(r, 0));
+      const raw = Cube.apply(S0, rTurns(30)).map(c=>PRAC_W2[c]);
+      if (kind==='f2l'){ const col = cn ? CR_ORDER[rnd(6)] : 'D', rot = CR_HOLD[col], s0 = rot ? Cube.apply(raw, rot) : raw, c = AutoSolve.engine.crossSearch(s0, 8); if (!c) continue;
+        const done = Cube.apply(s0, c), st = CR_INV[rot] ? Cube.apply(done, CR_INV[rot]) : done, scr = await Scr.forState(st.map(x=>PRAC_W2[x])); return scr ? {scr, st, best:null, col, key} : null; }
+      const b = crossBest(raw); if (!b || b.n < lvl) continue;
+      const mv = b.sol.split(' '), cut = b.n - lvl, s0 = b.rot ? Cube.apply(raw, b.rot) : raw, mid = cut ? Cube.apply(s0, mv.slice(0, cut).join(' ')) : s0, st = CR_INV[b.rot] ? Cube.apply(mid, CR_INV[b.rot]) : mid;
+      const scr = await Scr.forState(st.map(x=>PRAC_W2[x])); return scr ? {scr, st, best:{col:b.col, rot:b.rot, sol:mv.slice(cut).join(' '), n:lvl}, col:b.col, key} : null; }
+    return null; })(); }
 const pracFetch = () => (pracQ = {key: pracKey(), p: pracGen(tPrac, crLvl)});
-function pracSetup(my){ tCase = null; tReady = false; $('#tScr').closest('.scrbox').classList.remove('keep');
+function pracSetup(my){ if (cnOn() && crLvl===7){ crLvl = 6; D.prefs.crLevel = 6; save(); renderPrac(); } tCase = null; tReady = false; $('#tScr').closest('.scrbox').classList.remove('keep');
   $('#tScrLabel').textContent = 'Scramble'; $('#tNext').textContent = 'New scramble';
   const th = $('#tHold'); th.hidden = false; th.textContent = cnOn() ? (tPrac==='cross' ? 'White on top, green in front. Plan a cross on any color, then time it.' : 'White on top, green in front. One cross is already solved: hold it on the bottom, then time all four pairs.') : 'White on top, green in front, then turn it over (x2). ' + (tPrac==='cross' ? 'Plan the white cross, then time it.' : 'The white cross is solved: time all four pairs.');
   $('#tScr').innerHTML = '<span class="loading">' + (Scr.ready ? 'Building a scramble…' : 'Preparing scrambles…') + '</span>'; if (tState==='idle') $('#tHint').textContent = HINTS.idle;
@@ -4076,7 +4131,7 @@ $('#tResult').addEventListener('click', e=>{ const r = pracLast; if (tPrac==='al
 function renderPrac(){ $('#tPrac').innerHTML = [['algs','Algs'],['cross','Cross'],['f2l','F2L']].map(([v,l])=>`<button aria-pressed="${tPrac===v}" data-tp="${v}">${l}</button>`).join('');
   const on = tPrac!=='algs'; $('#tKind').hidden = on; $('#tSettings').hidden = on; $('#tRecent').hidden = on; $('#csPanel').hidden = on; $('#tFocusRow').hidden = on || !tFocus;
   $('#pracOpts').hidden = !on; $('#crLevel').hidden = $('#pracOptLabel').hidden = tPrac!=='cross';
-  if (tPrac==='cross') $('#crLevel').innerHTML = CR_LEVELS.map(v=>`<button aria-pressed="${crLvl===v}" data-cl="${v}">${v==='any'?'Any':v}</button>`).join('');
+  if (tPrac==='cross') $('#crLevel').innerHTML = CR_LEVELS.filter(v=>!(v===7 && cnOn())).map(v=>`<button aria-pressed="${crLvl===v}" data-cl="${v}">${v==='any'?'Any':v}</button>`).join('');
   if (on) pracNote(); }
 function setPrac(v){ tPrac = v; D.prefs.tPrac = v; save(); pracLast = null; tCase = null; renderPrac(); renderTRes(); newScramble(); }
 $('#tPrac').addEventListener('click', e=>{ const b = e.target.closest('[data-tp]'); if (!b || b.dataset.tp===tPrac || (tState!=='idle' && tState!=='stopped')) return; setPrac(b.dataset.tp); });
@@ -4413,7 +4468,7 @@ function route(){ if(location.hash==='#cross'){ setPrac('cross'); location.repla
   $('#gearBtn').setAttribute('aria-current', v==='prefs' ? 'page' : 'false'); if (!$('#helpSheet').hidden) Help.close();
   document.querySelectorAll('nav.tabs a').forEach(a=>a.setAttribute('aria-current', a.getAttribute('href')==='#'+(v==='case'?'learn':v)?'page':'false'));
   if(v==='cards'){ if(!cardCur) nextCard(); else if(!cardShown) renderCard(); }
-  if(v==='timer'){ renderCaseStats(); if(!tCase) newScramble(); }
+  if(v==='timer'){ renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && pracCur && pracCur.key!==pracKey())) newScramble(); }
   if(v==='recog'){ renderRdOpts(); if(!rd) rdNew(); rdStats(); }
   if(v==='solve') SV.show();
   if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; requestAnimationFrame(()=>window.scrollTo(0, y)); } }
