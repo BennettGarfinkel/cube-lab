@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# The workflow only reads the code and reports the deploy result.
+permissions:
+  contents: read
+  checks: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
