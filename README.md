@@ -1,6 +1,6 @@
 # Cube Lab
 
-Cube Lab is a trainer for the 2x2 and 3x3 Rubik's Cube. The whole app is one web page, `index.html`, and your progress saves in your browser. A switch at the top changes the puzzle.
+Cube Lab is a trainer for the 2x2 and 3x3 Rubik's Cube. A switch at the top changes the puzzle.
 
 ## Features
 
