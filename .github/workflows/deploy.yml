@@ -1,0 +1,20 @@
+# Deploys the site to Firebase Hosting (https://cube-lab-e56a7.web.app) on every push to main.
+# Needs a repository secret named FIREBASE_SERVICE_ACCOUNT that holds a service account key for the Firebase project.
+name: Deploy to Firebase Hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: cube-lab-e56a7
