@@ -513,6 +513,10 @@ body.focus .scrbox.keep{opacity:1}
 /* dragging the cube or tapping controls never highlights them; algorithms and scrambles stay selectable for copying */
 .stage3d,.stage3d *,.ctrl,.pad,.toks,.seg,.chip,.btn,.x,nav.tabs,.timer,.dbtn,.mods{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .stage3d canvas{outline:none;-webkit-tap-highlight-color:transparent}
+
+/* the keyboard hint only shows where there is a keyboard and mouse or trackpad */
+.kbhint{display:none}
+@media (hover:hover) and (pointer:fine){.kbhint{display:block}}
 </style>
 <script>
 // Cube Lab runs as a plain web page. Anything the page needs from the place it's hosted goes through here.
@@ -737,6 +741,7 @@ window.CubeLabHost = {
     <div class="row" style="justify-content:space-between"><span class="label">Turn it yourself</span>
       <div class="mods seg" id="vMods"><button aria-pressed="true" data-mod="">CW</button><button aria-pressed="false" data-mod="'">Prime</button><button aria-pressed="false" data-mod="2">Double</button></div></div>
     <div class="pad" id="vPad"><button>R</button><button>U</button><button>F</button><button>L</button><button>D</button><button>B</button><button class="rot">x</button><button class="rot">y</button><button class="rot">z</button></div>
+    <p class="stats kbhint">On a keyboard, R U F L D B turn the cube and x y z rotate it. Hold Shift for prime.</p>
     </div>
   </div>
 </div>
@@ -944,6 +949,7 @@ window.CubeLabHost = {
     <div class="row" style="justify-content:space-between"><span class="label">Turn it yourself</span>
       <div class="mods seg" id="vMods"><button aria-pressed="true" data-mod="">CW</button><button aria-pressed="false" data-mod="'">Prime</button><button aria-pressed="false" data-mod="2">Double</button></div></div>
     <div class="pad" id="vPad"><button>R</button><button>U</button><button>F</button><button>L</button><button>D</button><button>B</button><button>M</button><button>r</button><button>u</button><button class="rot">x</button><button class="rot">y</button><button class="rot">z</button></div>
+    <p class="stats kbhint">On a keyboard, R U F L D B M turn the cube and x y z rotate it. Hold Shift for prime.</p>
     </div>
   </div>
 </div>
@@ -2942,6 +2948,15 @@ const Viewer = (() => {
 
   $('#vMods').addEventListener('click', e=>{ const b=e.target.closest('[data-mod]'); if(!b) return; mod=b.dataset.mod; $('#vMods').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
   $('#vPad').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!ok||settingUp) return; playing=false; off++; queue.push([b.textContent+mod, speed()]); renderToks(); run(); });
+
+  // keyboard turns while the 3D cube is open: R U F L D B (and M on the 3x3) turn a face, x y z rotate the cube, and Shift makes the turn prime
+  const padHasM = [...$('#vPad').children].some(b=>b.textContent==='M');
+  window.addEventListener('keydown', e=>{ if ($('#sheet').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable]')) return;
+    const k = e.key && e.key.length===1 ? e.key.toLowerCase() : '';
+    const face = !k ? null : 'rufldb'.includes(k) || (k==='m' && padHasM) ? k.toUpperCase() : 'xyz'.includes(k) ? k : null; if (!face) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (e.repeat || !ok || settingUp) return;
+    playing=false; off++; queue.push([face + (e.shiftKey ? "'" : mod), speed()]); renderToks(); run(); }, true);
   $('#vSolveHere').addEventListener('click', e=>{ const btn=e.currentTarget; if(settingUp) return; playing=false; queue=[]; const go=()=>{ if(busy) return setTimeout(go,30); AutoSolve.run(state.slice(), 'Auto solve', btn); }; go(); });
   return { open: openCase, openRaw, openSolve, close };
 })();
@@ -4435,6 +4450,15 @@ const Viewer = (() => {
 
   $('#vMods').addEventListener('click', e=>{ const b=e.target.closest('[data-mod]'); if(!b) return; mod=b.dataset.mod; $('#vMods').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed', x===b)); });
   $('#vPad').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b||!ok||settingUp) return; playing=false; off++; queue.push([b.textContent+mod, speed()]); renderToks(); run(); });
+
+  // keyboard turns while the 3D cube is open: R U F L D B (and M on the 3x3) turn a face, x y z rotate the cube, and Shift makes the turn prime
+  const padHasM = [...$('#vPad').children].some(b=>b.textContent==='M');
+  window.addEventListener('keydown', e=>{ if ($('#sheet').hidden || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target; if (t && t.closest && t.closest('input,textarea,select,[contenteditable]')) return;
+    const k = e.key && e.key.length===1 ? e.key.toLowerCase() : '';
+    const face = !k ? null : 'rufldb'.includes(k) || (k==='m' && padHasM) ? k.toUpperCase() : 'xyz'.includes(k) ? k : null; if (!face) return;
+    e.preventDefault(); e.stopImmediatePropagation(); if (e.repeat || !ok || settingUp) return;
+    playing=false; off++; queue.push([face + (e.shiftKey ? "'" : mod), speed()]); renderToks(); run(); }, true);
   return { open: openCase, openRaw, openSolve, close };
 })();
 
