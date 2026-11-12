@@ -594,6 +594,7 @@ window.CubeLabHost = {
     <div class="panel" id="csPanel">
       <div class="row" style="justify-content:space-between"><span class="label">Case stats</span><select id="csGroup" aria-label="Which set to show"></select></div>
       <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards; TPS from Alg only.</p>
+      <p class="stats" id="csTps" hidden></p>
       <div class="tblwrap"><table class="cst" id="csTable"></table></div>
       <label class="stats row" style="gap:6px"><input type="checkbox" id="csAll"> Show cases with no data yet</label>
     </div>
@@ -802,6 +803,7 @@ window.CubeLabHost = {
     <div class="panel" id="csPanel">
       <div class="row" style="justify-content:space-between"><span class="label">Case stats</span><select id="csGroup" aria-label="Which set to show"></select></div>
       <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards and the recognition drill; TPS from Alg only.</p>
+      <p class="stats" id="csTps" hidden></p>
       <div class="tblwrap"><table class="cst" id="csTable"></table></div>
       <label class="stats row" style="gap:6px"><input type="checkbox" id="csAll"> Show cases with no data yet</label>
     </div>
@@ -2511,6 +2513,8 @@ function csRow(c){ const t=D.times[c.id]||[], cs=D.cstat[c.id], n=cs?cs.n:t.leng
   return {c, name:c.full, avg:avg(c.id), best:t.length?Math.min(...t):null, n:n||null, dnf: cs&&cs.n ? cs.d/cs.n : null, rec:recAvg(c.id), tps: aa&&mv ? mv/aa : null}; }
 function renderCaseStats(){ const g=$('#csGroup').value, all=$('#csAll').checked;
   let rows=(g==='all'?CASES:CASES.filter(c=>c.g===g)).map(csRow);
+  { const tp=rows.map(r=>r.tps).filter(x=>x!==null), el=$('#csTps'); el.hidden=!tp.length;
+    if(tp.length) el.innerHTML=`Your usual TPS: <b>${median(tp).toFixed(1)}</b> across ${tp.length} ${tp.length===1?'case':'cases'}${g==='all'?'':' in '+esc(g)}`; }
   if(!all) rows=rows.filter(r=>r.n||r.rec!==null||r.tps!==null);
   const {k,dir}=csSort;
   rows.sort((a,b)=>{ if(k==='name') return dir*(CASES.indexOf(a.c)-CASES.indexOf(b.c)); const x=a[k], y=b[k]; if(x===null&&y===null) return 0; if(x===null) return 1; if(y===null) return -1; return dir*(x-y); });
@@ -4225,6 +4229,8 @@ function csRow(c){ const t=D.times[c.id]||[], cs=D.cstat[c.id], n=cs?cs.n:t.leng
   return {c, name:c.full, avg:avg(c.id), best:t.length?Math.min(...t):null, n:n||null, dnf: cs&&cs.n ? cs.d/cs.n : null, rec:recAvg(c.id), tps: tpsOf(c)}; }
 function renderCaseStats(){ const g=$('#csGroup').value, all=$('#csAll').checked;
   let rows=(g==='all'?CASES:CASES.filter(c=>c.g===g)).map(csRow);
+  { const tp=rows.map(r=>r.tps).filter(x=>x!==null), el=$('#csTps'); el.hidden=!tp.length;
+    if(tp.length) el.innerHTML=`Your usual TPS: <b>${median(tp).toFixed(1)}</b> across ${tp.length} ${tp.length===1?'case':'cases'}${g==='all'?'':' in '+esc(g)}`; }
   if(!all) rows=rows.filter(r=>r.n||r.rec!==null||r.tps!==null);
   const {k,dir}=csSort;
   rows.sort((a,b)=>{ if(k==='name') return dir*(CASES.indexOf(a.c)-CASES.indexOf(b.c)); const x=a[k], y=b[k]; if(x===null&&y===null) return 0; if(x===null) return 1; if(y===null) return -1; return dir*(x-y); });
