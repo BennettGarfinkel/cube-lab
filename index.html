@@ -2012,20 +2012,22 @@ const tpsOf = c => { const aa = aavg(c.id), mv = aa ? mvOf(c) : 0; return aa && 
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
   for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
-  const tm = median(tps), mv = {};
-  for (const c of CASES){ const m = algLen(c, tm); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
-  NEED = {rec:median(rec), tps:tm, full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
-// how long the alg takes you: moves over your TPS on it (or your usual TPS if it has no Alg only times yet).
-// With no TPS data at all this is just the move count.
-const algLen = (c, tm) => { const m = mvOf(c); if (!m) return 0; if (!tm) return m; const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; return m / (t || tm); };
-const lenOf = c => { const B = needBase(), m = algLen(c, B.tps), u = B.mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u, s:!!B.tps} : null; };
+  const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
+  NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+// move count next to the usual alg in its set, kept in a narrow range. Speed on the alg is the exec part's job,
+// so a long alg you do fast still comes out fine overall.
+const lenOf = c => { const m = mvOf(c), u = needBase().mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u} : null; };
+// a listed alg at least 2 moves shorter than the one you use
+const shorterAlt = c => { const mine = moveCount(algOf(c)); let best = null;
+  algList(c).forEach(x => { const m = moveCount(x.alg); if (m && m <= mine - 2 && (!best || m < best.m)) best = {n:x.n, m}; }); return best; };
+const shortHint = (c, nd) => { if (!nd.long) return ''; const s = shorterAlt(c); return s ? ` · Alg ${s.n} is shorter at ${s.m} moves` : ''; };
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
   const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:focus==='a'?.5:1, you:r, usual:B.rec});
   const tp = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (tp && B.tps) parts.push({k:'exec', v:clamp(B.tps/tp), w:focus==='a'?2:1, you:tp, usual:B.tps});
   const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:focus==='a'?.5:1.2, you:a, usual:fb});
-  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual, s:ln.s});
+  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual});
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0, miss = cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.atimes[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
@@ -2036,8 +2038,9 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
   let why = ''; const worst = parts.slice().sort((x,y)=>y.v-x.v)[0];
   if (dnf >= .15) why = `${Math.round(dnf*100)}% DNF in the case timer`;
   else if (miss >= .34) why = `missed on ${Math.round(miss*100)}% of flashcards`;
-  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : worst.k==='len' ? (worst.s ? `long alg, about ${worst.you.toFixed(2)}s to do when most in this set take you about ${worst.usual.toFixed(2)}s` : `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}`) : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
-  return B.cache[key] = {score, tier, why, n}; }
+  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : worst.k==='len' ? `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}` : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
+  const long = !!(why && worst && worst.k==='len' && dnf < .15 && miss < .34);
+  return B.cache[key] = {score, tier, why, n, long}; }
 const TIER_NAME = {strong:'Strong for you', ok:'About your usual', weak:'Weak spot'};
 const needDot = c => { const t = need(c).tier; return t ? `<i class="nd ${t}" title="${TIER_NAME[t]}" aria-label="${TIER_NAME[t]}"></i>` : ''; };
 function caseCard(c){
@@ -2058,7 +2061,7 @@ function moreHTML(c){ const a=avg(c.id), cd=D.cards[c.id], nd=need(c), at=D.algt
   const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your Alg only avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
   return `<span>Tap Mine on the alg you use. It replaces the default everywhere.</span>
       ${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}
-      ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}</span>`:''}
+      ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
       ${D.custom[c.id] && mineIdx(c)<0 && at[D.custom[c.id]] ? algAvg(D.custom[c.id]).replace('Your Alg only avg','Your own alg, Alg only avg') : ''}
       <span>Avg time: ${a?a.toFixed(2)+'s ('+D.times[c.id].length+' solves)':'no solves yet'} · Cards: ${cd?cd.h+' right, '+cd.m+' missed':'not drilled'}${recAvg(c.id)?' · Recognition '+recAvg(c.id).toFixed(2)+'s':''}</span>
       <span class="label" style="padding-top:4px">Fingertricks for your alg</span>
@@ -2082,7 +2085,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
         <p class="rec setup">Setup: <code>${esc(setupOf(c))}</code></p></div></div>
     ${spot(c)}
     <div class="setgroup"><span class="glabel">Your stats</span>
-      ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}</span>`:''}
+      ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
       <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
@@ -3769,20 +3772,22 @@ const tpsOf = c => { const aa = aavg(c.id), mv = aa ? mvOf(c) : 0; return aa && 
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
   for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
-  const tm = median(tps), mv = {};
-  for (const c of CASES){ const m = algLen(c, tm); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
-  NEED = {rec:median(rec), tps:tm, full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
-// how long the alg takes you: moves over your TPS on it (or your usual TPS if it has no Alg only times yet).
-// With no TPS data at all this is just the move count.
-const algLen = (c, tm) => { const m = mvOf(c); if (!m) return 0; if (!tm) return m; const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; return m / (t || tm); };
-const lenOf = c => { const B = needBase(), m = algLen(c, B.tps), u = B.mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u, s:!!B.tps} : null; };
+  const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
+  NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+// move count next to the usual alg in its set, kept in a narrow range. Speed on the alg is the exec part's job,
+// so a long alg you do fast still comes out fine overall.
+const lenOf = c => { const m = mvOf(c), u = needBase().mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u} : null; };
+// a listed alg at least 2 moves shorter than the one you use
+const shorterAlt = c => { const mine = moveCount(algOf(c)); let best = null;
+  algList(c).forEach(x => { const m = moveCount(x.alg); if (m && m <= mine - 2 && (!best || m < best.m)) best = {n:x.n, m}; }); return best; };
+const shortHint = (c, nd) => { if (!nd.long) return ''; const s = shorterAlt(c); return s ? ` · Alg ${s.n} is shorter at ${s.m} moves` : ''; };
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
   const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:focus==='a'?.5:1, you:r, usual:B.rec});
   const tp = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (tp && B.tps) parts.push({k:'exec', v:clamp(B.tps/tp), w:focus==='a'?2:1, you:tp, usual:B.tps});
   const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:focus==='a'?.5:1.2, you:a, usual:fb});
-  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual, s:ln.s});
+  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual});
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0, miss = cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.atimes[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
@@ -3792,8 +3797,9 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
   let why = ''; const worst = parts.slice().sort((x,y)=>y.v-x.v)[0];
   if (dnf >= .15) why = `${Math.round(dnf*100)}% DNF in the case timer`;
   else if (miss >= .34) why = `missed on ${Math.round(miss*100)}% of flashcards`;
-  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : worst.k==='len' ? (worst.s ? `long alg, about ${worst.you.toFixed(2)}s to do when most in this set take you about ${worst.usual.toFixed(2)}s` : `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}`) : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
-  return B.cache[key] = {score, tier, why, n}; }
+  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : worst.k==='len' ? `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}` : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
+  const long = !!(why && worst && worst.k==='len' && dnf < .15 && miss < .34);
+  return B.cache[key] = {score, tier, why, n, long}; }
 const TIER_NAME = {strong:'Strong for you', ok:'About your usual', weak:'Weak spot'};
 const needDot = c => { const t = need(c).tier; return t ? `<i class="nd ${t}" title="${TIER_NAME[t]}" aria-label="${TIER_NAME[t]}"></i>` : ''; };
 function caseCard(c){
@@ -3824,7 +3830,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${spot(c)}
     ${second}
     <div class="setgroup"><span class="glabel">Your stats</span>
-      ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}</span>`:''}
+      ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
       <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
