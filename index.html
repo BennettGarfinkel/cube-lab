@@ -2012,13 +2012,17 @@ const tpsOf = c => { const aa = aavg(c.id), mv = aa ? mvOf(c) : 0; return aa && 
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
   for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
-  NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+  const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
+  NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+// how long this alg is next to the usual alg in its set, kept in a narrow range
+const lenOf = c => { const m = mvOf(c), u = needBase().mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u} : null; };
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
   const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:focus==='a'?.5:1, you:r, usual:B.rec});
   const tp = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (tp && B.tps) parts.push({k:'exec', v:clamp(B.tps/tp), w:focus==='a'?2:1, you:tp, usual:B.tps});
   const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:focus==='a'?.5:1.2, you:a, usual:fb});
+  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual});
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0, miss = cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.atimes[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
@@ -2029,7 +2033,7 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
   let why = ''; const worst = parts.slice().sort((x,y)=>y.v-x.v)[0];
   if (dnf >= .15) why = `${Math.round(dnf*100)}% DNF in the case timer`;
   else if (miss >= .34) why = `missed on ${Math.round(miss*100)}% of flashcards`;
-  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
+  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : worst.k==='len' ? `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}` : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
   return B.cache[key] = {score, tier, why, n}; }
 const TIER_NAME = {strong:'Strong for you', ok:'About your usual', weak:'Weak spot'};
 const needDot = c => { const t = need(c).tier; return t ? `<i class="nd ${t}" title="${TIER_NAME[t]}" aria-label="${TIER_NAME[t]}"></i>` : ''; };
@@ -2320,7 +2324,7 @@ function tPool(){ if(tFocus && BYID[tFocus]) return [BYID[tFocus]];
   let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); if(tStatus==='learning'||tStatus==='learned') l=l.filter(c=>status(c.id)===tStatus); else if(tStatus==='active') l=l.filter(c=>status(c.id)!=='new'); return l; }
 // how much a case needs work: slower than your usual, few solves, or DNFs
 function caseWeight(c){ const t=kTimes(c.id), nd=need(c, tKind==='alg'?'a':'');
-  if((!t || !t.length) && nd.score===null) return 3;
+  if((!t || !t.length) && nd.score===null){ const ln = lenOf(c); return 3 * (ln ? Math.min(1.4, Math.max(.85, ln.v)) : 1); }
   let w = Math.min(5, Math.max(.3, Math.pow(nd.score===null ? 1 : nd.score, 2)));
   if(!t || t.length < 3) w += 1;
   if(status(c.id)==='learning') w *= 1.3;
@@ -3002,7 +3006,7 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.']],
-    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), alg speed (Alg only), full case time and DNFs. Open a card\'s details to see the main reason.']],
+    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), alg speed (Alg only), full case time, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
     ['Ortega',['New to 2x2 speed methods? Start with <b>Ortega</b>: solve the bottom face, orient the top (7 OLLs), then fix both layers (5 PBLs). Its cases work like every other case here, including the Case timer.']],
     ['Suggested order',['CLL first, then EG-1 (adjacent swap on the bottom), then EG-2 (diagonal swap).','Within each: Sune and Anti-Sune, then T, U, L, Pi, H.']],
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
@@ -3762,13 +3766,17 @@ const tpsOf = c => { const aa = aavg(c.id), mv = aa ? mvOf(c) : 0; return aa && 
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
   for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
-  NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+  const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
+  NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+// how long this alg is next to the usual alg in its set, kept in a narrow range
+const lenOf = c => { const m = mvOf(c), u = needBase().mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u} : null; };
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
   const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:focus==='a'?.5:1, you:r, usual:B.rec});
   const tp = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (tp && B.tps) parts.push({k:'exec', v:clamp(B.tps/tp), w:focus==='a'?2:1, you:tp, usual:B.tps});
   const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:focus==='a'?.5:1.2, you:a, usual:fb});
+  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual});
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0, miss = cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.atimes[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
@@ -3778,7 +3786,7 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
   let why = ''; const worst = parts.slice().sort((x,y)=>y.v-x.v)[0];
   if (dnf >= .15) why = `${Math.round(dnf*100)}% DNF in the case timer`;
   else if (miss >= .34) why = `missed on ${Math.round(miss*100)}% of flashcards`;
-  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
+  else if (worst && worst.v >= 1.1) why = worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='exec' ? `alg at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}` : worst.k==='len' ? `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}` : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
   return B.cache[key] = {score, tier, why, n}; }
 const TIER_NAME = {strong:'Strong for you', ok:'About your usual', weak:'Weak spot'};
 const needDot = c => { const t = need(c).tier; return t ? `<i class="nd ${t}" title="${TIER_NAME[t]}" aria-label="${TIER_NAME[t]}"></i>` : ''; };
@@ -4037,7 +4045,7 @@ function tPool(){ if(tFocus && BYID[tFocus]) return [BYID[tFocus]];
   if(tMode==='daily'){ const d=ensureDaily(); return d.ids.filter(id=>!d.done.includes(id) && BYID[id]).map(id=>BYID[id]); }
   let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); if(tStatus==='learning'||tStatus==='learned') l=l.filter(c=>status(c.id)===tStatus); else if(tStatus==='active') l=l.filter(c=>status(c.id)!=='new'); return l; }
 function caseWeight(c){ const t=kTimes(c.id), nd=need(c, tKind==='alg'?'a':'');
-  if((!t || !t.length) && nd.score===null) return 3;
+  if((!t || !t.length) && nd.score===null){ const ln = lenOf(c); return 3 * (ln ? Math.min(1.4, Math.max(.85, ln.v)) : 1); }
   let w = Math.min(5, Math.max(.3, Math.pow(nd.score===null ? 1 : nd.score, 2)));
   if(!t || t.length < 3) w += 1;
   if(status(c.id)==='learning') w *= 1.3;
@@ -4517,7 +4525,7 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
-    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), alg speed (Alg only), full case time and DNFs. Open a case\'s details to see the main reason.']],
+    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), alg speed (Alg only), full case time, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
     ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
