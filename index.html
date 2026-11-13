@@ -2015,7 +2015,7 @@ const recAvg = id => { const r = D.recog[id]; if (!r || !r.length) return null; 
 // Each is compared with YOUR usual for that measure, so 1 = typical for you, above 1 = weaker.
 const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)=>x-y), m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(algPair(c).alg)); };
-const tpsOf = c => { const aa = aavg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
+const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
   for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
@@ -2093,7 +2093,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${spot(c)}
     <div class="setgroup"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
+      <div class="cstats">${stat('Scramble avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg only', mineAvg(c.id)!==null ? mineAvg(c.id).toFixed(2)+'s'+(tp ? ' · '+tp.toFixed(1)+' TPS' : '') : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus">Your own algorithm</label>
@@ -2293,11 +2293,13 @@ function tSummary(){ const kinds=new Set([...tG].map(g=>g==='Ortega'?'ort':'ll')
 function renderTSets(){ setTimeout(tSummary);
   $('#tGroups').innerHTML = GROUPS.map(g=>`<button class="chip" aria-pressed="${tG.has(g)}" data-g="${g}">${g}</button>`).join('');
   const kinds = new Set([...tG].map(g=>g==='Ortega'?'ort':'ll'));
-  $('#tSets').innerHTML = SETS.filter(s=>kinds.has(setKind(s))).map(s=>`<button class="chip" aria-pressed="${tSel.has(s)}" data-set="${s}">${SET_NAME[s]||s}</button>`).join('');
+  const shown = SETS.filter(s=>kinds.has(setKind(s)));
+  $('#tSets').innerHTML = `<button class="chip" aria-pressed="${shown.every(s=>tSel.has(s))}" data-allsets>All</button>`+shown.map(s=>`<button class="chip" aria-pressed="${tSel.has(s)}" data-set="${s}">${SET_NAME[s]||s}</button>`).join('');
 }
 function fixSets(){ for (const k of ['ll','ort']){ const on=[...tG].some(g=>(g==='Ortega'?'ort':'ll')===k); if (on && ![...tSel].some(s=>setKind(s)===k)) (k==='ort'?ORT_SETS:['Sune','Anti-Sune']).forEach(s=>tSel.add(s)); } }
 $('#tGroups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; const g=b.dataset.g; if(tG.has(g)&&tG.size>1) tG.delete(g); else tG.add(g); fixSets(); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
-$('#tSets').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; const s=b.dataset.set; if(tSel.has(s) && [...tSel].filter(x=>setKind(x)===setKind(s)).length>1) tSel.delete(s); else tSel.add(s); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
+$('#tSets').addEventListener('click', e=>{ if(e.target.closest('[data-allsets]')){ const kinds=new Set([...tG].map(g=>g==='Ortega'?'ort':'ll')); SETS.filter(s=>kinds.has(setKind(s))).forEach(s=>tSel.add(s)); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); return; }
+  const b=e.target.closest('[data-set]'); if(!b) return; const s=b.dataset.set; if(tSel.has(s) && [...tSel].filter(x=>setKind(x)===setKind(s)).length>1) tSel.delete(s); else tSel.add(s); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
 $('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=b.dataset.ts; renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 let tMode = ['weak','deck','random','daily'].includes(D.prefs.tMode) ? D.prefs.tMode : 'weak', tDeck = [], tFocus = null;
@@ -2305,10 +2307,13 @@ let tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr', tPair
 let tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs', fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer', fsLast = null;
 const PRO_TPS = 13;
 function aavg(id){ const t=D.atimes[id]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
-const kAvg = id => tKind==='alg' ? aavg(id) : avg(id);
+// Alg only average for one alg (the last 12 tries with it). Older data with no per-alg times falls back to every Alg only time.
+function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return aavg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
+function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : aavg(id); }
+const kAvg = id => tKind==='alg' ? mineAvg(id) : avg(id);
 const kTimes = id => (tKind==='alg' ? D.atimes : D.times)[id];
 // the setup and the alg it pairs with, so the alg solves exactly what the setup builds
-function algPair(c){ const i=mineIdx(c), l=algList(c); if(i>=0 && l[i].setup) return {setup:l[i].setup, alg:l[i].alg}; const a=fitAlg(c.state, algOf(c)); return {setup:setupFor(c.state,a), alg:a}; }
+function algPair(c){ const i=mineIdx(c), l=algList(c); if(i>=0 && l[i].setup) return {setup:l[i].setup, alg:l[i].alg, ak:algOf(c)}; const a=fitAlg(c.state, algOf(c)); return {setup:setupFor(c.state,a), alg:a, ak:algOf(c)}; }
 const moveCount = a => { try { return Cube.parse(a).filter(([m])=>!'xyz'.includes(m)).length; } catch(e){ return 0; } };
 function renderTKind(){ $('#tKind').innerHTML = [['scr','Scramble'],['alg','Alg only'],['atk','Attack']].map(([v,l])=>`<button aria-pressed="${tKind===v}" data-tk="${v}">${l}</button>`).join(''); }
 $('#tKind').addEventListener('click', e=>{ const b=e.target.closest('[data-tk]'); if(!b || (tState!=='idle' && tState!=='stopped')) return; tKind=b.dataset.tk; D.prefs.tKind=tKind; save(); renderTKind(); renderTRes(); newScramble(); });
@@ -2473,7 +2478,7 @@ function stopTimer(){ if(tState!=='running') return false; cancelAnimationFrame(
   if(tPrac!=='algs'){ fsStop(ms); return true; }
   if(tKind==='atk'){ atkStop(ms); return true; }
   touchDay();
-  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', arr=k?D.atimes:D.times, ak=k?algOf(c):''; (arr[c.id]=arr[c.id]||[]).push(v); if(arr[c.id].length>(k?30:50)) arr[c.id].shift(); if(k) addAlgT(c.id, ak, v);
+  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', arr=k?D.atimes:D.times, ak=k?((tPair&&tPair.ak)||algOf(c)):''; (arr[c.id]=arr[c.id]||[]).push(v); if(arr[c.id].length>(k?30:50)) arr[c.id].shift(); if(k) addAlgT(c.id, ak, v);
   const cs=D.cstat[c.id]||(D.cstat[c.id]={n:0,d:0}); if(!k) cs.n++; cs.t=Math.round(Date.now()/1000);
   if(tMode==='daily' && !tFocus){ const d=ensureDaily(); if(d.ids.includes(c.id) && !d.done.includes(c.id)) d.done.push(c.id); setTimeout(tSummary); }
   save();
@@ -2492,7 +2497,7 @@ function renderTRes(){
   if(tPrac!=='algs') return renderFsRes();
   const e=tKind==='atk'?null:tSess[0];
   if(!e) $('#tResult').hidden=true;
-  else { const c=e.c, a=e.k?aavg(c.id):avg(c.id); $('#tResult').hidden=false;
+  else { const c=e.c, a=e.k?algAvgOf(c.id, e.ak):avg(c.id); $('#tResult').hidden=false;
     const tps = e.k && e.mv && e.pen!=='DNF' && e.cur>0 ? e.mv/e.cur : null;
     const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%"></i></div>`;
     const st=status(c.id);
@@ -2514,8 +2519,7 @@ $('#csAll').checked = !!D.prefs.csAll;
 let csSort = {k:'avg', dir:-1};
 const CS_COLS = [['name','Case'],['avg','Avg'],['best','Best'],['n','Solves'],['dnf','DNF'],['rec','Recog'],['tps','TPS']];
 function csRow(c){ const t=D.times[c.id]||[], cs=D.cstat[c.id], n=cs?cs.n:t.length;
-  const aa=aavg(c.id), mv=aa?moveCount(algPair(c).alg):0;
-  return {c, name:c.full, avg:avg(c.id), best:t.length?Math.min(...t):null, n:n||null, dnf: cs&&cs.n ? cs.d/cs.n : null, rec:recAvg(c.id), tps: aa&&mv ? mv/aa : null}; }
+  return {c, name:c.full, avg:avg(c.id), best:t.length?Math.min(...t):null, n:n||null, dnf: cs&&cs.n ? cs.d/cs.n : null, rec:recAvg(c.id), tps: tpsOf(c)}; }
 function renderCaseStats(){ const g=$('#csGroup').value, all=$('#csAll').checked;
   let rows=(g==='all'?CASES:CASES.filter(c=>c.g===g)).map(csRow);
   { const tp=rows.map(r=>r.tps).filter(x=>x!==null), el=$('#csTps'); el.hidden=!tp.length;
@@ -2994,7 +2998,7 @@ function route(){ leaveRun(location.hash.slice(1)); if(!$('#sheet').hidden) View
   $('#gearBtn').setAttribute('aria-current', v==='prefs' ? 'page' : 'false'); if (!$('#helpSheet').hidden) Help.close();
   document.querySelectorAll('nav.tabs a').forEach(a=>a.setAttribute('aria-current', a.getAttribute('href')==='#'+(v==='case'?'learn':v)?'page':'false'));
   if(v==='cards'){ if(!cardCur) nextCard(); else if(!cardShown) renderCard(); }
-  if(v==='timer'){ renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && fsCur && fsCur.key!==fsKey())) newScramble(); }
+  if(v==='timer'){ if(tKind==='alg' && tCase && tPair && tPair.ak!==algOf(tCase) && tState==='idle') tCase=null; renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && fsCur && fsCur.key!==fsKey())) newScramble(); }
   if(v==='onelook') { renderOl(); olStats(); }
   if(v==='solve') SV.show();
   if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; requestAnimationFrame(()=>window.scrollTo(0, y)); } }
@@ -4271,8 +4275,11 @@ const recAvg = id => { const r = D.recog[id]; if (!r || !r.length) return null; 
 const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)=>x-y), m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
 const moveCount = a => { try { return Cube.parse(a).filter(([m])=>!'xyz'.includes(m)).length; } catch(e){ return 0; } };
 function aavg(id){ const t=D.atimes[id]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
+// Alg only average for one alg (the last 12 tries with it). Older data with no per-alg times falls back to every Alg only time.
+function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return aavg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
+function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : aavg(id); }
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(fitAlg(c, algOf(c)))); };
-const tpsOf = c => { const aa = aavg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
+const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
   for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
@@ -4335,7 +4342,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${second}
     <div class="setgroup"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
+      <div class="cstats">${stat('Scramble avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg only', mineAvg(c.id)!==null ? mineAvg(c.id).toFixed(2)+'s'+(tp ? ' · '+tp.toFixed(1)+' TPS' : '') : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus3">Your own algorithm</label>
@@ -4533,16 +4540,18 @@ function tSummary(){ const st=[...tSel].filter(s=>tG.has(SET_G[s])), ml={weak:'W
   el.textContent=[[...tG].join(', '), allIn?'All sets':st.map(s=>SET_SHORT[s]||s).join(', '), ml, {learning:'Learning only',learned:'Learned only',active:'Learning + Learned'}[tStatus]||''].filter(Boolean).join(' · '); }
 function renderTSets(){ setTimeout(tSummary);
   $('#tGroups').innerHTML = GROUPS.map(g=>`<button class="chip" aria-pressed="${tG.has(g)}" data-g="${g}">${g}</button>`).join('');
-  $('#tSets').innerHTML = GROUPS.filter(g=>tG.has(g)).flatMap(g=>GSETS[g]).map(s=>`<button class="chip" aria-pressed="${tSel.has(s)}" data-set="${s}">${SET_SHORT[s]||s}</button>`).join('');
+  const shown = GROUPS.filter(g=>tG.has(g)).flatMap(g=>GSETS[g]);
+  $('#tSets').innerHTML = `<button class="chip" aria-pressed="${shown.every(s=>tSel.has(s))}" data-allsets>All</button>`+shown.map(s=>`<button class="chip" aria-pressed="${tSel.has(s)}" data-set="${s}">${SET_SHORT[s]||s}</button>`).join('');
 }
 $('#tGroups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; const g=b.dataset.g; if(tG.has(g)&&tG.size>1) tG.delete(g); else tG.add(g); fixSets(); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
-$('#tSets').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; const s=b.dataset.set, g=SET_G[s]; if(tSel.has(s) && GSETS[g].filter(x=>tSel.has(x)).length>1) tSel.delete(s); else tSel.add(s); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
+$('#tSets').addEventListener('click', e=>{ if(e.target.closest('[data-allsets]')){ GROUPS.filter(g=>tG.has(g)).flatMap(g=>GSETS[g]).forEach(s=>tSel.add(s)); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); return; }
+  const b=e.target.closest('[data-set]'); if(!b) return; const s=b.dataset.set, g=SET_G[s]; if(tSel.has(s) && GSETS[g].filter(x=>tSel.has(x)).length>1) tSel.delete(s); else tSel.add(s); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
 $('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=b.dataset.ts; renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 const PRO_TPS = 12;
-const kAvg = id => tKind==='alg' ? aavg(id) : avg(id);
+const kAvg = id => tKind==='alg' ? mineAvg(id) : avg(id);
 const kTimes = id => (tKind==='alg' ? D.atimes : D.times)[id];
-function algPair(c){ const a = fitAlg(c, algOf(c)); return {setup:Cube.simplify(Cube.invert(a)), alg:a}; }
+function algPair(c){ const a = fitAlg(c, algOf(c)); return {setup:Cube.simplify(Cube.invert(a)), alg:a, ak:algOf(c)}; }
 function renderTKind(){ $('#tKind').innerHTML = [['scr','Scramble'],['alg','Alg only'],['atk','Attack']].map(([v,l])=>`<button aria-pressed="${tKind===v}" data-tk="${v}">${l}</button>`).join(''); }
 $('#tKind').addEventListener('click', e=>{ const b=e.target.closest('[data-tk]'); if(!b || (tState!=='idle' && tState!=='stopped')) return; tKind=b.dataset.tk; D.prefs.tKind=tKind; save(); renderTKind(); renderTRes(); newScramble(); });
 const todayKey = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
@@ -4694,7 +4703,7 @@ function stopTimer(){ if(tState!=='running') return false; cancelAnimationFrame(
   if(tPrac!=='algs'){ pracStop(ms); return true; }
   if(tKind==='atk'){ atkStop(ms); return true; }
   touchDay();
-  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', arr=k?D.atimes:D.times, ak=k?algOf(c):''; (arr[c.id]=arr[c.id]||[]).push(v); if(arr[c.id].length>(k?30:50)) arr[c.id].shift(); if(k) addAlgT(c.id, ak, v);
+  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', arr=k?D.atimes:D.times, ak=k?((tPair&&tPair.ak)||algOf(c)):''; (arr[c.id]=arr[c.id]||[]).push(v); if(arr[c.id].length>(k?30:50)) arr[c.id].shift(); if(k) addAlgT(c.id, ak, v);
   const cs=D.cstat[c.id]||(D.cstat[c.id]={n:0,d:0}); if(!k) cs.n++; cs.t=Math.round(Date.now()/1000);
   if(tMode==='daily' && !tFocus){ const d=ensureDaily(); if(d.ids.includes(c.id) && !d.done.includes(c.id)) d.done.push(c.id); setTimeout(tSummary); }
   tSess.unshift({c, base:v, pen:'', cur:v, k, ak, mv: k && tPair ? moveCount(tPair.alg) : 0}); keepSess(); save(); renderTRes(); newScramble(); return true; }
@@ -4712,7 +4721,7 @@ function renderTRes(){
   if(tPrac!=='algs') return renderPracRes();
   const e=tKind==='atk'?null:tSess[0];
   if(!e) $('#tResult').hidden=true;
-  else { const c=e.c, a=e.k?aavg(c.id):avg(c.id); $('#tResult').hidden=false;
+  else { const c=e.c, a=e.k?algAvgOf(c.id, e.ak):avg(c.id); $('#tResult').hidden=false;
     const tps = e.k && e.mv && e.pen!=='DNF' && e.cur>0 ? e.mv/e.cur : null;
     const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%"></i></div>`;
     const st=status(c.id);
@@ -4790,13 +4799,14 @@ function rdPool(){ let l = CASES.filter(c=>c.g===rdGroup && rdSel.has(c.set));
 function rdSummary(){ const sets = GSETS[rdGroup].filter(s=>rdSel.has(s)); $('#rdSummary').textContent = [rdGroup, sets.length===GSETS[rdGroup].length ? 'All sets' : sets.map(s=>SET_SHORT[s]||s).join(', '), {learning:'Learning only',learned:'Learned only',active:'Learning + Learned'}[rdStatus]||'', rdGroup==='F2L' ? '' : (rdView==='iso'?'Two sides':'Top')].filter(Boolean).join(' · '); }
 function renderRdOpts(){ rdSummary();
   $('#rdGroup').innerHTML = GROUPS.map(g=>`<button aria-pressed="${rdGroup===g}" data-rg="${g}">${g}</button>`).join('');
-  $('#rdSets').innerHTML = GSETS[rdGroup].map(s=>`<button class="chip" aria-pressed="${rdSel.has(s)}" data-rs="${s}">${SET_SHORT[s]||s}</button>`).join('');
+  $('#rdSets').innerHTML = `<button class="chip" aria-pressed="${GSETS[rdGroup].every(s=>rdSel.has(s))}" data-rsall>All</button>`+GSETS[rdGroup].map(s=>`<button class="chip" aria-pressed="${rdSel.has(s)}" data-rs="${s}">${SET_SHORT[s]||s}</button>`).join('');
   $('#rdStatus').innerHTML = T_STATUS.map(([v,l])=>`<button aria-pressed="${rdStatus===v}" data-rst2="${v}">${l}</button>`).join('');
   $('#rdView').innerHTML = [['iso','Two sides'],['top','Top']].map(([v,l])=>`<button aria-pressed="${rdView===v}" data-rv="${v}">${l}</button>`).join('');
   $('#rdView').closest('.dgroup').hidden = rdGroup==='F2L'; }
 const rdSave = () => { D.prefs.rdGroup=rdGroup; D.prefs.rdSel=[...rdSel]; D.prefs.rdStatus=rdStatus; D.prefs.rdView=rdView; save(); };
 $('#rdGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-rg]'); if(!b) return; rdGroup=b.dataset.rg; rdFix(); rdSave(); renderRdOpts(); rdNew(); });
-$('#rdSets').addEventListener('click', e=>{ const b=e.target.closest('[data-rs]'); if(!b) return; const s=b.dataset.rs; if (rdSel.has(s) && GSETS[rdGroup].filter(x=>rdSel.has(x)).length>1) rdSel.delete(s); else rdSel.add(s); rdSave(); renderRdOpts(); rdNew(); });
+$('#rdSets').addEventListener('click', e=>{ if(e.target.closest('[data-rsall]')){ GSETS[rdGroup].forEach(s=>rdSel.add(s)); rdSave(); renderRdOpts(); rdNew(); return; }
+  const b=e.target.closest('[data-rs]'); if(!b) return; const s=b.dataset.rs; if (rdSel.has(s) && GSETS[rdGroup].filter(x=>rdSel.has(x)).length>1) rdSel.delete(s); else rdSel.add(s); rdSave(); renderRdOpts(); rdNew(); });
 $('#rdStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-rst2]'); if(!b) return; rdStatus=b.dataset.rst2; rdSave(); renderRdOpts(); rdNew(); });
 $('#rdView').addEventListener('click', e=>{ const b=e.target.closest('[data-rv]'); if(!b) return; rdView=b.dataset.rv; rdSave(); renderRdOpts(); if (rd) renderRd(); });
 function rdPick(pool){ const miss = (D.rd.miss)||{}; const w = pool.map(c=>(rd && rd.c===c && pool.length>1) ? 0 : 1+2*(miss[c.id]||0)+(status(c.id)==='learning'?1:0)); let t = Math.random()*w.reduce((a,b)=>a+b,0); for (let i=0;i<pool.length;i++){ t-=w[i]; if (t<=0 && w[i]>0) return pool[i]; } return pool[0]; }
@@ -5026,7 +5036,7 @@ function route(){ if(location.hash==='#cross'){ setPrac('cross'); location.repla
   $('#gearBtn').setAttribute('aria-current', v==='prefs' ? 'page' : 'false'); if (!$('#helpSheet').hidden) Help.close();
   document.querySelectorAll('nav.tabs a').forEach(a=>a.setAttribute('aria-current', a.getAttribute('href')==='#'+(v==='case'?'learn':v)?'page':'false'));
   if(v==='cards'){ if(!cardCur) nextCard(); else if(!cardShown) renderCard(); }
-  if(v==='timer'){ renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && pracCur && pracCur.key!==pracKey())) newScramble(); }
+  if(v==='timer'){ if(tKind==='alg' && tCase && tPair && tPair.ak!==algOf(tCase) && tState==='idle') tCase=null; renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && pracCur && pracCur.key!==pracKey())) newScramble(); }
   if(v==='recog'){ renderRdOpts(); if(!rd) rdNew(); rdStats(); }
   if(v==='solve') SV.show();
   if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; requestAnimationFrame(()=>window.scrollTo(0, y)); } }
