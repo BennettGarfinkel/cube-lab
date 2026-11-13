@@ -510,8 +510,19 @@ section.view.vin{animation:vin .24s var(--ease) both}
 .fadein{animation:fadein .2s ease both}
 /* progress fills instead of jumping; controls change color smoothly; buttons give a little on press */
 .bar b,.bar em{transition:width .45s var(--ease)}
-.chip,.seg button,.btn,button.gsum,nav.tabs a{transition:background-color .15s,color .15s,border-color .15s,box-shadow .15s,transform .12s}
-.btn:active:not(:disabled),.chip:active{transform:scale(.97)}
+.chip,.seg button,.btn,button.gsum,nav.tabs a,.dbtn,.gear,button[data-help]{transition-property:background-color,color,border-color,box-shadow,transform;transition-duration:.15s,.15s,.15s,.15s,.45s;transition-timing-function:ease,ease,ease,ease,cubic-bezier(.34,1.56,.64,1)}
+/* press: squish quickly; release: spring back with a slight overshoot */
+.btn:active:not(:disabled),.chip:active,.seg button:active,.gear:active,button[data-help]:active{transform:scale(.94);transition-duration:.15s,.15s,.15s,.15s,.09s;transition-timing-function:ease,ease,ease,ease,ease-out}
+button.gsum:active,.dbtn:active{transform:scale(.97);transition-duration:.15s,.15s,.15s,.15s,.09s;transition-timing-function:ease,ease,ease,ease,ease-out}
+/* Learn <-> case page */
+#app2 header.top,#app3 header.top{view-transition-name:hdr}
+#app2 nav.tabs,#app3 nav.tabs{view-transition-name:tabs}
+@keyframes vtout{to{opacity:0}}
+@keyframes vtin{from{opacity:0;transform:translateY(12px)}}
+::view-transition-old(root){animation:vtout .18s ease both}
+::view-transition-new(root){animation:vtin .34s var(--ease) both}
+::view-transition-group(casepic){animation-duration:.42s;animation-timing-function:var(--ease)}
+::view-transition-old(casepic),::view-transition-new(casepic){animation-duration:.42s}
 /* the Animations setting and the device's reduce-motion setting both stop all of it */
 body.noanim *,body.noanim *::before,body.noanim *::after{animation:none!important;transition:none!important}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
@@ -1101,12 +1112,30 @@ const CubeLab = (() => {
   const reduce = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const animOn = () => !reduce() && !(apps[cur] && apps[cur].prefs().anim === false);
   function applyAnim(){ document.body.classList.toggle('noanim', !animOn()); }
+  // Learn <-> a case's page: where the browser supports view transitions, the case diagram flies between its card and
+  // the case page while the rest cross-fades. Elsewhere (or with animations off) the usual fade is used.
+  let vtNow = false;
+  function navigate(route, root, $){ const to = location.hash.slice(1), toCase = /^case-/.test(to);
+    const from = root && !root.hidden ? (root.querySelector('section.view:not([hidden])') || {}).id : null;
+    const pair = (from === 'v-learn' && toCase) || (from === 'v-case' && !toCase && (to === 'learn' || to === ''));
+    if (!pair || !document.startViewTransition || !animOn()){ route(); return; }
+    const id = toCase ? to.slice(5) : (root.querySelector('#caseBody .chero [data-v3]') || {dataset:{}}).dataset.v3;
+    const inView = el => { const r = el.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0; };
+    const cardPic = () => [...root.querySelectorAll('#v-learn [data-v3="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]')].find(inView);
+    const heroPic = () => root.querySelector('#caseBody .chero [data-v3]');
+    const named = []; const name = el => { if (el){ el.style.viewTransitionName = 'casepic'; named.push(el); } };
+    name(toCase ? cardPic() : heroPic());
+    vtNow = true; let y = null;
+    // the app puts Learn's scroll back itself; keep the browser from shifting it again while the transition plays
+    const sr = history.scrollRestoration, de = document.documentElement; try { history.scrollRestoration = 'manual'; } catch(e){} de.style.overflowAnchor = 'none';
+    const vt = document.startViewTransition(() => { named.forEach(el => { el.style.viewTransitionName = ''; }); named.length = 0; route(); y = scrollY; if (id) name(toCase ? heroPic() : cardPic()); });
+    vt.finished.finally(() => { vtNow = false; named.forEach(el => { el.style.viewTransitionName = ''; }); try { history.scrollRestoration = sr; } catch(e){} de.style.overflowAnchor = ''; if (y !== null && Math.abs(scrollY - y) > 1) scrollTo(0, y); }); }
   // the tab underline glides to the active tab; the view fades up
   function tabs(nav, quiet){ if (!nav) return; nav.classList.add('ind'); let ind = nav.querySelector('.tabind'); if (!ind){ ind = document.createElement('i'); ind.className = 'tabind'; nav.appendChild(ind); }
     const a = nav.querySelector('a[aria-current="page"]'), root = nav.closest('#app2,#app3');
     const place = () => { if (!a){ ind.style.width = '0px'; return; } ind.style.width = Math.max(0, a.offsetWidth - 20) + 'px'; ind.style.transform = `translateX(${a.offsetLeft + 10}px)`; ind.style.backgroundColor = getComputedStyle(a).getPropertyValue('--tc') || ''; };
     if (!ind.dataset.placed){ ind.style.transition = 'none'; place(); ind.offsetWidth; ind.style.transition = ''; ind.dataset.placed = '1'; } else place();
-    if (!quiet && root && !root.hidden && animOn()){ const v = root.querySelector('section.view:not([hidden])'); if (v){ v.classList.remove('vin'); void v.offsetWidth; v.classList.add('vin'); } } }
+    if (!quiet && !vtNow && root && !root.hidden && animOn()){ const v = root.querySelector('section.view:not([hidden])'); if (v){ v.classList.remove('vin'); void v.offsetWidth; v.classList.add('vin'); } } }
   window.addEventListener('resize', () => { for (const r of Object.values(roots)) if (!r.hidden) tabs(r.querySelector('nav.tabs'), true); });
   // the answer side of a flashcard flips into view
   function flip(el, fn){ if (!el || !animOn() || !el.animate){ fn(); return; }
@@ -1180,7 +1209,7 @@ const CubeLab = (() => {
   window.addEventListener('pointerup', () => { if (eat) eat = Math.min(eat, Date.now() + 150); }, true);
   window.addEventListener('pointercancel', () => { if (eat) eat = Math.min(eat, Date.now() + 150); }, true);
   window.addEventListener('click', e => { if (eat && Date.now() < eat){ e.stopPropagation(); e.preventDefault(); } }, true);
-  return { scope, register, ready, syncShared, tabs, flip, applyAnim, backupCode, parseBackup, restoreBackup, cstFile, streak, eatClick, get current(){ return cur; } };
+  return { scope, register, ready, syncShared, tabs, navigate, flip, applyAnim, backupCode, parseBackup, restoreBackup, cstFile, streak, eatClick, get current(){ return cur; } };
 })();
 
 // ---------- full solves: one timer, stats and sessions for both puzzles; each puzzle hands in what differs ----------
@@ -3164,11 +3193,11 @@ function route(){ leaveRun(location.hash.slice(1)); if(!$('#sheet').hidden) View
   if(v==='timer'){ if(tKind==='alg' && tCase && tPair && tPair.ak!==algOf(tCase) && tState==='idle') tCase=null; renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && fsCur && fsCur.key!==fsKey())) newScramble(); }
   if(v==='onelook') { renderOl(); olStats(); }
   if(v==='solve') SV.show();
-  if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; requestAnimationFrame(()=>window.scrollTo(0, y)); } }
+  if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; window.scrollTo(0, y); } }
   document.body.classList.remove('focus'); Wake.set(D.prefs.wake!==false && ['cards','timer','solve','onelook'].includes(v)); Toast.hide();
   const act=document.querySelector('nav.tabs a[aria-current="page"]'); if(act && act.scrollIntoView && NAV.scrollWidth>NAV.clientWidth) act.scrollIntoView({block:'nearest', inline:'nearest'}); navFade(); CubeLab.tabs(NAV);
 }
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => CubeLab.navigate(route, $('#v-learn').closest('#app2,#app3')));
 // ---------- global settings ----------
 const applyTheme = () => { const t = D.prefs.theme; if (t==='light' || t==='dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; };
 applyTheme();
@@ -5256,11 +5285,11 @@ function route(){ if(location.hash==='#cross'){ setPrac('cross'); location.repla
   if(v==='timer'){ if(tKind==='alg' && tCase && tPair && tPair.ak!==algOf(tCase) && tState==='idle') tCase=null; renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && pracCur && pracCur.key!==pracKey())) newScramble(); }
   if(v==='recog'){ renderRdOpts(); if(!rd) rdNew(); rdStats(); }
   if(v==='solve') SV.show();
-  if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; requestAnimationFrame(()=>window.scrollTo(0, y)); } }
+  if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; window.scrollTo(0, y); } }
   document.body.classList.remove('focus'); Wake.set(D.prefs.wake!==false && ['cards','timer','solve','recog'].includes(v)); Toast.hide();
   const act=document.querySelector('nav.tabs a[aria-current="page"]'); if(act && act.scrollIntoView && NAV.scrollWidth>NAV.clientWidth) act.scrollIntoView({block:'nearest', inline:'nearest'}); navFade(); CubeLab.tabs(NAV);
 }
-window.addEventListener('hashchange', route);
+window.addEventListener('hashchange', () => CubeLab.navigate(route, $('#v-learn').closest('#app2,#app3')));
 const applyTheme = () => { const t = D.prefs.theme; if (t==='light' || t==='dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; };
 applyTheme();
 function renderSettings(){
