@@ -19,6 +19,7 @@
   --f-display:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --f-body:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
   --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%235E626B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
@@ -478,26 +479,42 @@ svg.iso{max-width:170px}
 
 /* ---- motion ---- */
 .pz{position:relative}
-.pz::before{content:"";position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:8px;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12);transition:transform .28s cubic-bezier(.3,.7,.2,1);z-index:0}
+.pz::before{content:"";position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);border-radius:8px;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.12);transition:transform .28s var(--ease);z-index:0}
 .pz[data-on="3"]::before{transform:translateX(100%)}
 .pz button{position:relative;z-index:1}
 .pz button[aria-pressed="true"]{background:transparent;box-shadow:none}
 nav.tabs{position:sticky}
 nav.tabs.ind a::after{display:none}
-nav.tabs .tabind{position:absolute;left:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--ink);pointer-events:none;transition:transform .3s cubic-bezier(.3,.7,.2,1),width .3s cubic-bezier(.3,.7,.2,1),background-color .3s}
+nav.tabs .tabind{position:absolute;left:0;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--ink);pointer-events:none;transition:transform .28s var(--ease),width .28s var(--ease),background-color .28s}
 @keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-section.view.vin{animation:vin .24s cubic-bezier(.2,.7,.2,1) both}
+section.view.vin{animation:vin .24s var(--ease) both}
 @keyframes pzin{from{opacity:0}to{opacity:1}}
-.pzin section.view:not([hidden]){animation:pzin .26s ease both}
+.pzin section.view:not([hidden]){animation:pzin .24s var(--ease) both}
 @keyframes ready{0%,100%{box-shadow:inset 0 0 0 0 transparent}50%{box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--good) 45%,transparent)}}
 .timer.ready{animation:ready 1.1s ease-in-out infinite}
 @keyframes land{0%{transform:scale(1.07)}60%{transform:scale(.985)}100%{transform:scale(1)}}
-.timer .t.land{animation:land .38s cubic-bezier(.2,.8,.2,1)}
+.timer .t.land{animation:land .38s var(--ease)}
 .burst{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
 .burst i{position:absolute;width:10px;height:10px;border-radius:2.5px;border:1px solid var(--s-edge)}
 .card-stage{transform-origin:50% 50%}
+/* panels and pop-ups come in; they close instantly */
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes sheetup{from{opacity:.3;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes popin{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+@keyframes toastin{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.sheet:not([hidden]){animation:fadein .2s ease both}
+.sheet:not([hidden]) .inner{animation:sheetup .3s var(--ease) both}
+@media (min-width:640px){.sheet:not([hidden]) .inner{animation:popin .22s var(--ease) both}}
+.toast:not([hidden]){animation:toastin .26s var(--ease) both}
+.spotbox[open] .spotbody,.spotbox[open] .spotvs{animation:fadein .22s ease both}
+.fadein{animation:fadein .2s ease both}
+/* progress fills instead of jumping; controls change color smoothly; buttons give a little on press */
+.bar b,.bar em{transition:width .45s var(--ease)}
+.chip,.seg button,.btn,button.gsum,nav.tabs a{transition:background-color .15s,color .15s,border-color .15s,box-shadow .15s,transform .12s}
+.btn:active:not(:disabled),.chip:active{transform:scale(.97)}
+/* the Animations setting and the device's reduce-motion setting both stop all of it */
 body.noanim *,body.noanim *::before,body.noanim *::after{animation:none!important;transition:none!important}
-@media (prefers-reduced-motion:reduce){.timer.ready,.timer .t.land,section.view.vin,.pzin section.view{animation:none!important}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
 
 .vstep[data-step]{cursor:pointer}
 .vstep[data-step]:hover{border-color:var(--muted)}
@@ -721,7 +738,7 @@ window.CubeLabHost = {
     <div class="setgroup">
       <span class="glabel">Appearance</span>
       <div class="srow"><span class="slabel">Theme</span><div class="seg" id="gTheme" role="group" aria-label="Theme" style="align-self:flex-start"></div></div>
-      <div class="srow"><label class="check"><input type="checkbox" id="gAnim"> Animations</label><span class="stats">Page transitions, the card flip and the new-best burst. Devices set to reduce motion never get them.</span></div>
+      <div class="srow"><label class="check"><input type="checkbox" id="gAnim"> Animations</label><span class="stats">Page and panel transitions, the card flip, progress bars and the new-best burst. Devices set to reduce motion never get them.</span></div>
     </div>
     <div class="setgroup">
       <span class="glabel">Your data</span>
@@ -935,7 +952,7 @@ window.CubeLabHost = {
     <div class="setgroup">
       <span class="glabel">Appearance</span>
       <div class="srow"><span class="slabel">Theme</span><div class="seg" id="gTheme" role="group" aria-label="Theme" style="align-self:flex-start"></div></div>
-      <div class="srow"><label class="check"><input type="checkbox" id="gAnim"> Animations</label><span class="stats">Page transitions, the card flip and the new-best burst. Devices set to reduce motion never get them.</span></div>
+      <div class="srow"><label class="check"><input type="checkbox" id="gAnim"> Animations</label><span class="stats">Page and panel transitions, the card flip, progress bars and the new-best burst. Devices set to reduce motion never get them.</span></div>
     </div>
     <div class="setgroup">
       <span class="glabel">Your data</span>
@@ -1014,6 +1031,10 @@ window.CubeLabHost = {
 <script>
 // Cube Lab: the 2x2 and 3x3 trainers share one page. Each runs in its own container with its own data;
 // only the puzzle on screen gets keyboard, click and link events.
+// progress bars are redrawn on every update; this lets them grow from their old width to the new one
+const barsOf = el => el ? [...el.querySelectorAll('.bar b,.bar em')].map(x=>x.style.width) : [];
+function growBars(el, old){ if (!el || !old.length) return; const now = [...el.querySelectorAll('.bar b,.bar em')]; if (now.length !== old.length) return;
+  const tgt = now.map(x=>x.style.width); if (tgt.every((w,i)=>w===old[i])) return; now.forEach((x,i)=>{ x.style.width = old[i]; }); void el.offsetWidth; now.forEach((x,i)=>{ x.style.width = tgt[i]; }); }
 function spotPic(n, top, front, right){
   const c = Math.cos(Math.PI/6), s = 112/(2*n*c), ox = 60, oy = 4;
   const P = (i,j,z) => [(ox + (i-j)*c*s).toFixed(1), (oy + (i+j)*.5*s - (z-n)*s).toFixed(1)].join(',');
@@ -2076,6 +2097,7 @@ function renderProgress(){
   $('#overall').innerHTML = `<b>${learned}</b> / ${CASES.length} learned`;
   const sk = CubeLab.streak(); $('#progtxt').textContent = (sk.n ? `${sk.n}-day streak · ` : '') + `${CASES.filter(c=>status(c.id)==='learning').length} learning`; $('#progtxt').title = sk.n ? (sk.today ? 'Days in a row with practice on either puzzle.' : 'Practice today to keep your streak going.') : '';
   renderNext();
+  { const gs = [$('#groups'), $('#prog')], old = gs.map(barsOf); queueMicrotask(()=>gs.forEach((g,i)=>growBars(g, old[i]))); }
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
   $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + SETS.filter(s=>CASES.some(c=>c.g===learnGroup&&c.set===s)).map(set=>{ const cs=CASES.filter(c=>c.g===learnGroup&&c.set===set), n=cs.length;
@@ -2272,8 +2294,8 @@ function renderLearn(){
   renderProgress();
 }
 $('#learnGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; save(); renderLearn(); });
-$('#groups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b || b.dataset.g===learnGroup) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; nxNew=false; save(); renderLearn(); renderProgress(); });
-$('#learnFilter').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; learnFilter=b.dataset.set; D.prefs.learnFilter=learnFilter; save(); renderLearn(); });
+$('#groups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b || b.dataset.g===learnGroup) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; nxNew=false; save(); renderLearn(); renderProgress(); { const g=$('#learnSets'); g.classList.remove('fadein'); void g.offsetWidth; g.classList.add('fadein'); } });
+$('#learnFilter').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; learnFilter=b.dataset.set; D.prefs.learnFilter=learnFilter; save(); renderLearn(); { const g=$('#learnSets'); g.classList.remove('fadein'); void g.offsetWidth; g.classList.add('fadein'); } });
 $('#learnSets').addEventListener('toggle', e=>{ const d=e.target; if(d.matches && d.matches('details.more') && d.open) fillMore(d.closest('.case')); }, true);
 $('#learnSets').addEventListener('click', e=>{
   const al=e.target.closest('[data-alt]'); if(al){ const c=BYID[al.closest('.case').dataset.id]; Viewer.open(c, +al.dataset.alt); return; }
@@ -4404,6 +4426,7 @@ function renderProgress(){
   $('#overall').innerHTML = `<b>${learned}</b> / ${CASES.length} learned`;
   const sk = CubeLab.streak(); $('#progtxt').textContent = (sk.n ? `${sk.n}-day streak · ` : '') + `${CASES.filter(c=>status(c.id)==='learning').length} learning`; $('#progtxt').title = sk.n ? (sk.today ? 'Days in a row with practice on either puzzle.' : 'Practice today to keep your streak going.') : '';
   renderNext();
+  { const gs = [$('#groups'), $('#prog')], old = gs.map(barsOf); queueMicrotask(()=>gs.forEach((g,i)=>growBars(g, old[i]))); }
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
   $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + GSETS[learnGroup].map(set=>{ const cs=CASES.filter(c=>c.set===set), n=cs.length;
@@ -4577,8 +4600,8 @@ function renderLearn(){
   renderProgress();
 }
 $('#learnGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; save(); renderLearn(); });
-$('#groups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b || b.dataset.g===learnGroup) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; nxNew=false; save(); renderLearn(); renderProgress(); });
-$('#learnFilter').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; learnFilter=b.dataset.set; D.prefs.learnFilter=learnFilter; save(); renderLearn(); });
+$('#groups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b || b.dataset.g===learnGroup) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; nxNew=false; save(); renderLearn(); renderProgress(); { const g=$('#learnSets'); g.classList.remove('fadein'); void g.offsetWidth; g.classList.add('fadein'); } });
+$('#learnFilter').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; learnFilter=b.dataset.set; D.prefs.learnFilter=learnFilter; save(); renderLearn(); { const g=$('#learnSets'); g.classList.remove('fadein'); void g.offsetWidth; g.classList.add('fadein'); } });
 $('#learnSets').addEventListener('click', e=>{
   const l=e.target.closest('a.morelink'); if(l){ e.preventDefault(); openCase(l.closest('.case').dataset.id); return; }
   const b=e.target.closest('[data-act]'); if(!b) return; const card=b.closest('.case'), c=BYID[card.dataset.id];
