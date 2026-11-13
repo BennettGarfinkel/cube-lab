@@ -3937,10 +3937,13 @@ const CASES = DATA.map(c=>({...c, state:c.state.split(''), alts:c.alts||[]}));
 // Each case's position comes from its first alg. Cases go in groups of 12 that share a corner case (COLL); the H set ends with two groups of 8.
 { const ZK = {t:'T',u:'U',l:'L',h:'H',pi:'Pi',s:'S',as:'AS'}, cnt = {}, HM = ['U','R','F','D','L','B'];
   for (const [k, sub, algs] of ZB_DATA){ const n = cnt[k] = (cnt[k]||0)+1;
-    let st = Cube.apply(Cube.solved(), Cube.invert(algs[0])); const ro = Cube.reorient(st); if (ro && ro.s) st = ro.s;
-    const mp = {}; HM.forEach((f,i)=>{ mp[st[i*9+4]] = f; }); st = st.map(v=>mp[v]);
-    CASES.push({id:'ZB-'+ZK[k]+'-'+n, g:'ZBLL', set:'ZBLL '+ZK[k], name:ZK[k]+' '+n, nick:'', alg:algs[0], src:'SpeedCubeDB',
-      alts:algs.slice(1).map(a=>({alg:a, src:'SpeedCubeDB'})), goal:'full', state:st, sub}); } }
+    const c = {id:'ZB-'+ZK[k]+'-'+n, g:'ZBLL', set:'ZBLL '+ZK[k], name:ZK[k]+' '+n, nick:'', alg:algs[0], src:'SpeedCubeDB',
+      alts:algs.slice(1).map(a=>({alg:a, src:'SpeedCubeDB'})), goal:'full', sub};
+    Object.defineProperty(c, 'state', {configurable:true, enumerable:true, get(){
+      let st = Cube.apply(Cube.solved(), Cube.invert(algs[0])); const ro = Cube.reorient(st); if (ro && ro.s) st = ro.s;
+      const mp = {}; HM.forEach((f,i)=>{ mp[st[i*9+4]] = f; }); st = st.map(v=>mp[v]);
+      Object.defineProperty(c, 'state', {value:st, writable:true, enumerable:true}); return st; }});
+    CASES.push(c); } }
 CASES.forEach(c=>{ c.full = c.g==='ZBLL' ? 'ZBLL '+c.name : c.g==='PLL' ? c.name+' perm' : c.g==='2-look' ? c.name+' ('+(SET_SHORT[c.set]||c.set).toLowerCase()+')' : c.name; });
 const BYID = Object.fromEntries(CASES.map(c=>[c.id,c]));
 // geometry helpers: which cubie each sticker is on
@@ -3994,7 +3997,8 @@ function autoTip(c){ const s=c.state; if (c.g==='PLL' || c.set==='Permute edges'
   if (c.g==='F2L') return f2lTip(s);
   if (c.g==='ZBLL'){ const up = [0,2,6,8].filter(i=>s[i]==='U').length; return `${up} yellow corner${up===1?'':'s'} up · ` + pllTip(s); }
   return ollTip(s); }
-CASES.forEach(c=>{ c.tip = (c.nick ? c.nick+'. ' : '') + autoTip(c); });
+CASES.forEach(c=>{ if (c.g==='ZBLL') Object.defineProperty(c, 'tip', {configurable:true, get(){ const v = autoTip(c); Object.defineProperty(c, 'tip', {value:v, writable:true}); return v; }});
+  else c.tip = (c.nick ? c.nick+'. ' : '') + autoTip(c); });
 // storage
 const K='cube-lab-333-v1';
 const D = {v:1,status:{},times:{},cards:{},custom:{},cstat:{},recog:{},notes:{},atimes:{},rd:{n:0,c:0}};
