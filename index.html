@@ -879,6 +879,10 @@ window.CubeLabHost = {
       <div class="srow"><label class="check"><input type="checkbox" id="gWake"> Keep the screen on while practicing</label></div>
     </div>
     <div class="setgroup">
+      <span class="glabel">3x3 algorithms</span>
+      <div class="srow"><label class="check"><input type="checkbox" id="gZB"> Include ZBLL</label><span class="stats">472 more algs that solve the last layer in one step, for ZZ or edge control. Most cubers never need them. When this is off, ZBLL is hidden everywhere and any progress you've made on it is kept.</span></div>
+    </div>
+    <div class="setgroup">
       <span class="glabel">Appearance</span>
       <div class="srow"><span class="slabel">Theme</span><div class="seg" id="gTheme" role="group" aria-label="Theme" style="align-self:flex-start"></div></div>
       <div class="srow"><label class="check"><input type="checkbox" id="gAnim"> Animations</label><span class="stats">Page transitions, the card flip and the new-best burst. Devices set to reduce motion never get them.</span></div>
@@ -4021,8 +4025,16 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
         if (Array.isArray(v[4]) && v[4].length && v[4].length <= 6 && v[4].every(num)) r.push(v[4]); return r; })};
       if (x.comp) s.comp = true; return s; }); }
   return o; }
+// ZBLL only shows when it's turned on in Settings
+const ALL_CASES = CASES.slice(), ALL_GROUPS = GROUPS.slice();
+const zbOn = () => !!D.prefs.zbll;
+function applyZB(){ const on = zbOn();
+  CASES.length = 0; ALL_CASES.forEach(c=>{ if (on || c.g!=='ZBLL') CASES.push(c); });
+  GROUPS.length = 0; ALL_GROUPS.forEach(g=>{ if (on || g!=='ZBLL') GROUPS.push(g); });
+  if (!on && D.daily && Array.isArray(D.daily.ids)) D.daily.ids = D.daily.ids.filter(id=>!BYID[id] || BYID[id].g!=='ZBLL'); }
 try { const r = localStorage.getItem(K); if (r){ try { Object.assign(D, JSON.parse(r)); } catch(e){ try { localStorage.setItem(K+'-unreadable', r); } catch(e2){} } } } catch(e){}
 sanitize(D);
+applyZB();
 let storeWarned = false;
 const writeLocal = () => { try { localStorage.setItem(K, JSON.stringify(D)); }
   catch(e){ if (!storeWarned){ storeWarned = true; setTimeout(()=>{ try { Toast.show(Sync.on() ? "This browser's storage is full, so it can't save here. Your account copy is still saving." : "This browser's storage is full, so progress isn't saving. Back up from Settings, or free up space."); } catch(e2){} }, 1500); } } };
@@ -4396,7 +4408,8 @@ $('#bkRestore').addEventListener('click', ()=>{ const m=$('#bkMsg'), parts=CubeL
 // any diagram button opens the viewer
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3; if (BYID[id]) Viewer.open(BYID[id], null); });
 // ---- flashcards ----
-$('#cardGroup').innerHTML = [['all','All but ZBLL'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+const fillCardGroup = () => { $('#cardGroup').innerHTML = [['all', GROUPS.includes('ZBLL') ? 'All but ZBLL' : 'All sets'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join(''); };
+fillCardGroup();
 function renderCardPool(){ const g=$('#cardGroup').value, cur=$('#cardPool').value || D.prefs.cardPool;
   const sets = g==='all' ? [] : GSETS[g];
   $('#cardPool').innerHTML = [['all','All cases'],['learning','Learning only'],['active','Learning + learned'],...sets.map(s=>['set:'+s,/only$/.test(SET_SHORT[s]||s) ? (SET_SHORT[s]||s) : (SET_SHORT[s]||s)+' only'])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
@@ -4507,7 +4520,7 @@ let tStatus = tStatusOf();
 function renderTStatus(){ $('#tStatus').innerHTML = T_STATUS.map(([v,l])=>`<button aria-pressed="${tStatus===v}" data-ts="${v}">${l}</button>`).join(''); }
 renderTStatus();
 let tCase=null, tState='idle', tStart=0, tRaf=0, tHoldT=0, tGen=0, tReady=false; const tSess=[];
-function loadSess(){ tSess.length=0; (D.recent||[]).forEach(r=>{ const c=BYID[r.id]; if(c) tSess.push({c, base:r.base, pen:r.pen||'', cur:r.cur, k:r.k||'', ak:r.ak||'', mv:r.mv||0}); }); }
+function loadSess(){ tSess.length=0; (D.recent||[]).forEach(r=>{ const c=BYID[r.id]; if(c && (zbOn() || c.g!=='ZBLL')) tSess.push({c, base:r.base, pen:r.pen||'', cur:r.cur, k:r.k||'', ak:r.ak||'', mv:r.mv||0}); }); }
 function keepSess(){ D.recent = tSess.slice(0,40).map(x=>({id:x.c.id, base:x.base, pen:x.pen, cur:x.cur, k:x.k||'', ak:x.ak||'', mv:x.mv||0})); }
 loadSess();
 let tMode = ['weak','deck','random','daily'].includes(D.prefs.tMode) ? D.prefs.tMode : 'weak', tDeck = [], tFocus = null;
@@ -4714,7 +4727,8 @@ function renderTRes(){
   $('#tAvg').textContent = tSess.length ? `${tSess.length} solve${tSess.length>1?'s':''} · mean of last ${ok.length} (DNFs left out): ${ok.length?fmtT(ok.reduce((s,x)=>s+x.cur*1000,0)/ok.length):'–'}` : '';
   if(tKind==='atk') renderAtk();
 }
-$('#csGroup').innerHTML = [['all','All sets'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+const fillCsGroup = () => { const v = $('#csGroup').value; $('#csGroup').innerHTML = [['all','All sets'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join(''); $('#csGroup').value = v; if (!$('#csGroup').value) $('#csGroup').value = 'all'; };
+fillCsGroup();
 if (D.prefs.csGroup){ $('#csGroup').value=D.prefs.csGroup; if(!$('#csGroup').value) $('#csGroup').selectedIndex=0; }
 $('#csAll').checked = !!D.prefs.csAll;
 let csSort = {k:'avg', dir:-1};
@@ -5024,7 +5038,7 @@ const applyTheme = () => { const t = D.prefs.theme; if (t==='light' || t==='dark
 applyTheme();
 function renderSettings(){
   $('#gTheme').innerHTML = [['system','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button aria-pressed="${(D.prefs.theme||'system')===v}" data-th="${v}">${l}</button>`).join('');
-  $('#gCN').checked = cnOn(); $('#gWake').checked = D.prefs.wake!==false; $('#gAnim').checked = D.prefs.anim!==false; $('#gAlerts').checked = D.prefs.alerts!==false;
+  $('#gCN').checked = cnOn(); $('#gZB').checked = zbOn(); $('#gWake').checked = D.prefs.wake!==false; $('#gAnim').checked = D.prefs.anim!==false; $('#gAlerts').checked = D.prefs.alerts!==false;
   const comp = !!((D.sessions||[]).find(x=>x.id===D.cur)||{}).comp, ib = $('#sInsp');
   ib.checked = comp || !!D.prefs.insp; ib.disabled = comp; ib.closest('label').classList.toggle('off', comp);
   $('#sInspNote').textContent = comp ? 'On for this Competition session. Switch to a Practice session to change it.' : 'For practice solves. Competition sessions always use it.'; }
@@ -5033,12 +5047,13 @@ $('#gWake').addEventListener('change', ()=>{ D.prefs.wake=$('#gWake').checked; s
 $('#gAnim').addEventListener('change', ()=>{ D.prefs.anim=$('#gAnim').checked; shareSet('anim'); CubeLab.applyAnim(); });
 $('#gCN').addEventListener('change', ()=>{ D.prefs.cn=$('#gCN').checked; shareSet('cn'); tCase=null; rd=null; cardCur=null; });
 $('#gAlerts').addEventListener('change', ()=>{ D.prefs.alerts=$('#gAlerts').checked; shareSet('alerts'); });
+$('#gZB').addEventListener('change', ()=>{ D.prefs.zbll=$('#gZB').checked; save(); tCase=null; rd=null; cardCur=null; refreshAll(); });
 $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 'learn'); });
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), alg speed (Alg only), full case time, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
-    ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Learn it a group of 12 at a time.']],
+    ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Turn it on in Settings, then learn it a group of 12 at a time.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
   cards:{t:'Flashcards', s:[
@@ -5079,6 +5094,7 @@ const Help = (() => { const sh = $('#helpSheet');
 const NAV=$('nav.tabs'); const navFade=()=>NAV.classList.toggle('more', NAV.scrollLeft+NAV.clientWidth < NAV.scrollWidth-4);
 NAV.addEventListener('scroll', navFade, {passive:true}); window.addEventListener('resize', navFade);
 function refreshAll(){
+  applyZB(); fillCardGroup(); fillCsGroup(); if (tFocus && BYID[tFocus] && !CASES.includes(BYID[tFocus])) tFocus = null;
   learnGroup = GROUPS.includes(D.prefs.learnGroup) ? D.prefs.learnGroup : 'PLL'; learnFilter=D.prefs.learnFilter||'All';
   tG.clear(); (D.prefs.tG||['PLL']).forEach(g=>{ if(GROUPS.includes(g)) tG.add(g); }); if(!tG.size) tG.add('PLL');
   tSel.clear(); (D.prefs.tSel||[]).forEach(s=>{ if(SETS.includes(s)) tSel.add(s); }); fixSets();

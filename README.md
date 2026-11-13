@@ -16,7 +16,7 @@ Cube Lab is a trainer for the 2x2 and 3x3 Rubik's Cube. A switch at the top chan
 ### 3x3
 
 - Learn all 21 PLL, 57 OLL, and 41 F2L cases, plus the 16 cases of 2-look OLL and PLL.
-- All 472 ZBLL cases, sorted into the T, U, L, H, Pi, Sune, and Anti-Sune sets and then into groups of 12 that share a corner case.
+- All 472 ZBLL cases (turn them on in Settings), sorted into the T, U, L, H, Pi, Sune, and Anti-Sune sets and then into groups of 12 that share a corner case.
 - Flashcards and a recognition drill.
 - Case timer with Algs, Cross, and F2L practice. Cross practice lets you pick how many moves the best cross takes and shows that cross after you stop. F2L practice starts each scramble with the cross already solved.
 
