@@ -85,7 +85,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sethead p{font-size:13.5px;color:var(--muted)}
 .sethead p b{color:var(--ink)}
 .sethead{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
-.spotbox{border-left:3px solid var(--accent);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:4px}
+.spotbox{background:var(--chip);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.spotbox .label{margin-bottom:2px}
 .spotbox p{font-size:13.5px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
 @media (max-width:420px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
@@ -121,6 +122,7 @@ details.more summary::before{content:"+ "}details.more[open] summary::before{con
 .card-stage{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 16px}
 .card-stage .big{width:min(240px,70vw);display:flex;flex-direction:column;gap:6px}
 .card-stage .alg{font-size:16px;text-align:center;padding:10px 14px}
+.sep{display:inline-block;width:1px;height:.8em;background:currentColor;opacity:.32;margin:0 .55em;vertical-align:-.06em}
 .hidden-alg{font-family:var(--f-mono);color:var(--muted);font-size:14px;letter-spacing:.3em}
 select{font:inherit;font-size:14px;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .stats{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -159,7 +161,7 @@ details.panel>summary::after{content:" +"}details.panel[open]>summary::after{con
 .oitem.pbl .dbtn{width:100%}
 .oitem.pbl .dbtn svg{width:100%;max-width:240px}
 .oitem>div{min-width:0;display:flex;flex-direction:column;gap:5px}
-.note{font-size:13px;color:var(--muted);border-left:3px solid var(--accent);padding-left:10px}
+.note{font-size:13px;color:var(--muted);background:var(--chip);border-radius:10px;padding:8px 11px}
 .loading{font-size:13px;color:var(--muted)}
 .gbadge{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
 /* 3D sheet */
@@ -308,7 +310,6 @@ body.focus .stage .timer{border-top-color:transparent}
 .gsum:nth-child(1) .bar b{background:var(--s-F)}.gsum:nth-child(2) .bar b{background:var(--s-B)}.gsum:nth-child(3) .bar b{background:var(--s-R)}.gsum:nth-child(5) .bar b{background:var(--s-L)}
 .zbsub{display:flex;flex-direction:column;gap:10px}.zbhead{display:flex;gap:12px;align-items:center;padding-top:6px}.zbhead .diag{width:56px;flex:none}.zbhead p{font-size:13.5px;color:var(--muted)}
 .sethead{background:none;border:0;border-radius:0;padding:0}
-.spotbox{border-left:3px solid var(--accent);padding:2px 0 2px 12px}
 .case{border-radius:14px;box-shadow:var(--shadow)}
 .alg{border-radius:8px}
 .note{border-left:0;padding-left:0}
@@ -964,6 +965,24 @@ window.CubeLabHost = {
 <script>
 // Cube Lab: the 2x2 and 3x3 trainers share one page. Each runs in its own container with its own data;
 // only the puzzle on screen gets keyboard, click and link events.
+const SepRule = (() => {
+  const SKIP = '.hidden-alg, option, select, textarea, input, script, style, title, code, .alg, [contenteditable]';
+  function fix(node){ const p = node.parentElement; if (!p || p.closest(SKIP)) return;
+    const parts = node.nodeValue.split(/\s*·\s*/); if (parts.length < 2) return;
+    const frag = document.createDocumentFragment();
+    parts.forEach((t, i) => { if (i){ const s = document.createElement('span'); s.className = 'sep'; s.setAttribute('aria-hidden', 'true'); frag.appendChild(s);
+        if (t) frag.appendChild(document.createTextNode(t)); }
+      else if (t) frag.appendChild(document.createTextNode(t)); });
+    node.replaceWith(frag); }
+  function scan(root){ if (root.nodeType === 3){ if (root.nodeValue.includes('·')) fix(root); return; }
+    if (root.nodeType !== 1 || !(root.textContent || '').includes('·')) return;
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode: n => n.nodeValue.includes('·') ? 1 : 3}), l = [];
+    while (w.nextNode()) l.push(w.currentNode); l.forEach(fix); }
+  new MutationObserver(ms => { for (const m of ms){ if (m.type === 'characterData') scan(m.target); else m.addedNodes.forEach(scan); } })
+    .observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+  if (document.body) scan(document.body);
+  return {scan};
+})();
 const CubeLab = (() => {
   const apps = {}, roots = { '2': document.getElementById('app2'), '3': document.getElementById('app3') };
   const KEY = 'cube-lab-puzzle';
