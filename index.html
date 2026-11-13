@@ -87,8 +87,18 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sethead p{font-size:13.5px;color:var(--muted)}
 .sethead p b{color:var(--ink)}
 .sethead{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
-.spotbox{background:var(--chip);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
-.spotbox .label{margin-bottom:2px}
+.spotbox{background:var(--chip);border-radius:14px;padding:12px 16px;display:block}
+.spotbox summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:2px 0;-webkit-tap-highlight-color:transparent}
+.spotbox summary::-webkit-details-marker{display:none}
+.spotbox summary::after{content:'';flex:none;width:12px;height:12px;background:var(--chev) center/12px no-repeat;transition:transform .18s}
+.spotbox[open] summary::after{transform:rotate(180deg)}
+.spotbody{display:grid;grid-template-columns:76px minmax(0,1fr);gap:16px;align-items:center;margin-top:10px}
+.spotbody:not(:has(.spotpic)){grid-template-columns:minmax(0,1fr)}
+.spotpic svg{width:76px;height:auto;display:block}
+.spottext{display:flex;flex-direction:column;gap:6px}
+.spotvs{list-style:none;margin:12px 0 2px;padding:10px 0 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--muted)}
+.spotvs b{color:var(--ink);font-weight:600;margin-right:2px}
+@media (prefers-reduced-motion: reduce){.spotbox summary::after{transition:none}}
 .spotbox p{font-size:13.5px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px}
 @media (max-width:420px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
@@ -284,6 +294,7 @@ input[type=checkbox]:disabled{opacity:.45;cursor:default}
 @media (prefers-reduced-motion: reduce){input[type=checkbox],input[type=checkbox]::after{transition:none}}
 /* in Settings the switch sits at the right end of its row */
 .srow > .check{justify-content:space-between;flex-direction:row-reverse;gap:16px}
+.check:has(input:disabled){color:var(--muted);cursor:default}
 .check{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink);cursor:pointer}
 /* settings drawer + help */
 details.drawer{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -694,7 +705,7 @@ window.CubeLabHost = {
       <div class="srow"><label class="check"><input type="checkbox" class="cnBox"> Color neutral</label><span class="stats">Case timer and One-look put a random color on the bottom.</span></div>
       <div class="srow"><label class="check"><input type="checkbox" id="sInsp"> 15-second inspection</label><span class="stats" id="sInspNote">For practice solves. Competition sessions always use it.</span></div>
       <div class="srow"><span class="slabel">Solve scramble type</span><div class="seg" id="sMethod" role="group" aria-label="Which method scrambles are built for" style="align-self:flex-start;flex-wrap:wrap"></div><span class="stats" id="sMethodNote"></span></div>
-      <div class="srow"><label class="check"><input type="checkbox" id="gAlerts"> Inspection calls at 8 and 12 seconds</label><span class="stats">A beep and a vibration (where your device allows it), like a judge calling the time.</span></div>
+      <div class="srow"><label class="check"><input type="checkbox" id="gAlerts"> Inspection calls at 8 and 12 seconds</label><span class="stats">A beep and a vibration (where your device allows it), like a judge calling the time. Needs inspection on; competition sessions always call.</span></div>
       <div class="srow"><label class="check"><input type="checkbox" id="gWake"> Keep the screen on while practicing</label></div>
     </div>
     <div class="setgroup">
@@ -904,7 +915,7 @@ window.CubeLabHost = {
       <span class="glabel">Practice</span><span class="stats">These settings apply to both the 2x2 and the 3x3.</span>
       <div class="srow"><label class="check"><input type="checkbox" id="gCN"> Color neutral</label><span class="stats">Any color can be the cross. The case timer tells you how to hold the cube; flashcards and the recognition drill show cases in other colors; auto solve picks the shortest cross.</span></div>
       <div class="srow"><label class="check"><input type="checkbox" id="sInsp"> 15-second inspection</label><span class="stats" id="sInspNote">For practice solves. Competition sessions always use it.</span></div>
-      <div class="srow"><label class="check"><input type="checkbox" id="gAlerts"> Inspection calls at 8 and 12 seconds</label><span class="stats">A beep and a vibration (where your device allows it), like a judge calling the time.</span></div>
+      <div class="srow"><label class="check"><input type="checkbox" id="gAlerts"> Inspection calls at 8 and 12 seconds</label><span class="stats">A beep and a vibration (where your device allows it), like a judge calling the time. Needs inspection on; competition sessions always call.</span></div>
       <div class="srow"><label class="check"><input type="checkbox" id="gWake"> Keep the screen on while practicing</label></div>
     </div>
     <div class="setgroup">
@@ -993,6 +1004,24 @@ window.CubeLabHost = {
 <script>
 // Cube Lab: the 2x2 and 3x3 trainers share one page. Each runs in its own container with its own data;
 // only the puzzle on screen gets keyboard, click and link events.
+function spotPic(n, top, front, right){
+  const c = Math.cos(Math.PI/6), s = 112/(2*n*c), ox = 60, oy = 4;
+  const P = (i,j,z) => [(ox + (i-j)*c*s).toFixed(1), (oy + (i+j)*.5*s - (z-n)*s).toFixed(1)].join(',');
+  const col = v => `var(--s-${v})`, poly = (pts, v) => `<polygon points="${pts.join(' ')}" fill="${col(v)}" stroke="var(--s-edge)" stroke-width="1.2" stroke-linejoin="round"/>`;
+  let g = `<svg viewBox="0 0 120 ${Math.ceil(2*n*s + 8)}" class="diag iso" aria-hidden="true">`;
+  for (let r=0;r<n;r++) for (let k=0;k<n;k++){
+    g += poly([P(k,r,n), P(k+1,r,n), P(k+1,r+1,n), P(k,r+1,n)], top[r*n+k]);
+    g += poly([P(k,n,n-r), P(k+1,n,n-r), P(k+1,n,n-r-1), P(k,n,n-r-1)], front[r*n+k]);
+    g += poly([P(n,n-k,n-r), P(n,n-k-1,n-r), P(n,n-k-1,n-r-1), P(n,n-k,n-r-1)], right[r*n+k]); }
+  return g + '</svg>'; }
+// the "How to spot" panel for a group: open or closed (remembered per group), picture, rule, and how to tell it apart
+function spotPanel(D, group, title, gi){ const shut = (D.prefs.spotShut||'').split(',').includes(group), p = gi.pic;
+  return `<details class="spotbox" data-spot="${group}"${shut ? '' : ' open'}><summary><span class="label">How to spot ${title}</span></summary>
+    <div class="spotbody">${p ? `<div class="spotpic">${spotPic(p[0], p[1], p[2], p[3])}</div>` : ''}<div class="spottext"><p>${gi.spot}</p><p class="rec">${gi.then}</p></div></div>
+    ${gi.vs ? `<ul class="spotvs">${gi.vs.map(([a,b])=>`<li><b>${a}</b> ${b}</li>`).join('')}</ul>` : ''}</details>`; }
+function spotToggle(D, save){ return e => { const d = e.target; if (!d.matches || !d.matches('details.spotbox')) return;
+  const g = d.dataset.spot, l = (D.prefs.spotShut||'').split(',').filter(x=>x && x!==g); if (!d.open) l.push(g);
+  const v = l.join(','); if (v !== (D.prefs.spotShut||'')){ D.prefs.spotShut = v; save(); } }; }
 const SepRule = (() => {
   const SKIP = '.hidden-alg, option, select, textarea, input, script, style, title, code, .alg, [contenteditable]';
   function fix(node){ const p = node.parentElement; if (!p || p.closest(SKIP)) return;
@@ -1252,7 +1281,7 @@ function makeSV(X){
     if (s==='running' && entry==='split' && SPLIT_STEPS) $('#sHint').textContent = splitHint();
     $('#sCancelRow').hidden = !(inInsp && s!=='running'); }
   // throw away an inspection without recording anything
-  let actx = null, call8 = false, call12 = false; const alertsOn = () => D.prefs.alerts!==false;
+  let actx = null, call8 = false, call12 = false; const alertsOn = () => isComp() || (!!D.prefs.insp && D.prefs.alerts!==false);
   function primeAudio(){ if (!alertsOn()) return; try { actx = actx || new (window.AudioContext||window.webkitAudioContext)(); if (actx.state==='suspended') actx.resume(); } catch(e){ actx = null; } }
   function beep(n){ if (!alertsOn()) return;
     try { if (actx){ const t = actx.currentTime; for (let i=0;i<n;i++){ const o = actx.createOscillator(), g = actx.createGain(), at = t + i*.2; o.frequency.value = 880; g.gain.setValueAtTime(.0001, at); g.gain.exponentialRampToValueAtTime(.25, at+.01); g.gain.exponentialRampToValueAtTime(.0001, at+.13); o.connect(g); g.connect(actx.destination); o.start(at); o.stop(at+.14); } } } catch(e){}
@@ -1490,7 +1519,8 @@ function makeSV(X){
     const r = e.target.closest('[data-sopen]'); if (r){ const i = +r.dataset.sopen; sOpen = sOpen===i ? null : i; renderList(); } });
   $('#sList').addEventListener('keydown', e=>{ if (e.key!=='Enter') return; const r = e.target.closest('[data-sopen]'); if (!r || e.target!==r) return; e.preventDefault(); const i = +r.dataset.sopen; sOpen = sOpen===i ? null : i; renderList(); const nr = $(`#sList [data-sopen="${i}"]`); if (nr) nr.focus(); });
   $('#sCancel').addEventListener('click', e=>{ e.stopPropagation(); cancelInsp(); });
-  $('#sInsp').addEventListener('change', ()=>{ D.prefs.insp = $('#sInsp').checked; X.shareSet('insp'); renderSessions(); if (state==='idle') setS('idle'); });
+  $('#sInsp').addEventListener('change', ()=>{ D.prefs.insp = $('#sInsp').checked; X.shareSet('insp');
+    { const a = $('#gAlerts'); if (a){ a.disabled = !D.prefs.insp; a.checked = !!D.prefs.insp && D.prefs.alerts!==false; } } renderSessions(); if (state==='idle') setS('idle'); });
   $('#sNext').addEventListener('click', ()=>{ if (state==='idle') newScramble(); });
   $('#sSess').addEventListener('change', ()=>{ sOpen = null; D.cur = $('#sSess').value; pbNote = ''; save(); render(false); });
   const newSess = comp => { const ss = sessions(), s = {id:'s'+Date.now(), name:(comp?'Comp ':'Session ')+(ss.filter(z=>!!z.comp===comp).length+1), solves:[]}; if (comp) s.comp = true; ss.push(s); D.cur = s.id; pbNote=''; sOpen = null; save(); render(false); newScramble(); };
@@ -1767,10 +1797,14 @@ const SET_INFO = {
   'O':{spot:'The whole top is yellow.', hold:'Hold it as the case says.'}
 };
 const GROUP_INFO = {
-  'CLL':{spot:'The whole bottom layer is solved: every side of the bottom shows headlights.', then:'Read the top. How the bottom is turned doesn\'t matter, so ignore it.'},
-  'EG-1':{spot:'The bottom face is white, but exactly one side of the bottom layer shows headlights (the bar).', then:'Read the top the same way as CLL. Each case then says where the bar goes: turn the bottom (D) to put it there before the algorithm.'},
-  'Ortega':{spot:'Solve the bottom face (any order), orient the top with an OLL, then fix both layers at once with a PBL.', then:'Only 12 algorithms, so it\'s a good first method before CLL and EG.'},
-  'EG-2':{spot:'The bottom face is white, but no side of the bottom layer shows headlights.', then:'Read the top the same way as CLL. How the bottom is turned doesn\'t matter for these algorithms.'}};
+  'CLL':{spot:'The whole bottom layer is solved: every side of the bottom shows headlights.', then:'Read the top. How the bottom is turned doesn\'t matter, so ignore it.',
+    pic:[2, ['X','X','X','X'], ['X','X','F','F'], ['X','X','R','R']], vs:[['EG-1:','only one side of the bottom has headlights.'],['EG-2:','no side of the bottom has headlights.']]},
+  'EG-1':{spot:'The bottom face is white, but exactly one side of the bottom layer shows headlights (the bar).', then:'Read the top the same way as CLL. Each case then says where the bar goes: turn the bottom (D) to put it there before the algorithm.',
+    pic:[2, ['X','X','X','X'], ['X','X','F','F'], ['X','X','B','R']], vs:[['CLL:','every side of the bottom has headlights.'],['EG-2:','no side of the bottom has headlights.']]},
+  'Ortega':{spot:'Solve the bottom face (any order), orient the top with an OLL, then fix both layers at once with a PBL.', then:'Only 12 algorithms, so it\'s a good first method before CLL and EG.',
+    pic:[2, ['U','U','U','U'], ['L','F','X','X'], ['B','R','X','X']], vs:[['CLL and EG:','one alg does the whole top, but the bottom face has to be done first.']]},
+  'EG-2':{spot:'The bottom face is white, but no side of the bottom layer shows headlights.', then:'Read the top the same way as CLL. How the bottom is turned doesn\'t matter for these algorithms.',
+    pic:[2, ['X','X','X','X'], ['X','X','F','B'], ['X','X','R','L']], vs:[['CLL:','every side of the bottom has headlights.'],['EG-1:','exactly one side has them.']]}};
 const OPP = {F:'B',B:'F',R:'L',L:'R',U:'D',D:'U'};
 // recolor so the piece in the down-back-left slot reads as white/blue/orange (a whole-cube relabel)
 const recolor = s => { const sl=Cube.SLOTS[7], map={}; sl.forEach(i=>{ map[s[i]]=Cube.ST[i].f; }); for (const c of Object.keys(map)) map[OPP[c]]=OPP[map[c]]; return s.map(c=>map[c]); };
@@ -2183,6 +2217,7 @@ $('#caseBody').addEventListener('click', e=>{ const c = BYID[caseId]; if (!c) re
 });
 $('#learnSets').addEventListener('click', e=>{ const l=e.target.closest('a.morelink'); if(!l) return; e.preventDefault(); openCase(l.closest('.case').dataset.id); });
 function fillMore(card){ const d=card && card.querySelector('details.more'); if(!d) return; const inner=d.querySelector('.moreinner'); if(inner.dataset.filled) return; inner.innerHTML=moreHTML(BYID[card.dataset.id]); inner.dataset.filled='1'; }
+$('#learnSets').addEventListener('toggle', spotToggle(D, ()=>save()), true);
 function renderLearn(){
   $('#learnGroup').innerHTML = GROUPS.map(g=>`<button aria-pressed="${g===learnGroup}" data-g="${g}">${g}</button>`).join('');
   const sets = SETS.filter(s=>CASES.some(c=>c.g===learnGroup&&c.set===s));
@@ -2190,7 +2225,7 @@ function renderLearn(){
   $('#learnFilter').innerHTML = ['All',...sets].map(s=>`<button class="chip" aria-pressed="${s===learnFilter}" data-set="${s}">${SET_NAME[s]||s}</button>`).join('');
   const show = learnFilter==='All' ? sets : [learnFilter];
   const gi = GROUP_INFO[learnGroup];
-  $('#learnSets').innerHTML = `<div class="spotbox"><span class="label">How to spot ${learnGroup}</span><p>${gi.spot}</p><p class="rec">${gi.then}</p></div>` + show.map(set=>{
+  $('#learnSets').innerHTML = spotPanel(D, learnGroup, learnGroup, gi) + show.map(set=>{
     const oc = CASES.find(c=>c.g===learnGroup&&c.set===set), ori = oc.state;
     return `<div class="setblock"><div class="sethead">${set==='PBL'?'':caseSVG(ori,'oll')}<div><h2>${learnGroup==='Ortega'?set:learnGroup+' · '+(SET_NAME[set]||set)}</h2><p><b>Spot the set:</b> ${SET_INFO[set].spot}</p><p><b>Hold:</b> ${SET_INFO[set].hold}</p></div></div>
       <div class="grid">${CASES.filter(c=>c.g===learnGroup&&c.set===set).map(caseCard).join('')}</div></div>`;
@@ -3077,7 +3112,7 @@ const applyTheme = () => { const t = D.prefs.theme; if (t==='light' || t==='dark
 applyTheme();
 function renderSettings(){
   $('#gTheme').innerHTML = [['system','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button aria-pressed="${(D.prefs.theme||'system')===v}" data-th="${v}">${l}</button>`).join('');
-  $('#gWake').checked = D.prefs.wake!==false; $('#gAnim').checked = D.prefs.anim!==false; $('#gAlerts').checked = D.prefs.alerts!==false;
+  $('#gWake').checked = D.prefs.wake!==false; $('#gAnim').checked = D.prefs.anim!==false; $('#gAlerts').disabled = !D.prefs.insp; $('#gAlerts').checked = !!D.prefs.insp && D.prefs.alerts!==false;
   const comp = !!((D.sessions||[]).find(x=>x.id===D.cur)||{}).comp, ib = $('#sInsp');
   ib.checked = comp || !!D.prefs.insp; ib.disabled = comp; ib.closest('label').classList.toggle('off', comp);
   $('#sInspNote').textContent = comp ? 'On for this Competition session. Switch to a Practice session to change it.' : 'For practice solves. Competition sessions always use it.';
@@ -3504,11 +3539,16 @@ const SET_INFO = {
   'Permute edges':{spot:'Corners are done. Look for a fully solved side.', hold:'Ua / Ub: solved side at the back. H and Z: no solved side.'},
 };
 const GROUP_INFO = {
-  'PLL':{spot:'The top is all yellow. Read the two sides you can see: headlights (matching corner pair), bars (a full matching row) and which edges belong between them.', then:'Every PLL leaves the cube solved after at most one final U turn.'},
-  'OLL':{spot:'F2L is done. Look only at yellow: the shape on top, plus yellow stickers on the sides of the top layer.', then:'After OLL the whole top is yellow. Then PLL.'},
-  'F2L':{spot:'Cross on the bottom. Find the white corner and its matching edge for the front-right slot.', then:'All cases here insert into the front-right slot. Turn the cube (or use the matching left-hand alg) for other slots.'},
-  'ZBLL':{spot:'F2L is done and all four top edges already show yellow (ZZ, or edge control in the last slot). Read the corners first: they tell you the set and the group. Then read the side colors for the edges.', then:'One alg solves the whole last layer. There are 472 cases, so learn one group of 12 at a time. Knowing COLL first helps.'},
-  '2-look':{spot:'Beginner last layer in four short steps: yellow edges, yellow corners, then corners and edges into place.', then:'Ten algs total. Learn these first, then move on to the full OLL and PLL.'},
+  'PLL':{spot:'The top is all yellow. Read the two sides you can see: headlights (matching corner pair), bars (a full matching row) and which edges belong between them.', then:'Every PLL leaves the cube solved after at most one final U turn.',
+    pic:[3, ['U','U','U','U','U','U','U','U','U'], ['L','F','L','X','X','X','X','X','X'], ['B','R','F','X','X','X','X','X','X']], vs:[['OLL:','some yellow is still on the sides of the top layer.']]},
+  'OLL':{spot:'F2L is done. Look only at yellow: the shape on top, plus yellow stickers on the sides of the top layer.', then:'After OLL the whole top is yellow. Then PLL.',
+    pic:[3, ['X','U','X','X','U','U','U','X','X'], ['X','U','X','X','X','X','X','X','X'], ['U','X','U','X','X','X','X','X','X']], vs:[['PLL:','the top is already all yellow.'],['F2L:','the first two layers aren\'t done yet.']]},
+  'F2L':{spot:'Cross on the bottom. Find the white corner and its matching edge for the front-right slot.', then:'All cases here insert into the front-right slot. Turn the cube (or use the matching left-hand alg) for other slots.',
+    pic:[3, ['X','X','X','X','X','X','X','X','X'], ['X','X','X','F','F','L','F','F','B'], ['X','X','X','U','R','R','F','R','R']], vs:[['OLL and PLL:','the first two layers are done; only the top is left.']]},
+  'ZBLL':{spot:'F2L is done and all four top edges already show yellow (ZZ, or edge control in the last slot). Read the corners first: they tell you the set and the group. Then read the side colors for the edges.', then:'One alg solves the whole last layer. There are 472 cases, so learn one group of 12 at a time. Knowing COLL first helps.',
+    pic:[3, ['U','U','X','U','U','U','X','U','U'], ['U','F','L','X','X','X','X','X','X'], ['L','R','U','X','X','X','X','X','X']], vs:[['OLL:','some top edges aren\'t yellow yet.'],['PLL:','every top corner is already yellow on top.']]},
+  '2-look':{spot:'Beginner last layer in four short steps: yellow edges, yellow corners, then corners and edges into place.', then:'Ten algs total. Learn these first, then move on to the full OLL and PLL.',
+    pic:[3, ['X','U','X','U','U','U','X','U','X'], ['X','X','X','X','X','X','X','X','X'], ['X','X','X','X','X','X','X','X','X']], vs:[['OLL and PLL:','the same job in two algs instead of four, with many more to learn.']]},
 };
 // cases
 Object.assign(SET_INFO, {"ZBLL T":{spot:"Two yellow corners up side by side. The other two show yellow on opposite sides (like OLL 24, Chameleon).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL U":{spot:"Two yellow corners up side by side. The other two both show yellow on the same side (like OLL 23, Headlights).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL L":{spot:"Two yellow corners up, diagonal from each other. The other two show yellow on sides that meet (like OLL 25, Bowtie).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL H":{spot:"No corners up. Yellow shows as headlights on two opposite sides (like OLL 21, H).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL Pi":{spot:"No corners up. Yellow headlights on one side; the other two corners point opposite ways (like OLL 22, Pi).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL S":{spot:"One yellow corner up. The other three twist the same way as a Sune (OLL 27).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL AS":{spot:"One yellow corner up. The other three twist the same way as an Anti-Sune (OLL 26).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."}});
@@ -4450,6 +4490,7 @@ function zbGrid(set){ const cs = CASES.filter(c=>c.set===set), subs = [...new Se
   return subs.map((sb,i)=>{ const g = cs.filter(c=>c.sub===sb), a = g.filter(c=>status(c.id)==='learned').length, b = g.filter(c=>status(c.id)==='learning').length;
     return `<div class="zbsub"><div class="zbhead">${topSVG(g[0], g[0].state, {mode:'coll'})}<div><h3>${esc(SET_SHORT[set]||set)} · group ${i+1}</h3><p>${esc(g[0].name)} to ${esc(g[g.length-1].name)} · ${a}/${g.length} learned${b?` · ${b} learning`:''}</p></div></div>
       <div class="grid">${g.map(caseCard).join('')}</div></div>`; }).join(''); }
+$('#learnSets').addEventListener('toggle', spotToggle(D, ()=>save()), true);
 function renderLearn(){
   $('#learnGroup').innerHTML = GROUPS.map(g=>`<button aria-pressed="${g===learnGroup}" data-g="${g}">${g}</button>`).join('');
   const sets = GSETS[learnGroup];
@@ -4458,7 +4499,7 @@ function renderLearn(){
   $('#learnFilter').innerHTML = (zb ? sets : ['All',...sets]).map(s=>`<button class="chip" aria-pressed="${s===learnFilter}" data-set="${s}">${SET_SHORT[s]||s}</button>`).join('');
   const show = learnFilter==='All' ? sets : [learnFilter];
   const gi = GROUP_INFO[learnGroup];
-  $('#learnSets').innerHTML = `<div class="spotbox"><span class="label">How to spot ${learnGroup==='2-look'?'2-look cases':learnGroup}</span><p>${gi.spot}</p><p class="rec">${gi.then}</p></div>` + show.map(set=>{
+  $('#learnSets').innerHTML = spotPanel(D, learnGroup, learnGroup==='2-look'?'2-look cases':learnGroup, gi) + show.map(set=>{
     const si = SET_INFO[set] || {spot:'',hold:''};
     return `<div class="setblock"><div class="sethead"><div><h2>${learnGroup==='2-look'?'2-look · ':learnGroup+' · '}${esc(setLabel(set))}</h2><p><b>Spot the set:</b> ${si.spot}</p><p><b>Hold:</b> ${si.hold}</p></div></div>
       ${learnGroup==='ZBLL' ? zbGrid(set) : `<div class="grid">${CASES.filter(c=>c.set===set).map(caseCard).join('')}</div>`}</div>`;
@@ -5130,7 +5171,7 @@ const applyTheme = () => { const t = D.prefs.theme; if (t==='light' || t==='dark
 applyTheme();
 function renderSettings(){
   $('#gTheme').innerHTML = [['system','System'],['light','Light'],['dark','Dark']].map(([v,l])=>`<button aria-pressed="${(D.prefs.theme||'system')===v}" data-th="${v}">${l}</button>`).join('');
-  $('#gCN').checked = cnOn(); $('#gZB').checked = zbOn(); $('#gWake').checked = D.prefs.wake!==false; $('#gAnim').checked = D.prefs.anim!==false; $('#gAlerts').checked = D.prefs.alerts!==false;
+  $('#gCN').checked = cnOn(); $('#gZB').checked = zbOn(); $('#gWake').checked = D.prefs.wake!==false; $('#gAnim').checked = D.prefs.anim!==false; $('#gAlerts').disabled = !D.prefs.insp; $('#gAlerts').checked = !!D.prefs.insp && D.prefs.alerts!==false;
   const comp = !!((D.sessions||[]).find(x=>x.id===D.cur)||{}).comp, ib = $('#sInsp');
   ib.checked = comp || !!D.prefs.insp; ib.disabled = comp; ib.closest('label').classList.toggle('off', comp);
   $('#sInspNote').textContent = comp ? 'On for this Competition session. Switch to a Practice session to change it.' : 'For practice solves. Competition sessions always use it.'; }
