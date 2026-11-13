@@ -594,7 +594,7 @@ window.CubeLabHost = {
     <div class="panel" id="tRecent"><div class="row" style="justify-content:space-between"><span class="label">Recent solves</span><span class="stats" id="tAvg"></span></div><div class="hist" id="tHist"></div></div>
     <div class="panel" id="csPanel">
       <div class="row" style="justify-content:space-between"><span class="label">Case stats</span><select id="csGroup" aria-label="Which set to show"></select></div>
-      <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards; TPS from Alg only.</p>
+      <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards; TPS from your times with the alg you use.</p>
       <p class="stats" id="csTps" hidden></p>
       <div class="tblwrap"><table class="cst" id="csTable"></table></div>
       <label class="stats row" style="gap:6px"><input type="checkbox" id="csAll"> Show cases with no data yet</label>
@@ -803,7 +803,7 @@ window.CubeLabHost = {
     <div class="panel" id="tRecent"><div class="row" style="justify-content:space-between"><span class="label">Recent solves</span><span class="stats" id="tAvg"></span></div><div class="hist" id="tHist"></div></div>
     <div class="panel" id="csPanel">
       <div class="row" style="justify-content:space-between"><span class="label">Case stats</span><select id="csGroup" aria-label="Which set to show"></select></div>
-      <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards and the recognition drill; TPS from Alg only.</p>
+      <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards and the recognition drill; TPS from your times with the alg you use.</p>
       <p class="stats" id="csTps" hidden></p>
       <div class="tblwrap"><table class="cst" id="csTable"></table></div>
       <label class="stats row" style="gap:6px"><input type="checkbox" id="csAll"> Show cases with no data yet</label>
@@ -1774,6 +1774,9 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   for (const [k,v] of Object.entries(o.custom)){ let ok = v.length <= 300; if (ok) try { Cube.parse(v); } catch(e){ ok = false; } if (!ok) delete o.custom[k]; }
   for (const [k,v] of Object.entries(o.notes)) if (v.length > 2000) o.notes[k] = v.slice(0, 2000);
   for (const v of Object.values(o.cstat)) counts(v, ['n','d']);
+  if (!isObj(o.prefs)) o.prefs = {};
+  if (!o.prefs.oneAvg){ for (const [id,a] of Object.entries(o.atimes)){ if (!a.length) continue; o.times[id] = (o.times[id]||[]).concat(a).slice(-50);
+      const cs = o.cstat[id] || (o.cstat[id] = {n:0, d:0}); cs.n += a.length; } o.prefs.oneAvg = 1; }
   for (const v of Object.values(o.cards)) counts(v, ['h','m']);
   for (const v of Object.values(o.crs)) counts(v, ['n','c']);
   for (const v of Object.values(o.algt)) for (const a of Object.keys(v)) v[a] = v[a].filter(num);
@@ -2011,7 +2014,7 @@ const noteOf = c => (D.notes[c.id]||'').trim();
 const noteHTML = c => noteOf(c) ? `<p class="notebox"><b>Your notes</b><br>${esc(noteOf(c))}</p>` : '';
 const recAvg = id => { const r = D.recog[id]; if (!r || !r.length) return null; const t = r.slice(-10); return t.reduce((a,b)=>a+b,0)/t.length; };
 // ---- how much each case needs work, from everything the app records ----
-// recognition (timed flashcards), execution (Alg only, as moves per second), full case time (Scramble), DNFs, misses and recent trend.
+// recognition (timed flashcards), case time (Scramble and Alg only together), alg length, DNFs, misses and recent trend.
 // Each is compared with YOUR usual for that measure, so 1 = typical for you, above 1 = weaker.
 const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)=>x-y), m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(algPair(c).alg)); };
@@ -2031,15 +2034,14 @@ const shortHint = (c, nd) => { if (!nd.long) return ''; const s = shorterAlt(c);
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
-  const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:focus==='a'?.5:1, you:r, usual:B.rec});
-  const tp = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (tp && B.tps) parts.push({k:'exec', v:clamp(B.tps/tp), w:focus==='a'?2:1, you:tp, usual:B.tps});
-  const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:focus==='a'?.5:1.2, you:a, usual:fb});
-  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual});
+  const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:1, you:r, usual:B.rec});
+  const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:1.2, you:a, usual:fb});
+  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:.5, you:ln.you, usual:ln.usual});
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0, miss = cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
-  const n = (D.times[c.id]||[]).length + (D.atimes[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
+  const n = (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
   let score = parts.length ? parts.reduce((x,p)=>x+p.v*p.w,0) / parts.reduce((x,p)=>x+p.w,0) : null;
-  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(focus==='a' ? D.atimes[c.id] : D.times[c.id]); }
+  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(D.times[c.id]); }
   let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .34 ? 'weak' : score <= .95 ? 'strong' : 'ok';
   // the single biggest reason, in words
   let why = ''; const worst = parts.slice().sort((x,y)=>y.v-x.v)[0];
@@ -2065,11 +2067,11 @@ function caseCard(c){
 }
 // the details panel of a case card is built the first time it's opened
 function moreHTML(c){ const a=avg(c.id), cd=D.cards[c.id], nd=need(c), at=D.algt[c.id]||{};
-  const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your Alg only avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
+  const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
   return `<span>Tap Mine on the alg you use. It replaces the default everywhere.</span>
       ${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      ${D.custom[c.id] && mineIdx(c)<0 && at[D.custom[c.id]] ? algAvg(D.custom[c.id]).replace('Your Alg only avg','Your own alg, Alg only avg') : ''}
+      ${D.custom[c.id] && mineIdx(c)<0 && at[D.custom[c.id]] ? algAvg(D.custom[c.id]).replace('Your avg','Your own alg, avg') : ''}
       <span>Avg time: ${a?a.toFixed(2)+'s ('+D.times[c.id].length+' solves)':'no solves yet'} · Cards: ${cd?cd.h+' right, '+cd.m+' missed':'not drilled'}${recAvg(c.id)?' · Recognition '+recAvg(c.id).toFixed(2)+'s':''}</span>
       <span class="label" style="padding-top:4px">Fingertricks for your alg</span>
       ${ftHTML(algOf(c))}
@@ -2082,7 +2084,7 @@ function moreHTML(c){ const a=avg(c.id), cd=D.cards[c.id], nd=need(c), at=D.algt
 // ---- case page: everything about one case, on its own page ----
 let caseId = null, learnScroll = 0, caseFromLearn = false;
 function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = status(c.id), nd = need(c), a = avg(c.id), cd = D.cards[c.id], cs = D.cstat[c.id], at = D.algt[c.id]||{}, r = recAvg(c.id), tp = tpsOf(c);
-  const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your Alg only avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
+  const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
   const stat = (l, v) => `<div class="cstat"><span>${l}</span><b class="${v==='–'?'mut':''}">${v}</b></div>`;
   $('#caseBody').innerHTML = `
     <div class="chero">${diagBtn(c)}
@@ -2093,7 +2095,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${spot(c)}
     <div class="setgroup"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Scramble avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg only', mineAvg(c.id)!==null ? mineAvg(c.id).toFixed(2)+'s'+(tp ? ' · '+tp.toFixed(1)+' TPS' : '') : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
+      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus">Your own algorithm</label>
@@ -2307,10 +2309,10 @@ let tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr', tPair
 let tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs', fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer', fsLast = null;
 const PRO_TPS = 13;
 function aavg(id){ const t=D.atimes[id]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
-// Alg only average for one alg (the last 12 tries with it). Older data with no per-alg times falls back to every Alg only time.
-function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return aavg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
+// average with one alg (its last 12 times). A case with no per-alg times yet uses the case average.
+function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return avg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
 function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : aavg(id); }
-const kAvg = id => tKind==='alg' ? mineAvg(id) : avg(id);
+const kAvg = id => avg(id);
 const kTimes = id => (tKind==='alg' ? D.atimes : D.times)[id];
 // the setup and the alg it pairs with, so the alg solves exactly what the setup builds
 function algPair(c){ const i=mineIdx(c), l=algList(c); if(i>=0 && l[i].setup) return {setup:l[i].setup, alg:l[i].alg, ak:algOf(c)}; const a=fitAlg(c.state, algOf(c)); return {setup:setupFor(c.state,a), alg:a, ak:algOf(c)}; }
@@ -2478,36 +2480,39 @@ function stopTimer(){ if(tState!=='running') return false; cancelAnimationFrame(
   if(tPrac!=='algs'){ fsStop(ms); return true; }
   if(tKind==='atk'){ atkStop(ms); return true; }
   touchDay();
-  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', arr=k?D.atimes:D.times, ak=k?((tPair&&tPair.ak)||algOf(c)):''; (arr[c.id]=arr[c.id]||[]).push(v); if(arr[c.id].length>(k?30:50)) arr[c.id].shift(); if(k) addAlgT(c.id, ak, v);
-  const cs=D.cstat[c.id]||(D.cstat[c.id]={n:0,d:0}); if(!k) cs.n++; cs.t=Math.round(Date.now()/1000);
+  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', ak=(k && tPair && tPair.ak) || algOf(c); addT(c.id, v, k, ak);
+  const cs=D.cstat[c.id]||(D.cstat[c.id]={n:0,d:0}); cs.n++; cs.t=Math.round(Date.now()/1000);
   if(tMode==='daily' && !tFocus){ const d=ensureDaily(); if(d.ids.includes(c.id) && !d.done.includes(c.id)) d.done.push(c.id); setTimeout(tSummary); }
   save();
   tSess.unshift({c, base:v, pen:'', cur:v, k, ak, mv: k && tPair ? moveCount(tPair.alg) : 0}); keepSess(); save(); renderTRes(); newScramble(); return true; }
-function removeVal(id,v,k,ak){ const a=(k?D.atimes:D.times)[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); }
-  const b=k&&ak&&D.algt[id]&&D.algt[id][ak]; if(b){ const j=b.lastIndexOf(v); if(j>=0) b.splice(j,1); if(!b.length){ delete D.algt[id][ak]; if(!Object.keys(D.algt[id]).length) delete D.algt[id]; } } }
+// Scramble and Alg only times go into the same list, so a case has one average. Alg only times also stay in atimes.
+function addT(id,v,k,ak){ const t=D.times[id]||(D.times[id]=[]); t.push(v); if(t.length>50) t.shift();
+  if(k){ const a=D.atimes[id]||(D.atimes[id]=[]); a.push(v); if(a.length>30) a.shift(); } addAlgT(id, ak, v); }
+function removeVal(id,v,k,ak){ for (const arr of k ? [D.times, D.atimes] : [D.times]){ const a=arr[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); } }
+  const b=ak&&D.algt[id]&&D.algt[id][ak]; if(b){ const j=b.lastIndexOf(v); if(j>=0) b.splice(j,1); if(!b.length){ delete D.algt[id][ak]; if(!Object.keys(D.algt[id]).length) delete D.algt[id]; } } }
 function addAlgT(id,ak,v){ if(!ak) return; const m=D.algt[id]||(D.algt[id]={}); (m[ak]=m[ak]||[]).push(v); if(m[ak].length>30) m[ak].shift(); }
-function setPen(e,p){ if(!e.k){ const cs=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:1,d:0}); if(e.pen==='DNF' && p!=='DNF') cs.d=Math.max(0,cs.d-1); if(e.pen!=='DNF' && p==='DNF') cs.d++; }
-  if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); e.pen=p; const arr=e.k?D.atimes:D.times;
-  if(p!=='DNF'){ e.cur=+(e.base+(p==='+2'?2:0)).toFixed(2); (arr[e.c.id]=arr[e.c.id]||[]).push(e.cur); if(e.k) addAlgT(e.c.id, e.ak, e.cur); } keepSess(); save(); renderTRes(); }
-function delSolve(e){ if(!e) return; const cs=D.cstat[e.c.id]; if(cs && !e.k){ cs.n=Math.max(0,cs.n-1); if(e.pen==='DNF') cs.d=Math.max(0,cs.d-1); } if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); const at=tSess.indexOf(e); tSess.splice(at,1); keepSess(); save(); renderTRes();
-  Toast.show(`Deleted ${e.c.full} · ${showT(e)}`, ()=>{ tSess.splice(Math.min(at,tSess.length),0,e); if(e.pen!=='DNF'){ const arr=e.k?D.atimes:D.times; (arr[e.c.id]=arr[e.c.id]||[]).push(e.cur); if(e.k) addAlgT(e.c.id, e.ak, e.cur); }
-    if(!e.k){ const c2=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:0,d:0}); c2.n++; if(e.pen==='DNF') c2.d++; } keepSess(); save(); renderTRes(); }); }
+function setPen(e,p){ { const cs=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:1,d:0}); if(e.pen==='DNF' && p!=='DNF') cs.d=Math.max(0,cs.d-1); if(e.pen!=='DNF' && p==='DNF') cs.d++; }
+  if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); e.pen=p;
+  if(p!=='DNF'){ e.cur=+(e.base+(p==='+2'?2:0)).toFixed(2); addT(e.c.id, e.cur, e.k, e.ak); } keepSess(); save(); renderTRes(); }
+function delSolve(e){ if(!e) return; const cs=D.cstat[e.c.id]; if(cs){ cs.n=Math.max(0,cs.n-1); if(e.pen==='DNF') cs.d=Math.max(0,cs.d-1); } if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); const at=tSess.indexOf(e); tSess.splice(at,1); keepSess(); save(); renderTRes();
+  Toast.show(`Deleted ${e.c.full} · ${showT(e)}`, ()=>{ tSess.splice(Math.min(at,tSess.length),0,e); if(e.pen!=='DNF') addT(e.c.id, e.cur, e.k, e.ak);
+    { const c2=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:0,d:0}); c2.n++; if(e.pen==='DNF') c2.d++; } keepSess(); save(); renderTRes(); }); }
 const showT = e => e.pen==='DNF' ? `DNF (${fmtT(e.base*1000)})` : fmtT(e.cur*1000)+(e.pen==='+2'?'+':'');
 function renderTRes(){
   if(tPrac!=='algs') return renderFsRes();
   const e=tKind==='atk'?null:tSess[0];
   if(!e) $('#tResult').hidden=true;
-  else { const c=e.c, a=e.k?algAvgOf(c.id, e.ak):avg(c.id); $('#tResult').hidden=false;
+  else { const c=e.c, a=avg(c.id); $('#tResult').hidden=false;
     const tps = e.k && e.mv && e.pen!=='DNF' && e.cur>0 ? e.mv/e.cur : null;
     const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%"></i></div>`;
     const st=status(c.id);
     $('#tResult').innerHTML=`<div class="result">${diagBtn(c,{tag:false})}<div>
         <div class="rhead"><h3>${c.full}</h3><button class="status ${st}" data-rst="${c.id}" aria-label="Status for ${c.full}: ${st}. Tap to change">${st}</button></div>
-        <div class="rtime"><span class="rbig">${showT(e)}</span><span class="stats">${e.k?'alg':'case'} avg ${a?a.toFixed(2)+'s':'–'}</span></div>
+        <div class="rtime"><span class="rbig">${showT(e)}</span><span class="stats">case avg ${a?a.toFixed(2)+'s':'–'}</span></div>
         ${tpsHTML}<div class="alg">${esc(algOf(c))}</div>${noteHTML(c)}</div></div>
       <div class="ractions"><div class="seg sm" role="group" aria-label="Penalty">${['','+2','DNF'].map(p=>`<button aria-pressed="${e.pen===p}" data-pen="${p}">${p||'OK'}</button>`).join('')}</div><button class="linkbtn ghost" data-del="0">Delete</button></div>`; }
   $('#tHist').innerHTML=!tSess.length?'<p class="rec">No solves yet. Your last 8 show here.</p>':tSess.slice(0,8).map((x,i)=>`<div><span>${x.c.full}${x.k?' <span class="stats">· alg</span>':''}</span><span class="row" style="gap:10px"><span class="mono">${showT(x)}</span><button class="x sm" data-del="${i}" aria-label="Delete this solve">×</button></span></div>`).join('');
-  const ok=tSess.filter(x=>x.pen!=='DNF' && (x.k||'')===(tKind==='alg'?'a':'')).slice(0,12);
+  const ok=tSess.filter(x=>x.pen!=='DNF').slice(0,12);
   if(!$('#v-timer').hidden) renderCaseStats();
   $('#tAvg').textContent = tSess.length ? `${tSess.length} solve${tSess.length>1?'s':''} · mean of last ${ok.length} (DNFs left out): ${ok.length?fmtT(ok.reduce((s,x)=>s+x.cur*1000,0)/ok.length):'–'}` : '';
   if(tKind==='atk') renderAtk();
@@ -3025,7 +3030,7 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.']],
-    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), alg speed (Alg only), full case time, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
+    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), your case time from the Case timer, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
     ['Ortega',['New to 2x2 speed methods? Start with <b>Ortega</b>: solve the bottom face, orient the top (7 OLLs), then fix both layers (5 PBLs). Its cases work like every other case here, including the Case timer.']],
     ['Suggested order',['CLL first, then EG-1 (adjacent swap on the bottom), then EG-2 (diagonal swap).','Within each: Sune and Anti-Sune, then T, U, L, Pi, H.']],
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
@@ -3037,10 +3042,10 @@ const HELP = {
   timer:{t:'Case timer', s:[
     ['Algs or First side',['<b>Algs</b> times the cases in your sets. <b>First side</b> times the first step of a solve on a random scramble.','Pick <b>Face</b> (one color, for EG and Ortega) or <b>Layer</b> (a face with matching sides, for CLL). Plan it, then time it.','After you stop you see the shortest one and can tap whether yours was that short. With <b>color neutral</b> on, it looks across all six colors; otherwise it uses white.']],
     ['Each attempt',['Hold the cube <b>yellow on top, green in front</b> and apply the scramble.','CLL leaves the white layer solved. EG leaves the white face with the bottom swap; for EG-1, turn the bottom so the bar is where the case says.','Hold the timer (or space) until it turns green, let go to start, tap anywhere or press any key to stop.']],
-    ['Scramble or Alg only',['<b>Alg only</b> shows setup moves from solved, then times just the alg and shows your turns per second next to Pro speed (about 13).']],
+    ['Scramble or Alg only',['<b>Alg only</b> shows setup moves from solved, then times just the alg and shows your turns per second next to Pro speed (about 13).','Both count toward the same case average.']],
     ['Attack',['<b>Attack</b> lists every alg in the sets you picked. Start the clock, do them all back to back, then stop. It keeps your best time for that selection.']],
-    ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.','<b>Weak first</b> uses everything the app knows about a case: recognition, alg speed, full case time, DNFs and whether you\'re improving. In Alg only it leans on alg speed.']],
-    ['Comparing algs',['Alg only times are saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the card\'s details.']],
+    ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.','<b>Weak first</b> uses everything the app knows about a case: recognition, alg speed, full case time, DNFs and whether you\'re improving.']],
+    ['Comparing algs',['Times are also saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the card\'s details.']],
     ['Case stats',['Tap a column to sort, or a case to drill just that one.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']]]},
   solve:{t:'Solve', s:[
@@ -4009,6 +4014,9 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   for (const [k,v] of Object.entries(o.custom)){ let ok = v.length <= 300; if (ok) try { Cube.parse(v); } catch(e){ ok = false; } if (!ok) delete o.custom[k]; }
   for (const [k,v] of Object.entries(o.notes)) if (v.length > 2000) o.notes[k] = v.slice(0, 2000);
   for (const v of Object.values(o.cstat)) counts(v, ['n','d']);
+  if (!isObj(o.prefs)) o.prefs = {};
+  if (!o.prefs.oneAvg){ for (const [id,a] of Object.entries(o.atimes)){ if (!a.length) continue; o.times[id] = (o.times[id]||[]).concat(a).slice(-50);
+      const cs = o.cstat[id] || (o.cstat[id] = {n:0, d:0}); cs.n += a.length; } o.prefs.oneAvg = 1; }
   for (const v of Object.values(o.cards)) counts(v, ['h','m']);
   for (const v of Object.values(o.crs)) counts(v, ['n','c']);
   for (const v of Object.values(o.algt)) for (const a of Object.keys(v)) v[a] = v[a].filter(num);
@@ -4275,8 +4283,8 @@ const recAvg = id => { const r = D.recog[id]; if (!r || !r.length) return null; 
 const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)=>x-y), m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
 const moveCount = a => { try { return Cube.parse(a).filter(([m])=>!'xyz'.includes(m)).length; } catch(e){ return 0; } };
 function aavg(id){ const t=D.atimes[id]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
-// Alg only average for one alg (the last 12 tries with it). Older data with no per-alg times falls back to every Alg only time.
-function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return aavg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
+// average with one alg (its last 12 times). A case with no per-alg times yet uses the case average.
+function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return avg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
 function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : aavg(id); }
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(fitAlg(c, algOf(c)))); };
 const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
@@ -4295,15 +4303,14 @@ const shortHint = (c, nd) => { if (!nd.long) return ''; const s = shorterAlt(c);
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
-  const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:focus==='a'?.5:1, you:r, usual:B.rec});
-  const tp = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (tp && B.tps) parts.push({k:'exec', v:clamp(B.tps/tp), w:focus==='a'?2:1, you:tp, usual:B.tps});
-  const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:focus==='a'?.5:1.2, you:a, usual:fb});
-  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:focus==='a'?.8:.5, you:ln.you, usual:ln.usual});
+  const r = recAvg(c.id); if (r!==null && B.rec) parts.push({k:'rec', v:clamp(r/B.rec), w:1, you:r, usual:B.rec});
+  const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:1.2, you:a, usual:fb});
+  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:.5, you:ln.you, usual:ln.usual});
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0, miss = cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
-  const n = (D.times[c.id]||[]).length + (D.atimes[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
+  const n = (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length + cd.h + cd.m;
   let score = parts.length ? parts.reduce((x,p)=>x+p.v*p.w,0) / parts.reduce((x,p)=>x+p.w,0) : null;
-  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(focus==='a' ? D.atimes[c.id] : D.times[c.id]); }
+  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(D.times[c.id]); }
   let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .34 ? 'weak' : score <= .95 ? 'strong' : 'ok';
   let why = ''; const worst = parts.slice().sort((x,y)=>y.v-x.v)[0];
   if (dnf >= .15) why = `${Math.round(dnf*100)}% DNF in the case timer`;
@@ -4328,7 +4335,7 @@ function caseCard(c){
 // ---- case page ----
 let caseId = null, learnScroll = 0, caseFromLearn = false;
 function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = status(c.id), nd = need(c), a = avg(c.id), cd = D.cards[c.id], cs = D.cstat[c.id], at = D.algt[c.id]||{}, r = recAvg(c.id), tp = tpsOf(c);
-  const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your Alg only avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
+  const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
   const stat = (l, v) => `<div class="cstat"><span>${l}</span><b class="${v==='–'?'mut':''}">${v}</b></div>`;
   const second = c.g==='F2L' ? '' : `<div class="setgroup"><span class="glabel">As you'll see it mid-solve</span><div class="row" style="justify-content:center"><div style="width:min(180px,48vw)">${isoSVG(c, c.state)}</div></div></div>`;
   $('#caseBody').innerHTML = `
@@ -4342,7 +4349,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${second}
     <div class="setgroup"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Scramble avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg only', mineAvg(c.id)!==null ? mineAvg(c.id).toFixed(2)+'s'+(tp ? ' · '+tp.toFixed(1)+' TPS' : '') : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
+      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus3">Your own algorithm</label>
@@ -4549,7 +4556,7 @@ $('#tSets').addEventListener('click', e=>{ if(e.target.closest('[data-allsets]')
 $('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=b.dataset.ts; renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 const PRO_TPS = 12;
-const kAvg = id => tKind==='alg' ? mineAvg(id) : avg(id);
+const kAvg = id => avg(id);
 const kTimes = id => (tKind==='alg' ? D.atimes : D.times)[id];
 function algPair(c){ const a = fitAlg(c, algOf(c)); return {setup:Cube.simplify(Cube.invert(a)), alg:a, ak:algOf(c)}; }
 function renderTKind(){ $('#tKind').innerHTML = [['scr','Scramble'],['alg','Alg only'],['atk','Attack']].map(([v,l])=>`<button aria-pressed="${tKind===v}" data-tk="${v}">${l}</button>`).join(''); }
@@ -4703,35 +4710,38 @@ function stopTimer(){ if(tState!=='running') return false; cancelAnimationFrame(
   if(tPrac!=='algs'){ pracStop(ms); return true; }
   if(tKind==='atk'){ atkStop(ms); return true; }
   touchDay();
-  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', arr=k?D.atimes:D.times, ak=k?((tPair&&tPair.ak)||algOf(c)):''; (arr[c.id]=arr[c.id]||[]).push(v); if(arr[c.id].length>(k?30:50)) arr[c.id].shift(); if(k) addAlgT(c.id, ak, v);
-  const cs=D.cstat[c.id]||(D.cstat[c.id]={n:0,d:0}); if(!k) cs.n++; cs.t=Math.round(Date.now()/1000);
+  const c=tCase, v=+(ms/1000).toFixed(2), k=tKind==='alg'?'a':'', ak=(k && tPair && tPair.ak) || algOf(c); addT(c.id, v, k, ak);
+  const cs=D.cstat[c.id]||(D.cstat[c.id]={n:0,d:0}); cs.n++; cs.t=Math.round(Date.now()/1000);
   if(tMode==='daily' && !tFocus){ const d=ensureDaily(); if(d.ids.includes(c.id) && !d.done.includes(c.id)) d.done.push(c.id); setTimeout(tSummary); }
   tSess.unshift({c, base:v, pen:'', cur:v, k, ak, mv: k && tPair ? moveCount(tPair.alg) : 0}); keepSess(); save(); renderTRes(); newScramble(); return true; }
-function removeVal(id,v,k,ak){ const a=(k?D.atimes:D.times)[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); }
-  const b=k&&ak&&D.algt[id]&&D.algt[id][ak]; if(b){ const j=b.lastIndexOf(v); if(j>=0) b.splice(j,1); if(!b.length){ delete D.algt[id][ak]; if(!Object.keys(D.algt[id]).length) delete D.algt[id]; } } }
+// Scramble and Alg only times go into the same list, so a case has one average. Alg only times also stay in atimes.
+function addT(id,v,k,ak){ const t=D.times[id]||(D.times[id]=[]); t.push(v); if(t.length>50) t.shift();
+  if(k){ const a=D.atimes[id]||(D.atimes[id]=[]); a.push(v); if(a.length>30) a.shift(); } addAlgT(id, ak, v); }
+function removeVal(id,v,k,ak){ for (const arr of k ? [D.times, D.atimes] : [D.times]){ const a=arr[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); } }
+  const b=ak&&D.algt[id]&&D.algt[id][ak]; if(b){ const j=b.lastIndexOf(v); if(j>=0) b.splice(j,1); if(!b.length){ delete D.algt[id][ak]; if(!Object.keys(D.algt[id]).length) delete D.algt[id]; } } }
 function addAlgT(id,ak,v){ if(!ak) return; const m=D.algt[id]||(D.algt[id]={}); (m[ak]=m[ak]||[]).push(v); if(m[ak].length>30) m[ak].shift(); }
-function setPen(e,p){ if(!e.k){ const cs=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:1,d:0}); if(e.pen==='DNF' && p!=='DNF') cs.d=Math.max(0,cs.d-1); if(e.pen!=='DNF' && p==='DNF') cs.d++; }
-  if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); e.pen=p; const arr=e.k?D.atimes:D.times;
-  if(p!=='DNF'){ e.cur=+(e.base+(p==='+2'?2:0)).toFixed(2); (arr[e.c.id]=arr[e.c.id]||[]).push(e.cur); if(e.k) addAlgT(e.c.id, e.ak, e.cur); } keepSess(); save(); renderTRes(); }
-function delSolve(e){ if(!e) return; const cs=D.cstat[e.c.id]; if(cs && !e.k){ cs.n=Math.max(0,cs.n-1); if(e.pen==='DNF') cs.d=Math.max(0,cs.d-1); } if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); const at=tSess.indexOf(e); tSess.splice(at,1); keepSess(); save(); renderTRes();
-  Toast.show(`Deleted ${e.c.full} · ${showT(e)}`, ()=>{ tSess.splice(Math.min(at,tSess.length),0,e); if(e.pen!=='DNF'){ const arr=e.k?D.atimes:D.times; (arr[e.c.id]=arr[e.c.id]||[]).push(e.cur); if(e.k) addAlgT(e.c.id, e.ak, e.cur); }
-    if(!e.k){ const c2=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:0,d:0}); c2.n++; if(e.pen==='DNF') c2.d++; } keepSess(); save(); renderTRes(); }); }
+function setPen(e,p){ { const cs=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:1,d:0}); if(e.pen==='DNF' && p!=='DNF') cs.d=Math.max(0,cs.d-1); if(e.pen!=='DNF' && p==='DNF') cs.d++; }
+  if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); e.pen=p;
+  if(p!=='DNF'){ e.cur=+(e.base+(p==='+2'?2:0)).toFixed(2); addT(e.c.id, e.cur, e.k, e.ak); } keepSess(); save(); renderTRes(); }
+function delSolve(e){ if(!e) return; const cs=D.cstat[e.c.id]; if(cs){ cs.n=Math.max(0,cs.n-1); if(e.pen==='DNF') cs.d=Math.max(0,cs.d-1); } if(e.pen!=='DNF') removeVal(e.c.id,e.cur,e.k,e.ak); const at=tSess.indexOf(e); tSess.splice(at,1); keepSess(); save(); renderTRes();
+  Toast.show(`Deleted ${e.c.full} · ${showT(e)}`, ()=>{ tSess.splice(Math.min(at,tSess.length),0,e); if(e.pen!=='DNF') addT(e.c.id, e.cur, e.k, e.ak);
+    { const c2=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:0,d:0}); c2.n++; if(e.pen==='DNF') c2.d++; } keepSess(); save(); renderTRes(); }); }
 const showT = e => e.pen==='DNF' ? `DNF (${fmtT(e.base*1000)})` : fmtT(e.cur*1000)+(e.pen==='+2'?'+':'');
 function renderTRes(){
   if(tPrac!=='algs') return renderPracRes();
   const e=tKind==='atk'?null:tSess[0];
   if(!e) $('#tResult').hidden=true;
-  else { const c=e.c, a=e.k?algAvgOf(c.id, e.ak):avg(c.id); $('#tResult').hidden=false;
+  else { const c=e.c, a=avg(c.id); $('#tResult').hidden=false;
     const tps = e.k && e.mv && e.pen!=='DNF' && e.cur>0 ? e.mv/e.cur : null;
     const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%"></i></div>`;
     const st=status(c.id);
     $('#tResult').innerHTML=`<div class="result">${diagBtn(c,{tag:false})}<div>
         <div class="rhead"><h3>${esc(c.full)}</h3><button class="status ${st}" data-rst="${c.id}" aria-label="Status for ${esc(c.full)}: ${st}. Tap to change">${st}</button></div>
-        <div class="rtime"><span class="rbig">${showT(e)}</span><span class="stats">${e.k?'alg':'case'} avg ${a?a.toFixed(2)+'s':'–'}</span></div>
+        <div class="rtime"><span class="rbig">${showT(e)}</span><span class="stats">case avg ${a?a.toFixed(2)+'s':'–'}</span></div>
         ${tpsHTML}<div class="alg">${esc(algOf(c))}</div>${noteHTML(c)}</div></div>
       <div class="ractions"><div class="seg sm" role="group" aria-label="Penalty">${['','+2','DNF'].map(p=>`<button aria-pressed="${e.pen===p}" data-pen="${p}">${p||'OK'}</button>`).join('')}</div><button class="linkbtn ghost" data-del="0">Delete</button></div>`; }
   $('#tHist').innerHTML=!tSess.length?'<p class="rec">No solves yet. Your last 8 show here.</p>':tSess.slice(0,8).map((x,i)=>`<div><span>${esc(x.c.full)}${x.k?' <span class="stats">· alg</span>':''}</span><span class="row" style="gap:10px"><span class="mono">${showT(x)}</span><button class="x sm" data-del="${i}" aria-label="Delete this solve">×</button></span></div>`).join('');
-  const ok=tSess.filter(x=>x.pen!=='DNF' && (x.k||'')===(tKind==='alg'?'a':'')).slice(0,12);
+  const ok=tSess.filter(x=>x.pen!=='DNF').slice(0,12);
   if(!$('#v-timer').hidden) renderCaseStats();
   $('#tAvg').textContent = tSess.length ? `${tSess.length} solve${tSess.length>1?'s':''} · mean of last ${ok.length} (DNFs left out): ${ok.length?fmtT(ok.reduce((s,x)=>s+x.cur*1000,0)/ok.length):'–'}` : '';
   if(tKind==='atk') renderAtk();
@@ -5062,7 +5072,7 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
-    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), alg speed (Alg only), full case time, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
+    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), your case time from the Case timer, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
     ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Turn it on in Settings, then learn it a group of 12 at a time.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
@@ -5073,10 +5083,10 @@ const HELP = {
   timer:{t:'Case timer', s:[
     ['Algs, Cross or F2L',['<b>Algs</b> times the cases in your sets. <b>Cross</b> and <b>F2L</b> time one step of a solve.','For both, scramble with white on top and green in front, then turn the cube over (x2) so white is on the bottom.','With <b>color neutral</b> on (in Settings), Cross shows the shortest cross on any color, and F2L starts with a cross on a random color already solved.','<b>Cross</b>: pick how many moves the best cross takes, plan it, then time it. After you stop you see the best cross and can tap whether yours was that short.','<b>F2L</b>: the white cross is already solved, so time all four pairs. <b>Compare with the auto solver</b> shows another way through.']],
     ['Each attempt',['Hold the cube <b>yellow on top, green in front</b> (with color neutral on, the line under the scramble says which colors) and apply the scramble. It\'s a real, random-looking scramble that lands on the case.','Last-layer cases leave F2L solved. F2L cases leave the cross and three slots solved; the front-right pair is the case.','Hold the timer (or space) until it turns green, let go to start, tap anywhere or press any key to stop.']],
-    ['Scramble or Alg only',['<b>Alg only</b> shows setup moves from solved, then times just the alg and shows your turns per second next to fast solvers (about 12).']],
+    ['Scramble or Alg only',['<b>Alg only</b> shows setup moves from solved, then times just the alg and shows your turns per second next to fast solvers (about 12).','Both count toward the same case average.']],
     ['Attack',['<b>Attack</b> lists every alg in the sets you picked. Start the clock, do them all back to back, then stop. It keeps your best time for that selection.']],
     ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.']],
-    ['Comparing algs',['Alg only times are saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the case\'s details.']],
+    ['Comparing algs',['Times are also saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the case\'s details.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']]]},
   solve:{t:'Solve', s:[
     ['Each solve',['Hold <b>white on top, green in front</b>, then scramble. Scrambles are random-state, like WCA.','With inspection on (Settings), you get 15 seconds: +2 after 15, DNF after 17. With inspection calls on, it beeps once at 8 seconds and twice at 12. Esc or <b>Cancel inspection</b> throws the attempt away.']],
