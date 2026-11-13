@@ -68,8 +68,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 .seg button{border:0;background:transparent;padding:7px 14px;border-radius:8px;font-weight:700;font-size:14px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.groups{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 20px;padding:8px 10px}
 .gsum{display:flex;flex-direction:column;gap:5px;min-width:0}
+button.gsum{-webkit-appearance:none;appearance:none;font:inherit;color:inherit;text-align:left;background:none;border:0;border-radius:12px;padding:8px 10px;margin:-8px -10px;cursor:pointer;transition:background-color .15s}
+button.gsum:hover{background:color-mix(in srgb, var(--chip) 60%, transparent)}
+button.gsum[aria-pressed="true"]{background:var(--chip)}
+button.gsum[aria-pressed="false"] strong{color:var(--muted)}
+/* the progress columns pick the group, so the separate picker row is hidden */
+.row:has(> #learnGroup){display:none}
 .gsum strong{font-family:var(--f-display);font-size:18px}
 .gsum span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .prog{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -517,6 +523,10 @@ body.focus .scrbox.keep{opacity:1}
 .nextup{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px}
 .nextup[hidden]{display:none}
 .nxrow{display:flex;gap:12px;align-items:flex-start}
+.nxrow > div{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.nxwhy{font-size:13px;color:var(--muted);margin-top:-3px}
+.linkbtn{-webkit-appearance:none;appearance:none;background:none;border:0;padding:2px 0;font:inherit;font-size:13px;color:var(--muted);text-decoration:underline;text-underline-offset:3px;cursor:pointer;align-self:flex-start}
+.linkbtn:hover{color:var(--ink)}
 .nxrow .dbtn{width:84px;flex:none}
 .nxrow>div{min-width:0;display:flex;flex-direction:column;gap:6px;flex:1}
 .nextup a.btn{text-decoration:none;display:inline-block}
@@ -2016,15 +2026,44 @@ const diagBtn = (c, opts={}) => `<button class="dbtn${c.set==='PBL'?' pblbtn':''
 const statusSeg = c => `<div class="row" style="justify-content:space-between"><span class="label">Status</span><div class="seg" role="group" aria-label="Status for ${c.full}" data-stid="${c.id}">${['new','learning','learned'].map(s=>`<button aria-pressed="${status(c.id)===s}" data-st="${s}">${s[0].toUpperCase()+s.slice(1)}</button>`).join('')}</div></div>`;
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-st]'); if(!b) return; const id=b.closest('[data-stid]').dataset.stid; D.status[id]=b.dataset.st; save();
   document.querySelectorAll(`[data-stid="${id}"] [data-st]`).forEach(x=>x.setAttribute('aria-pressed', String(x.dataset.st===b.dataset.st))); renderProgress(); });
-// ---- learn next: the first case you haven't started, in a sensible order ----
-function renderNext(){ const box=$('#nextUp'); if(!box) return; const cs=CASES.filter(c=>c.g===learnGroup).sort((a,b)=>learnRank(a)-learnRank(b)), nx=cs.find(c=>status(c.id)==='new'), inProg=cs.filter(c=>status(c.id)==='learning').length;
+// ---- what to work on next ----
+// With 4+ cases in progress and one not solid yet, practice that one (least-timed, then weakest).
+// Otherwise learn a new case: finish sets you've started first; then the usual order (PLL, OLL) or the shortest alg.
+let nxNew = false;
+function nextPick(){ const cs = CASES.filter(c=>c.g===learnGroup), st = c => status(c.id);
+  // a "set" for finishing what you started; ZBLL goes one corner group of 12 at a time
+  const unit = c => c.g==='ZBLL' ? c.set+'#'+c.sub : c.set, unitName = c => c.g==='ZBLL' ? `${SET_SHORT[c.set]||c.set} group ${c.sub+1}` : `${SET_NAME[c.set]||c.set} set`;
+  const learning = cs.filter(c=>st(c)==='learning'), started = new Set(cs.filter(c=>st(c)!=='new').map(unit));
+  // CLL and EG: Sune and Anti-Sune, then T, U, L, Pi, H (shortest alg first within a set); F2L: shortest first; the rest: their usual order
+  const SO = ['Sune','Anti-Sune','T','U','L','Pi','H','Oriented'], so = c => { const i = SO.indexOf(c.set); return i < 0 ? 99 : i; };
+  const byLen = learnGroup==='F2L', bySet = ['CLL','EG-1','EG-2'].includes(learnGroup);
+  const order = c => bySet ? [so(c), moveCount(algOf(c))] : byLen ? [moveCount(algOf(c)), learnRank(c)] : [learnRank(c), 0];
+  const fresh = cs.filter(c=>st(c)==='new').map(c=>({c, k:[started.has(unit(c))?0:1, ...order(c)]}))
+    .sort((x,y)=>x.k[0]-y.k[0] || x.k[1]-y.k[1] || x.k[2]-y.k[2]);
+  const f0 = fresh[0];
+  const learn = f0 ? {c:f0.c, why: f0.k[0]===0 ? `Finishes the ${unitName(f0.c)} you started` : byLen ? `Short alg, ${moveCount(algOf(f0.c))} moves` : 'Next in the suggested order'} : null;
+  const tries = c => (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length;
+  const prac = learning.map(c=>({c, nd:need(c), n:tries(c)})).sort((x,y)=>(x.n<5?0:1)-(y.n<5?0:1) || (y.nd.score||0)-(x.nd.score||0))[0];
+  const practice = prac && learning.length >= 4 && (prac.n < 5 || prac.nd.tier !== 'strong')
+    ? {c:prac.c, why: prac.n < 5 ? (prac.n ? `Only ${prac.n} timed so far` : 'Not timed yet') : prac.nd.tier==='weak' ? `Weak spot: ${prac.nd.why}` : 'Your slowest case in progress'} : null;
+  return {learn, practice, nLearning: learning.length}; }
+function renderNext(){ const box=$('#nextUp'); if(!box) return; const p = nextPick();
   const atkBest = () => { let b = null; for (const [k, a] of Object.entries(D.atk||{})){ if (k.split('|')[0]!==learnGroup || !a.length) continue; const n = a[a.length-1][1], t = Math.min(...a.map(x=>x[0])); if (!b || n > b.n || (n===b.n && t < b.t)) b = {n, t}; }
     if (!b) return ''; const f = b.t<60 ? b.t.toFixed(2) : Math.floor(b.t/60)+':'+(b.t%60).toFixed(2).padStart(5,'0'); return `<span class="stats" title="Your best Attack time in the Case timer">Attack best ${f} · ${b.n} algs</span>`; };
   const head = t => `<div class="row" style="justify-content:space-between"><span class="label">${t}</span>${atkBest()}</div>`;
   box.hidden=false;
-  if(!nx){ box.innerHTML=`${head('Learn next')}<p class="rec">You've started every ${esc(learnGroup)} case. Mark them Learned as they stick.</p>`; return; }
-  box.innerHTML=`${head('Learn next in '+esc(learnGroup))}<div class="nxrow">${diagBtn(nx,{tag:false})}<div><b>${esc(nx.full)}</b><div class="alg">${esc(algOf(nx))}</div>${inProg>=4?`<span class="stats">You have ${inProg} in progress. Get those solid before adding more.</span>`:''}<div class="row"><button class="btn sm" data-nxstart="${nx.id}">Start learning</button><a class="btn alt sm" href="#case-${nx.id}">Details</a></div></div></div>`; }
-$('#nextUp').addEventListener('click', e=>{ const b=e.target.closest('[data-nxstart]'); if(!b) return; D.status[b.dataset.nxstart]='learning'; save(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); });
+  const row = (c, why, btns) => `<div class="nxrow">${diagBtn(c,{tag:false})}<div><b>${esc(c.full)}</b><span class="nxwhy">${esc(why)}</span><div class="alg">${esc(algOf(c))}</div><div class="row">${btns}<a class="btn alt sm" href="#case-${c.id}">Details</a></div></div></div>`;
+  if (p.practice && !nxNew){
+    box.innerHTML = head('Practice next in '+esc(learnGroup)) + row(p.practice.c, p.practice.why, `<button class="btn sm" data-nxdrill="${p.practice.c.id}">Drill it</button>`)
+      + (p.learn ? `<button class="linkbtn" data-nxnew>You have ${p.nLearning} in progress. Learn a new one anyway</button>` : ''); return; }
+  if (!p.learn){ box.innerHTML=`${head('Learn next')}<p class="rec">You've started every ${esc(learnGroup)} case. Mark them Learned as they stick.</p>`; return; }
+  box.innerHTML = head('Learn next in '+esc(learnGroup)) + row(p.learn.c, p.learn.why, `<button class="btn sm" data-nxstart="${p.learn.c.id}">Start learning</button>`)
+    + (p.practice ? `<button class="linkbtn" data-nxprac>Back to practicing</button>` : ''); }
+$('#nextUp').addEventListener('click', e=>{
+  if (e.target.closest('[data-nxnew]')){ nxNew = true; renderNext(); return; }
+  if (e.target.closest('[data-nxprac]')){ nxNew = false; renderNext(); return; }
+  const d = e.target.closest('[data-nxdrill]'); if (d){ drillCase(d.dataset.nxdrill); location.hash = '#timer'; return; }
+  const b=e.target.closest('[data-nxstart]'); if(!b) return; D.status[b.dataset.nxstart]='learning'; nxNew=false; save(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); });
 const LEARN_SETS=['Sune','Anti-Sune','T','U','L','Pi','H','O','OLL','PBL'], learnRank=c=>LEARN_SETS.indexOf(c.set)*1000+CASES.indexOf(c);
 // days you practiced, for the streak (kept for about a year)
 const dayKeyOf = t => { const d=new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
@@ -2038,7 +2077,7 @@ function renderProgress(){
   const sk = CubeLab.streak(); $('#progtxt').textContent = (sk.n ? `${sk.n}-day streak · ` : '') + `${CASES.filter(c=>status(c.id)==='learning').length} learning`; $('#progtxt').title = sk.n ? (sk.today ? 'Days in a row with practice on either puzzle.' : 'Practice today to keep your streak going.') : '';
   renderNext();
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
-    return `<div class="gsum"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></div>`; }).join('');
+    return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
   $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + SETS.filter(s=>CASES.some(c=>c.g===learnGroup&&c.set===s)).map(set=>{ const cs=CASES.filter(c=>c.g===learnGroup&&c.set===set), n=cs.length;
     const a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="pset"><span>${SET_NAME[set]||set}<i>${a}/${n}</i></span><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div></div>`; }).join('');
@@ -2233,6 +2272,7 @@ function renderLearn(){
   renderProgress();
 }
 $('#learnGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; save(); renderLearn(); });
+$('#groups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b || b.dataset.g===learnGroup) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; nxNew=false; save(); renderLearn(); renderProgress(); });
 $('#learnFilter').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; learnFilter=b.dataset.set; D.prefs.learnFilter=learnFilter; save(); renderLearn(); });
 $('#learnSets').addEventListener('toggle', e=>{ const d=e.target; if(d.matches && d.matches('details.more') && d.open) fillMore(d.closest('.case')); }, true);
 $('#learnSets').addEventListener('click', e=>{
@@ -3125,7 +3165,8 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 // ---------- per-tab help ----------
 const HELP = {
   learn:{t:'Learn', s:[
-    ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.']],
+    ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.']],
+    ['What to work on next',['<b>Learn next</b> picks a case to start: it finishes sets you\'ve started, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), your case time from the Case timer, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
     ['Ortega',['New to 2x2 speed methods? Start with <b>Ortega</b>: solve the bottom face, orient the top (7 OLLs), then fix both layers (5 PBLs). Its cases work like every other case here, including the Case timer.']],
     ['Suggested order',['CLL first, then EG-1 (adjacent swap on the bottom), then EG-2 (diagonal swap).','Within each: Sune and Anti-Sune, then T, U, L, Pi, H.']],
@@ -4313,15 +4354,44 @@ const diagBtn = (c, opts={}) => `<button class="dbtn" data-v3="${c.id}" aria-lab
 const statusSeg = c => `<div class="row" style="justify-content:space-between"><span class="label">Status</span><div class="seg" role="group" aria-label="Status for ${esc(c.full)}" data-stid="${c.id}">${['new','learning','learned'].map(s=>`<button aria-pressed="${status(c.id)===s}" data-st="${s}">${s[0].toUpperCase()+s.slice(1)}</button>`).join('')}</div></div>`;
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-st]'); if(!b) return; const id=b.closest('[data-stid]').dataset.stid; D.status[id]=b.dataset.st; save();
   document.querySelectorAll(`[data-stid="${id}"] [data-st]`).forEach(x=>x.setAttribute('aria-pressed', String(x.dataset.st===b.dataset.st))); renderProgress(); });
-// ---- learn next: the first case you haven't started, in a sensible order ----
-function renderNext(){ const box=$('#nextUp'); if(!box) return; const cs=CASES.filter(c=>c.g===learnGroup).sort((a,b)=>learnRank(a)-learnRank(b)), nx=cs.find(c=>status(c.id)==='new'), inProg=cs.filter(c=>status(c.id)==='learning').length;
+// ---- what to work on next ----
+// With 4+ cases in progress and one not solid yet, practice that one (least-timed, then weakest).
+// Otherwise learn a new case: finish sets you've started first; then the usual order (PLL, OLL) or the shortest alg.
+let nxNew = false;
+function nextPick(){ const cs = CASES.filter(c=>c.g===learnGroup), st = c => status(c.id);
+  // a "set" for finishing what you started; ZBLL goes one corner group of 12 at a time
+  const unit = c => c.g==='ZBLL' ? c.set+'#'+c.sub : c.set, unitName = c => c.g==='ZBLL' ? `${SET_SHORT[c.set]||c.set} group ${c.sub+1}` : `${SET_NAME[c.set]||c.set} set`;
+  const learning = cs.filter(c=>st(c)==='learning'), started = new Set(cs.filter(c=>st(c)!=='new').map(unit));
+  // CLL and EG: Sune and Anti-Sune, then T, U, L, Pi, H (shortest alg first within a set); F2L: shortest first; the rest: their usual order
+  const SO = ['Sune','Anti-Sune','T','U','L','Pi','H','Oriented'], so = c => { const i = SO.indexOf(c.set); return i < 0 ? 99 : i; };
+  const byLen = learnGroup==='F2L', bySet = ['CLL','EG-1','EG-2'].includes(learnGroup);
+  const order = c => bySet ? [so(c), moveCount(algOf(c))] : byLen ? [moveCount(algOf(c)), learnRank(c)] : [learnRank(c), 0];
+  const fresh = cs.filter(c=>st(c)==='new').map(c=>({c, k:[started.has(unit(c))?0:1, ...order(c)]}))
+    .sort((x,y)=>x.k[0]-y.k[0] || x.k[1]-y.k[1] || x.k[2]-y.k[2]);
+  const f0 = fresh[0];
+  const learn = f0 ? {c:f0.c, why: f0.k[0]===0 ? `Finishes the ${unitName(f0.c)} you started` : byLen ? `Short alg, ${moveCount(algOf(f0.c))} moves` : 'Next in the suggested order'} : null;
+  const tries = c => (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length;
+  const prac = learning.map(c=>({c, nd:need(c), n:tries(c)})).sort((x,y)=>(x.n<5?0:1)-(y.n<5?0:1) || (y.nd.score||0)-(x.nd.score||0))[0];
+  const practice = prac && learning.length >= 4 && (prac.n < 5 || prac.nd.tier !== 'strong')
+    ? {c:prac.c, why: prac.n < 5 ? (prac.n ? `Only ${prac.n} timed so far` : 'Not timed yet') : prac.nd.tier==='weak' ? `Weak spot: ${prac.nd.why}` : 'Your slowest case in progress'} : null;
+  return {learn, practice, nLearning: learning.length}; }
+function renderNext(){ const box=$('#nextUp'); if(!box) return; const p = nextPick();
   const atkBest = () => { let b = null; for (const [k, a] of Object.entries(D.atk||{})){ if (k.split('|')[0]!==learnGroup || !a.length) continue; const n = a[a.length-1][1], t = Math.min(...a.map(x=>x[0])); if (!b || n > b.n || (n===b.n && t < b.t)) b = {n, t}; }
     if (!b) return ''; const f = b.t<60 ? b.t.toFixed(2) : Math.floor(b.t/60)+':'+(b.t%60).toFixed(2).padStart(5,'0'); return `<span class="stats" title="Your best Attack time in the Case timer">Attack best ${f} · ${b.n} algs</span>`; };
   const head = t => `<div class="row" style="justify-content:space-between"><span class="label">${t}</span>${atkBest()}</div>`;
   box.hidden=false;
-  if(!nx){ box.innerHTML=`${head('Learn next')}<p class="rec">You've started every ${esc(learnGroup)} case. Mark them Learned as they stick.</p>`; return; }
-  box.innerHTML=`${head('Learn next in '+esc(learnGroup))}<div class="nxrow">${diagBtn(nx,{tag:false})}<div><b>${esc(nx.full)}</b><div class="alg">${esc(algOf(nx))}</div>${inProg>=4?`<span class="stats">You have ${inProg} in progress. Get those solid before adding more.</span>`:''}<div class="row"><button class="btn sm" data-nxstart="${nx.id}">Start learning</button><a class="btn alt sm" href="#case-${nx.id}">Details</a></div></div></div>`; }
-$('#nextUp').addEventListener('click', e=>{ const b=e.target.closest('[data-nxstart]'); if(!b) return; D.status[b.dataset.nxstart]='learning'; save(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); });
+  const row = (c, why, btns) => `<div class="nxrow">${diagBtn(c,{tag:false})}<div><b>${esc(c.full)}</b><span class="nxwhy">${esc(why)}</span><div class="alg">${esc(algOf(c))}</div><div class="row">${btns}<a class="btn alt sm" href="#case-${c.id}">Details</a></div></div></div>`;
+  if (p.practice && !nxNew){
+    box.innerHTML = head('Practice next in '+esc(learnGroup)) + row(p.practice.c, p.practice.why, `<button class="btn sm" data-nxdrill="${p.practice.c.id}">Drill it</button>`)
+      + (p.learn ? `<button class="linkbtn" data-nxnew>You have ${p.nLearning} in progress. Learn a new one anyway</button>` : ''); return; }
+  if (!p.learn){ box.innerHTML=`${head('Learn next')}<p class="rec">You've started every ${esc(learnGroup)} case. Mark them Learned as they stick.</p>`; return; }
+  box.innerHTML = head('Learn next in '+esc(learnGroup)) + row(p.learn.c, p.learn.why, `<button class="btn sm" data-nxstart="${p.learn.c.id}">Start learning</button>`)
+    + (p.practice ? `<button class="linkbtn" data-nxprac>Back to practicing</button>` : ''); }
+$('#nextUp').addEventListener('click', e=>{
+  if (e.target.closest('[data-nxnew]')){ nxNew = true; renderNext(); return; }
+  if (e.target.closest('[data-nxprac]')){ nxNew = false; renderNext(); return; }
+  const d = e.target.closest('[data-nxdrill]'); if (d){ drillCase(d.dataset.nxdrill); location.hash = '#timer'; return; }
+  const b=e.target.closest('[data-nxstart]'); if(!b) return; D.status[b.dataset.nxstart]='learning'; nxNew=false; save(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); });
 const PLL_ORDER=['Ua','Ub','H','Z','Aa','Ab','T','Jb','Ja','Y','F','Ra','Rb','V','E','Na','Nb','Ga','Gb','Gc','Gd'], OLL_SETS=['OCLL','T','Square','C','W','Corners oriented','P','I-shape','Fish','Knight move','L-shape','Lightning','Awkward','Dot'];
 const learnRank=c=>c.g==='PLL' ? PLL_ORDER.indexOf(c.name) : c.g==='OLL' ? OLL_SETS.indexOf(c.set)*1000+CASES.indexOf(c) : CASES.indexOf(c);
 // days you practiced, for the streak (kept for about a year)
@@ -4335,7 +4405,7 @@ function renderProgress(){
   const sk = CubeLab.streak(); $('#progtxt').textContent = (sk.n ? `${sk.n}-day streak · ` : '') + `${CASES.filter(c=>status(c.id)==='learning').length} learning`; $('#progtxt').title = sk.n ? (sk.today ? 'Days in a row with practice on either puzzle.' : 'Practice today to keep your streak going.') : '';
   renderNext();
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
-    return `<div class="gsum"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></div>`; }).join('');
+    return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
   $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + GSETS[learnGroup].map(set=>{ const cs=CASES.filter(c=>c.set===set), n=cs.length;
     const a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="pset"><span>${SET_SHORT[set]||set}<i>${a}/${n}</i></span><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div></div>`; }).join('');
@@ -4507,6 +4577,7 @@ function renderLearn(){
   renderProgress();
 }
 $('#learnGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; save(); renderLearn(); });
+$('#groups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b || b.dataset.g===learnGroup) return; learnGroup=b.dataset.g; D.prefs.learnGroup=learnGroup; nxNew=false; save(); renderLearn(); renderProgress(); });
 $('#learnFilter').addEventListener('click', e=>{ const b=e.target.closest('[data-set]'); if(!b) return; learnFilter=b.dataset.set; D.prefs.learnFilter=learnFilter; save(); renderLearn(); });
 $('#learnSets').addEventListener('click', e=>{
   const l=e.target.closest('a.morelink'); if(l){ e.preventDefault(); openCase(l.closest('.case').dataset.id); return; }
@@ -5184,7 +5255,8 @@ $('#gZB').addEventListener('change', ()=>{ D.prefs.zbll=$('#gZB').checked; save(
 $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 'learn'); });
 const HELP = {
   learn:{t:'Learn', s:[
-    ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
+    ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
+    ['What to work on next',['<b>Learn next</b> picks a case to start: it finishes sets you\'ve started, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), your case time from the Case timer, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
     ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Turn it on in Settings, then learn it a group of 12 at a time.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
