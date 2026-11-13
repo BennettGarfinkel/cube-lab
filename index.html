@@ -1014,14 +1014,14 @@ function spotPic(n, top, front, right){
     g += poly([P(k,n,n-r), P(k+1,n,n-r), P(k+1,n,n-r-1), P(k,n,n-r-1)], front[r*n+k]);
     g += poly([P(n,n-k,n-r), P(n,n-k-1,n-r), P(n,n-k-1,n-r-1), P(n,n-k,n-r-1)], right[r*n+k]); }
   return g + '</svg>'; }
-// the "How to spot" panel for a group: open or closed (remembered per group), picture, rule, and how to tell it apart
-function spotPanel(D, group, title, gi){ const shut = (D.prefs.spotShut||'').split(',').includes(group), p = gi.pic;
-  return `<details class="spotbox" data-spot="${group}"${shut ? '' : ' open'}><summary><span class="label">How to spot ${title}</span></summary>
+// the "How to spot" panel for a group: closed until you open it (remembered per group), picture, rule, and how to tell it apart
+function spotPanel(D, group, title, gi){ const open = (D.prefs.spotOpen||'').split(',').includes(group), p = gi.pic;
+  return `<details class="spotbox" data-spot="${group}"${open ? ' open' : ''}><summary><span class="label">How to spot ${title}</span></summary>
     <div class="spotbody">${p ? `<div class="spotpic">${spotPic(p[0], p[1], p[2], p[3])}</div>` : ''}<div class="spottext"><p>${gi.spot}</p><p class="rec">${gi.then}</p></div></div>
     ${gi.vs ? `<ul class="spotvs">${gi.vs.map(([a,b])=>`<li><b>${a}</b> ${b}</li>`).join('')}</ul>` : ''}</details>`; }
 function spotToggle(D, save){ return e => { const d = e.target; if (!d.matches || !d.matches('details.spotbox')) return;
-  const g = d.dataset.spot, l = (D.prefs.spotShut||'').split(',').filter(x=>x && x!==g); if (!d.open) l.push(g);
-  const v = l.join(','); if (v !== (D.prefs.spotShut||'')){ D.prefs.spotShut = v; save(); } }; }
+  const g = d.dataset.spot, l = (D.prefs.spotOpen||'').split(',').filter(x=>x && x!==g); if (d.open) l.push(g);
+  const v = l.join(','); if (v !== (D.prefs.spotOpen||'')){ D.prefs.spotOpen = v; save(); } }; }
 const SepRule = (() => {
   const SKIP = '.hidden-alg, option, select, textarea, input, script, style, title, code, .alg, [contenteditable]';
   function fix(node){ const p = node.parentElement; if (!p || p.closest(SKIP)) return;
