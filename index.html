@@ -305,7 +305,8 @@ body.focus .stage .timer{border-top-color:transparent}
 /* learn */
 .groups{gap:14px}.gsum strong{font-size:16px}
 .bar{height:5px}
-.gsum:nth-child(1) .bar b{background:var(--s-F)}.gsum:nth-child(2) .bar b{background:var(--s-B)}.gsum:nth-child(3) .bar b{background:var(--s-R)}
+.gsum:nth-child(1) .bar b{background:var(--s-F)}.gsum:nth-child(2) .bar b{background:var(--s-B)}.gsum:nth-child(3) .bar b{background:var(--s-R)}.gsum:nth-child(5) .bar b{background:var(--s-L)}
+.zbsub{display:flex;flex-direction:column;gap:10px}.zbhead{display:flex;gap:12px;align-items:center;padding-top:6px}.zbhead .diag{width:56px;flex:none}.zbhead p{font-size:13.5px;color:var(--muted)}
 .sethead{background:none;border:0;border-radius:0;padding:0}
 .spotbox{border-left:3px solid var(--accent);padding:2px 0 2px 12px}
 .case{border-radius:14px;box-shadow:var(--shadow)}
@@ -3384,17 +3385,19 @@ const SOLVER_SRC = "// Two-phase solver (Kociemba's method) for random-state scr
 (function(){
 const $ = (s, r=document) => r.querySelector(s);
 const S0 = Cube.solved();
-const GROUPS = ['PLL','OLL','F2L','2-look'];
+const ZB_SETS = ['ZBLL T','ZBLL U','ZBLL L','ZBLL H','ZBLL Pi','ZBLL S','ZBLL AS'];
+const GROUPS = ['PLL','OLL','F2L','2-look','ZBLL'];
 const GSETS = {
   'PLL':['Edges only','Corners only','Adjacent swap','Diagonal swap'],
   'OLL':['OCLL','T','Square','C','W','Corners oriented','P','I-shape','Fish','Knight move','Awkward','L-shape','Lightning','Dot'],
   'F2L':['Basic inserts','Both on top','White on top','Edge in slot','Corner in slot','Both in slot'],
   '2-look':['Orient edges','Orient corners','Permute corners','Permute edges'],
+  'ZBLL':ZB_SETS,
 };
 const SETS = GROUPS.flatMap(g=>GSETS[g]);
 const SET_G = Object.fromEntries(GROUPS.flatMap(g=>GSETS[g].map(s=>[s,g])));
-const SET_NAME = {'OCLL':'All edges up (OCLL)','T':'T shapes','Square':'Squares','C':'C shapes','W':'W shapes','Corners oriented':'Corners up','P':'P shapes','I-shape':'I shapes','Fish':'Fish','Knight move':'Knight move','Awkward':'Awkward','L-shape':'Small L shapes','Lightning':'Lightning','Dot':'Dot'};
-const SET_SHORT = {'OCLL':'OCLL','Corners oriented':'Corners up','I-shape':'I shapes','L-shape':'L shapes','Knight move':'Knight','Square':'Squares','Edges only':'Edges only','Corners only':'Corners only','Adjacent swap':'Adjacent','Diagonal swap':'Diagonal','Orient edges':'Edges up','Orient corners':'Corners up','Permute corners':'Corners','Permute edges':'Edges'};
+const SET_NAME = {'OCLL':'All edges up (OCLL)','T':'T shapes','Square':'Squares','C':'C shapes','W':'W shapes','Corners oriented':'Corners up','P':'P shapes','I-shape':'I shapes','Fish':'Fish','Knight move':'Knight move','Awkward':'Awkward','L-shape':'Small L shapes','Lightning':'Lightning','Dot':'Dot','ZBLL T':'T','ZBLL U':'U','ZBLL L':'L','ZBLL H':'H','ZBLL Pi':'Pi','ZBLL S':'Sune','ZBLL AS':'Anti-Sune'};
+const SET_SHORT = {'OCLL':'OCLL','Corners oriented':'Corners up','I-shape':'I shapes','L-shape':'L shapes','Knight move':'Knight','Square':'Squares','Edges only':'Edges only','Corners only':'Corners only','Adjacent swap':'Adjacent','Diagonal swap':'Diagonal','Orient edges':'Edges up','Orient corners':'Corners up','Permute corners':'Corners','Permute edges':'Edges','ZBLL T':'T','ZBLL U':'U','ZBLL L':'L','ZBLL H':'H','ZBLL Pi':'Pi','ZBLL S':'Sune','ZBLL AS':'Anti-Sune'};
 const setLabel = s => SET_NAME[s] || s;
 const SET_INFO = {
   'Edges only':{spot:'Every corner is already in place: each side shows matching corner colors (headlights everywhere). Only edges move.', hold:'A solved side goes to the back for Ua and Ub. H and Z have no solved side.'},
@@ -3430,11 +3433,493 @@ const GROUP_INFO = {
   'PLL':{spot:'The top is all yellow. Read the two sides you can see: headlights (matching corner pair), bars (a full matching row) and which edges belong between them.', then:'Every PLL leaves the cube solved after at most one final U turn.'},
   'OLL':{spot:'F2L is done. Look only at yellow: the shape on top, plus yellow stickers on the sides of the top layer.', then:'After OLL the whole top is yellow. Then PLL.'},
   'F2L':{spot:'Cross on the bottom. Find the white corner and its matching edge for the front-right slot.', then:'All cases here insert into the front-right slot. Turn the cube (or use the matching left-hand alg) for other slots.'},
+  'ZBLL':{spot:'F2L is done and all four top edges already show yellow (ZZ, or edge control in the last slot). Read the corners first: they tell you the set and the group. Then read the side colors for the edges.', then:'One alg solves the whole last layer. There are 472 cases, so learn one group of 12 at a time. Knowing COLL first helps.'},
   '2-look':{spot:'Beginner last layer in four short steps: yellow edges, yellow corners, then corners and edges into place.', then:'Ten algs total. Learn these first, then move on to the full OLL and PLL.'},
 };
 // cases
+Object.assign(SET_INFO, {"ZBLL T":{spot:"Two yellow corners up side by side. The other two show yellow on opposite sides (like OLL 24, Chameleon).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL U":{spot:"Two yellow corners up side by side. The other two both show yellow on the same side (like OLL 23, Headlights).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL L":{spot:"Two yellow corners up, diagonal from each other. The other two show yellow on sides that meet (like OLL 25, Bowtie).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL H":{spot:"No corners up. Yellow shows as headlights on two opposite sides (like OLL 21, H).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL Pi":{spot:"No corners up. Yellow headlights on one side; the other two corners point opposite ways (like OLL 22, Pi).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL S":{spot:"One yellow corner up. The other three twist the same way as a Sune (OLL 27).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."},"ZBLL AS":{spot:"One yellow corner up. The other three twist the same way as an Anti-Sune (OLL 26).", hold:"Turn the top until the corners match a group below, then read the side colors to find which of its cases it is."}});
+const ZB_DATA = [["t",0,["L' U R' U' R L U2 R' U' R","U2 R' U R U2 L' R' U R U' L","U2 R' U' R' U' R U R' F' R U R' U' R' F R'","U2 R' U R U2 r' R' F R F' r"]],
+["t",0,["U2 R U R' U R U2 R D R' U R D' R' U' R'","U' R U R2 F R F' R U' R' F' U F","U R U R D R' U' R D' R' U2 R' U' R U' R'","U2 L' U2 L U L' U L U' L' U R U' L U R'"]],
+["t",0,["U2 L U' R U R' L' U2 R U R'","R U' R' U2 L R U' R' U L'","R' F R U R' U' R' F' R2 U' R' U2 R","U2 r U R2 F R F' R U2 r' U r U r'"]],
+["t",0,["R' U' R U' R' U2 R' D' R U' R' D R U R","U R' U' R' D' R U R' D R U2 R U R' U R","U2 R U2 R' U' R' F R2 U' R' U' R U R' F' R U' R'","U' R' F R' F' R2 U' R' U R f R' f'"]],
+["t",0,["U2 R' U2 R U R' U R F U R U2 R' U R U R' F'","U2 R' U2 R U R' U R F U R U2 R' U R U R' F'","U2 r' U2 R U R2 F2 R F R' F2 R U r","F R U R' U' R' F' R U' R' D' R U' R' D R U' R U' R'"]],
+["t",0,["U2 F R U' R' U' R U2 R' U' F' R' U' R U' R' U2 R","U2 F R U' R' U' R U2 R' U' F' R' U' R U' R' U2 R","U R U R' U R' D' R U R' D R U R' F R U R U' R' F'","U2 r' U' R' F2 R F' R' F2 R2 U' R' U2 r"]],
+["t",0,["F' r2 U2 R' F' R U2 r' U r'","r U' r U2 R' F R U2 r2 F","U2 R' U R U2 R' U' F' R U R' U R U2 R' F R","F' r2 U2 R' F' R U2 r' U r'"]],
+["t",0,["R' U' R U R U R2 F' R U R U' R' F R U' R2 U R","R' U' R2 U R' F' R U R' U' R' F R2 U' R' U' R' U R","F R U' R' S U' R U f' U R2 F R F' R","U2 R U R' U' R' U L' U2 R U' R' U2 L R2 U' R'"]],
+["t",0,["R U R' D U R2 U2 R2 U R2 U R2 D' R U' R'","R' D' R U R' D R U R U' R' U R U' R' U' R U R'","U2 F U' R' U2 R U F' R' U' R U R' U R","U2 R U2 R' F' R U R' U' R' F R U2 R U' R' U' R U R'"]],
+["t",0,["U' L' U2 R U2 R' U2 L U R U R' U' R U' R'","U' L' U2 R U2 R' U2 L U R U R' U' R U' R'","U2 R D R' U' R D' R' U' R' U R U' R' U R U R' U' R","F' U' L' U2 L U F R U R' U' R U' R'"]],
+["t",0,["R' U' R U' R' U R F U' R' U2 R U F'","U2 R U' R' U R U R' U' R U R' U' R' D' R U' R' D R","R' U' R U' R' U R F U' R' U2 R U F'","R' U' R U' R' U R U L U2 R' U2 R U2 L'"]],
+["t",0,["U2 R U R' U R U' R' U' L' U2 R U2 R' U2 L","U2 R U R' U R U' R' U' L' U2 R U2 R' U2 L","U2 R U R' U R U' R' F' U' L' U2 L U F","U2 R U R' U R U' R' U' R' F2 R F2 L' U2 L"]],
+["t",1,["R' U' R U2 R D R' U' R D' R2 U R U' R' U R","R' U' R U2 R D R' U' R D' R2 U R U' R' U R","U2 R2 U' R D R' U' R D' R U R2 U R2","R' U2 R U2 R2 D' R U2 R' D R2 U' R' U R"]],
+["t",1,["U' R2 U R U2 R' U R D' R U2 R' D U' R","U R' D' R U' R' D R U' R U' R' U R U' R' U' R U R'","U' R2 U R U2 R' U R D' R U2 R' D U' R","U2 R' U R U' R' U' R U R' U' R U' R D R' U' R D' R'"]],
+["t",1,["U R U R' U R U R2 D' r U2 r' D R2 U R'","U2 R U R' F' R U R' U' R' F R U' R' F R U R U' R' F'","U R U R' U R U R2 D' r U2 r' D R2 U R'","U R' U R2 D r' U2 r D' R2 U R U R' U R"]],
+["t",1,["U2 R2 U R2 U R D' R U' R' D R U' R2","U R U R' U' R U R2 D' R U' R' D R U2 R U' R'","U2 R U R' U' R2 D R' U2 R D' R2 U2 R U2 R'","U' R2 U' R U F' U2 R' U2 R F U' R"]],
+["t",1,["U2 F R' F' r U R U' F R' F' r U R U' r2","U2 r2 U R' U' r' F R F' U R' U' r' F R F'","U R U R D R' U R D' R' U L' U R' U' L","U2 F U R' D' R U R' D R U' R' D' R U' R' D R F'"]],
+["t",1,["U' R' U2 R' U2 R2 U R F R U R U' R' F' R2","U2 R2 F R U R' U' R' F' R' U' R2 U2 R U2 R","U r U r' R U R' U' R U R' U' r U' r' F R U R' U' F'","f' U' F R' D' R U2 R' D R U' f R' F' R"]],
+["t",1,["U2 R U' R2 D' r U2 r' D R2 U R'","U2 R U' R2 D' r U2 r' D R2 U R'","R U R' U R U' R' L' U2 R U R' U2 L","U R U R' U' R2 D R' U2 R D' R2 U R U' R'"]],
+["t",1,["R' U R2 D r' U2 r D' R2 U' R","R' U R2 D r' U2 r D' R2 U' R","U R' U' R U R2 D' R U2 R' D R2 U' R' U R","U2 R' U' R U' R' U R U R' F' R U R' U' R' F R2"]],
+["t",1,["R2 U' R2 U' R' D R' U R D' R' U R2","U R' U' R U R' U' R2 D R' U R D' R' U2 R' U R","R' U' R U R2 D' R U2 R' D R2 U2 R' U2 R","U' R2 U2 R U2 R' U L' R U R' U' R2 L"]],
+["t",1,["U' R2 F2 R U2 R U2 R' F' R U R' U' R' F' R2","R U' R' U R U R' U' R U R' U R' D' R U R' D R","R' U D' R U2 R' D R' U' R U2 R' U' R2","F U' R2 U R' U R U2 R2 U' R U2 R' F'"]],
+["t",1,["U2 R U R' U2 R' D' R U R' D R2 U' R' U R U' R'","U2 R U R' U2 R' D' R U R' D R2 U' R' U R U' R'","R2 U R' D' R U R' D R' U' R2 U' R2","U2 R' U F' R' U2 R U2 F U' R' U R2"]],
+["t",1,["U2 F R U R' U' R' F' R U R' F' R U R U' R' F R U' R'","U R U' R2 D' r U2 r' D R2 U' R' U' R U' R'","U R' U' R U' R' U' R2 D r' U2 r D' R2 U' R","U2 R U2 R' U2 R U R2 D' R U' R' D R U2 R U' R'"]],
+["t",2,["R U R' L' U2 R U' R' U2 L U R U' R'","U' R' D' R U R' D R2 U R' U2 R U' R' U' R U' R'","R U R' L' U2 R U' R' U2 L U R U' R'","U F U F' U2 R F R' U' R F' R' U' F U' F'"]],
+["t",2,["U' R' U2 R' D' R U2 R' D R' U R' U R U2 R'","U2 R U R2 D' R U2 R' D R U2 R U R' U' R U' R'","U' R' U2 R' D' R U2 R' D R' U R' U R U2 R'","U2 R2 F' R U S' R U' R' f R f R f'"]],
+["t",2,["R' U' R U' F U' R' U R U F' R' U R","R' U' R U' F U' R' U R U F' R' U R","U R D R' U' R D' R2 U' R U2 R' U R U R' U R","R D' R2 U' R U2 R' U R U R' U R U' R D R'"]],
+["t",2,["U R U2 R D R' U2 R D' R U' R U' R' U2 R","U' R' U2 R' D' R U2 R' D R2 U' R' U2 R U R' U R","U R U2 R D R' U2 R D' R U' R U' R' U2 R","U2 R' F2 R U' R2 F2 R2 U' R' U2 R' F2 R2"]],
+["t",2,["U2 x' R U2 R D2 R' U2 R D2 R2 x","U2 l U2 R D2 R' U2 R D2 R2 x","U2 x' R U2 R D2 R' U2 R D2 R2 x","U' R' U2 R U' R' F R U R' U' R' F' R U' R"]],
+["t",2,["U2 x R' U2 R' D2 R U2 R' D2 R2 x'","U2 l' U2 R' D2 R U2 R' D2 R2 x'","U2 x R' U2 R' D2 R U2 R' D2 R2 x'","U R U2 R' U R U R' y' R' U' R U2 R' U' R"]],
+["t",2,["U F R U R' U' R U' R' U' R U R' F'","U F R U R' U' R U' R' U' R U R' F'","U' f U R U' R' U R' U' R f' R' U R","R' F' U' F U R F R' F' R U R U' R'"]],
+["t",2,["U' F' U' F U R' F R2 U R' U' R' F' R2 U R'","U2 R U R' U2 R U' R' U2 R U' R2 F' R U R U' R' F","U' F' U' F U R' F R2 U R' U' R' F' R2 U R'","R U R' U2 R D' R U' R' U' R U2 R' U D R'"]],
+["t",2,["U' R' U R2 D R' U R D' R' U R' U' R U' R' U' R","U' r U R' U' r' F R F' R' U2 R U R' U R","U' R' U R2 D R' U R D' R' U R' U' R U' R' U' R","f R' F' R U2 R' F R F' R U2 R' S'"]],
+["t",2,["U R U' R2 D' R U' R' D R U' R U R' U R U R'","U R U2 R' U' R U' R2 F' r U R U' r' F","U R U' R2 D' R U' R' D R U' R U R' U R U R'","U F R U R' U' R' F' R U F' R U R' U' R' F R2 U' R'"]],
+["t",2,["R' U' R' D' R U R' D R U' R U' R' U2 R","R' U' R' D' R U R' D R U' R U' R' U2 R","U r' D' r U' r' F2 r U' r' F' D r","U F U' R' U2 R' U2 R U' R' U' R U R U F'"]],
+["t",2,["U R F R' U R U2 R' U R U F' R'","R U R' U R' D' R U' R' D R U R U2 R'","U R F R' U R U2 R' U R U F' R'","R U R D R' U' R D' R' U R' U R U2 R'"]],
+["t",3,["R U R' U R U2 R' U' R U2 R' U' R U' R'","R U R' U R U2 R' U' R U2 R' U' R U' R'","U R' U R U2 R' U' R U2 R' U' R U' R' U R","U' L' U L U2 L' U' L U2 L' U' L U' L' U L"]],
+["t",3,["U' R U' R' U2 R U R' U2 R U R' U R U' R'","U' R U' R' U2 R U R' U2 R U R' U R U' R'","R' U' R U' R' U2 R U R' U2 R U R' U R","r U R' U' r' F R F' R2 x F R F' R U2 r' U r U2 x'"]],
+["t",3,["U R U2 R' U' R U' R' U R U R' U R U2 R'","U R U2 R' U' R U' R' U R U R' U R U2 R'","U' L U2 L' U' L U' L' U L U L' U L U2 L'","R U R' f' z F' R U R' U' R' F R2 U' R' f z'"]],
+["t",3,["R U R' U R U' R' U R' U' R2 U' R2 U2 R","R U R' U R U' R' U R' U' R2 U' R2 U2 R","U R U' R U2 R U2 R' U R U R' U' R' U R'","U2 R' U R U2 R' U' R U' R U R' U' R' U' R U2 R U2 R'"]],
+["t",3,["U' R' U2 R U R' U R U' R' U' R U' R' U2 R","U' R' U2 R U R' U R U' R' U' R U' R' U2 R","U L' U2 L U L' U L U' L' U' L U' L' U2 L","U' R' U2 R U R' U R U L' U' L U' L' U2 L"]],
+["t",3,["R' U' R U' R' U R U' R U R2 U R2 U2 R'","R' U' R U' R' U R U' R U R2 U R2 U2 R'","U R' U R2 U R' U R' U' R U' R' U' R U R U' R'","U2 L' U' L U' L' U L U' L U L2 U L2 U2 L'"]],
+["t",3,["R U R2 U' R2 U' R2 U2 R U' R U' R'","R U R2 U' R2 U' R2 U2 R U' R U' R'","U' R' U2 R U2 R U2 R' U' R' U R U' R U' R'","U R U' R2 F R F' R U' B U' B' U' R'"]],
+["t",3,["R' U' R2 U R2 U R2 U2 R' U R' U R","R' U' R2 U R2 U R2 U2 R' U R' U R","U R U2 R' U2 R' U2 R U R U' R' U R' U R","U L' U L2 F' L' F r' F U' F U F r"]],
+["t",3,["U R U2 R' U' R U' R2 U2 R U R' U R","U R U2 R' U' R U' R2 U2 R U R' U R","U' L U2 L' U' L U' L2 U2 L U L' U L","U R U2 R' U' R U' R' U2 L' U2 L U L' U L"]],
+["t",3,["U' R' U2 R U R' U R2 U2 R' U' R U' R'","U' R' U2 R U R' U R2 U2 R' U' R U' R'","U L' U2 L U L' U L2 U2 L' U' L U' L'","U L' U2 L U L' U L U2 R U2 R' U' R U' R'"]],
+["t",3,["U2 R2 U R2 U R U' R' U R2 U2 R' U R' U R U' R'","U R' U R U2 R' U' R U' R U R' U' R' U' R U R U' R'","U x D' R' U R D R2 D2 R U' R' D2 R l","U2 R2 U R2 U R U' R' U R2 U2 R' U R' U R U' R'"]],
+["t",3,["R' U' R U' R' U2 R U2 R U R' U R U2 R'","R U R' U R U2 R' U2 R' U' R U' R' U2 R","R U R' U R U2 R' L' U' L U' L' U2 L","U2 L' U' L U' L' U2 L R U R' U R U2 R'"]],
+["t",4,["R2 B2 R' U2 R' U2 R B2 R' U R U' R'","R' U' R U D' R U' R U R U' R2 D","U2 R U R D R' U R r' U2 r D' R2","R2 B2 R' U2 R' U2 R B2 R' U R U' R'"]],
+["t",4,["U R' D' R U R' D R2 U' R' U R U R' U' R U R'","U R' D' R U R' D R2 U' R' U R U R' U' R U R'","U2 R' D R2 U' R' U R U R' U' R U R2 D' R","R' U' R U R U f' U' F R U' R' S"]],
+["t",4,["U' R U R' U R U R' U2 L R U' R' U L'","U' R U R' U R U R' U2 L R U' R' U L'","R' U' R U F U' R' U2 R U F' R' U2 R","U L U L' U L U L' U2 L R U' L' U R'"]],
+["t",4,["F R U R' U' R' F' U2 R U R U' R2 U2 R","F R U R' U' R' F' U2 R U R U' R2 U2 R","U2 M U' r U R' U' R' F R F' M U M'","U F U2 F' U F U' R U' R' U' R U2 R' U2 F'"]],
+["t",4,["U2 R L U2 L' U' R' U2 R' L U L' U' R2 U2 R'","U2 R' U' R U' R2 F' R U R U' R' F U R U' R' U2 R","U2 R2 D' R U2 R' D R U R U' R' U R U' R' U R U' R' U2 R","U R F R' U R U' R' U R U' F' R2 F' R U R U' R' F"]],
+["t",4,["x' D R U' R' D' R U R' x","U r U R' U' r' F R F'","U2 R U R D R' U' R D' R2","U2 R' F' R U R' U' R' F R U R"]],
+["t",4,["U' D' R2 U R' U' R' U R' D U2 R' U2 R","R U R D R' U2 R D' R' U' R' U R U' R' U' R U' R'","U' R2 U R' U' R' U R' U2 D R' U2 R D'","U2 L U2 r' D' F r U' r' F' D r U' L'"]],
+["t",4,["U R F U R' U' R U' R' U' R U F' R'","U R U R' U' R U' R' L U' R U R' L'","U R U S' R' U' R S R2 F R F'","x' D R U' R' U R' U' D R' U R D2 x"]],
+["t",4,["U R U' R' U' R U R D R' U2 R D' R' U' R'","U R U' R' U' R U R D R' U2 R D' R' U' R'","f R' F' U2 R' U2 R U2 S'","U2 F U' B' R2 U' R2 U R2 F' B"]],
+["t",4,["x M U R' U' L U R U R' U' R U' R'","R L' U R' U' L U R U R' U' R U' R'","U' R' U' R U R' U' R2 D R' U2 R D' R' U R' U R","U2 S' R U R' S R U' R' U' R U R' U' R' F R F'"]],
+["t",4,["U R U2 R' U2 R' F R U R U' R' F'","U R U2 R' U2 R' F R U R U' R' F'","U' R' U' R U2 R' F R U R' U' R' F' R U' R","U' R' U' R U2 R' U' R y R U R' U2 R U R'"]],
+["t",4,["U F' U' r' F2 r U' r' F' r F","U F' U' r' F2 r U F R U' R'","U F' U' L' U2 L U' L' U' L F","R' U' R U' R' U R' F' R U R U' R' F R"]],
+["t",5,["R2 F2 R U2 R U2 R' F2 R U' R' U R","U2 R' U' R' D' R U' M' U2 r' D R2","R2 F2 R U2 R U2 R' F2 R U' R' U R","R U R' U' D R' U R' U' R' U R2 D'"]],
+["t",5,["U' L' U' L U' L' U' L U2 R' L' U L U' R","U R' U' R U' R' U' R U2 L' R' U R U' L","U2 S R U' R2 U B' U' R2 U B R' S'","U' R' U2 R' U' D R' U' R D' R U R U R2"]],
+["t",5,["U' R D R' U' R D' R2 U R U' R' U' R U R' U' R","U2 F R2 D R' U' R D' R2 U' R U2 R' U' F'","U' R D R' U' R D' R2 U R U' R' U' R U R' U' R","R U R' U' R' U' F R f' R' U R S"]],
+["t",5,["U R' U2 R2 U R' U' R' U2 F' R U2 R U2 R' F","U R' U2 R2 U R' U' R' U2 F' R U2 R U2 R' F","R' U2 R U' R' D R' U R U R' U2 R U' D' R","M U R' F' r U r U' r' F M U' M'"]],
+["t",5,["U R' F' r U R U' r' F","U2 R' U' R' D' R U R' D R2","U' F R F' r U R' U' r'","U R' F' r U R U' r' F"]],
+["t",5,["U' R U2 R' U2 R U' R' U L' U R U' L U' R'","U F R U R' U' R U R' U' F' R U R' U' R' F R F'","U' R U2 R' U2 R U' R' U r' F R F' r U' R'","U' R U2 R' U2 R U' R' U L' U R U' L U' R'"]],
+["t",5,["U' R' U' R U R' U L' R U R' U' L R","U' R' U' R U R' U R L' U R' U' R L","R U R' U' R U' R' U' F R U R' U' R' F' R","R' F' U' F U R U R' U' F U R U' R' F' R"]],
+["t",5,["R' U2 R F U' R' U R U F' R' U R","R' U2 R F U' R' U R U F' R' U R","R U2 D' R U' R U R U' R2 D U' R'","R' U2 R U' R2 F' R U R U' R' F R U2 R' U R"]],
+["t",5,["U R U R' U' R' F' R U2 R U2 R' F","U R U R' U' R' F' R U2 R U2 R' F","U L' U2 L U2 L F' L' U' L' U L F","U r' F2 r U2 r U' r' U' r' F r F"]],
+["t",5,["U R U R' U' R U R2 D' R U2 R' D R U' R U' R'","U' F U R' U' R F' R' U' R U R' U R","U R U R' U' R U R2 D' R U2 R' D R U' R U' R'","x' M' U' R U L' U' R' U' R U R' U R"]],
+["t",5,["U' R' U R U R' U' R' D' R U2 R' D R U R","U' R' U R U R' U' R' D' R U2 R' D R U R","F' U f U2 R U2 R' U2 S'","U r' F R U2 F U2 F' U2 M'"]],
+["t",5,["U F U R U2 R' U R U R' F'","U F U R U2 R' U R U R' F'","L U2 R' U2 R U2 L' U' R' U R","U2 R U2 r' F2 r U2 R' U' L' U L"]],
+["u",0,["R U R' U' L' U2 R U R' U2 L R U' R'","R U R' U R U R' U2 R U' R2 D' R U' R' D R","R U R' U' L' U2 R U R' U2 L R U' R'","U2 L U L' F' U L U L' U' F U' L U' L'"]],
+["u",0,["U R U2 R' U' R U' R D' R U2 R' D R U2 R","U2 R U R' U R U' R' U2 R' D' R U2 R' D R2 U' R'","U R U2 R' U' R U' R D' R U2 R' D R U2 R","U' f R' f' R' f' R U R' S U' R' F R2"]],
+["u",0,["U2 R' U' R F U' R' U' R U F' U R' U R","U2 R' U' R U2 R' F' R U R' U' R' F R2 U2 R' U R","U2 R' U' R U' R' U' R U2 R' U R2 D R' U R D' R'","U2 R' U' R U L U2 R' U' L' U' L R U2 L'"]],
+["u",0,["U R' U2 R U R' U R' D R' U2 R D' R' U2 R'","U' R2 D' R U2 R' D R U2 R U R' U' R U' R' U2 R","U R' U2 R U R' U R' D R' U2 R D' R' U2 R'","R' U' R U' R' U2 R U R2 D' R U2 R' D R U2 R"]],
+["u",0,["x R2 D2 R U2 R' D2 R U2 l","x R2 D2 R U2 R' D2 R U2 R x'","R' F2 R U2 R U2 R' F2 R U2 R'","U2 R' U D R D R' U2 R D' R' U D' R"]],
+["u",0,["U2 x' R2 D2 R' U2 R D2 R' U2 l'","U2 x' R2 D2 R' U2 R D2 R' U2 R' x","R U' D' R' D' R U2 R' D R U' D R'"]],
+["u",0,["U2 F R U' R' U R U R' U R U' R' F'","U2 R U R' U' R' F2 R2 U' R' U' R U R' F2","U2 R' U' R f R' U R U' R U R' U' f'"]],
+["u",0,["U2 L' R' U R U' L R' U' R U2 R U R2 U R2 U2 R'","R U' R2 F R U R U' R2 F' R U' F' U F","U' F' R U R' U' R' F R2 U R' U2 R U R' U2 R U' R'","U' R U2 F R U R U' R U R2 U' F' U2 R'"]],
+["u",0,["U2 R' U2 R U R' U R' D' R U' R' D R U R","U2 R' U2 R U R' U R' D' R U' R' D R U R","U2 R' U2 R U R D R' U' R D' R' U R' U R","U2 R' U2 R U R' U R U' F' r U R' U' r' F R"]],
+["u",0,["U2 R U' R' U' R U2 R' U2 R' D' R U' R' D R","R U2 R' U' R U' R D R' U R D' R' U' R'","U2 R F U' R' U' R U2 R' U' R F' R'","U2 L U2 L' U' L U' L' R U R' U' R' F R U R U' R' F'"]],
+["u",0,["U' x M U' L U2 R' U R U2 R' U L' U L","U2 R U R' U R' D' R U2 R' D R2 U' R' U2 R U2 R'","U R' U2 R U R' U R' D r' U2 r D' R' U2 R'","U R' U R U R' U R U' R D R' U' R D' R2 U' R"]],
+["u",0,["U R U' R' U' R U' R' U R' D' R U R' D R2 U R'","U R U' R' U' R U' R' U R' D' R U R' D R2 U R'","U' F' r U R' U' r' F R2 U R' U R U2 R'","U' R U R' U R U2 R' U' R2 D' R U' R' D R U R"]],
+["u",1,["R' U' R U' R' U2 R U' R' U2 R U R' U R","U' R U R' U' R U' R' U2 R U' R' U2 R U R'","R' U' R U' R' U2 R U' R' U2 R U R' U R","U2 L' U' L U' L' U2 L U' L' U2 L U L' U L"]],
+["u",1,["U2 R U R' U R U2 R' U R U2 R' U' R U' R'","U' R' U' R U R' U R U2 R' U R U2 R' U' R","U2 R U R' U R U2 R' U R U2 R' U' R U' R'","L U L' U L U2 L' U L U2 L' U' L U' L'"]],
+["u",1,["U R' U2 R2 U R2 U R U' R U R' U' R U' R'","U R' U2 R2 U R2 U R U' R U R' U' R U' R'","U' r' F2 r2 U' r' F r' F U' F U r","U2 R' U' R U R U' R' U' R U' R' U R' U R2 U R'"]],
+["u",1,["U R U2 R' U' R U' R' U' R U R' U R U2 R'","U R U2 R' U' R U' R' U' R U R' U R U2 R'","U R2 U R U' R' U' R U R U' R' U2 R U R2 U' R2","R U' R' U R' U2 R U R' U R2 U R' U2 R U' R'"]],
+["u",1,["U R U2 R2 U' R2 U' R' U R' U' R U R' U R","U R U2 R2 U' R2 U' R' U R' U' R U R' U R","U' L U2 L2 U' L2 U' L' U L' U' L U L' U L","U R U2 R2 F R F' R U' B U' B' R'"]],
+["u",1,["U R' U2 R U R' U R U R' U' R U' R' U2 R","U R' U2 R U R' U R U R' U' R U' R' U2 R","U' L' U2 L U L' U L U' R' U' R U' R' U2 R","U' L' U2 L U L' U L U L' U' L U' L' U2 L"]],
+["u",1,["R' U' R U' R U2 R2 U' R2 U' R2 U R","R' U' R U' R U2 R2 U' R2 U' R2 U R","R' U' R U' R U R' U' R' U2 R U2 R U2 R'","R' U' R U' R U R' U R U2 R' U2 R' U2 R"]],
+["u",1,["U2 R U R' U R' U2 R2 U R2 U R2 U' R'","U2 R U R' U R' U2 R2 U R2 U R2 U' R'","U2 R U R' U R' U' R U' R' U2 R U2 R U2 R'","U2 L R U R' U R U2 R' L' U2 L U2 L' U' L U L'"]],
+["u",1,["R' U' R U' R' U2 R2 U R' U R U2 R'","R' U' R U' R' U2 R2 U R' U R U2 R'","U2 L' U' L U' L' U2 L U2 R U R' U R U2 R'","U2 L' U' L U' L' U2 L2 U L' U L U2 L'"]],
+["u",1,["U2 R U R' U R U2 R2 U' R U' R' U2 R","U2 R U R' U R U2 R2 U' R U' R' U2 R","L U L' U L U2 L2 U' L U' L' U2 L","R U R' U' R U' R' U2 R U' R' U2 R U' R' U' R U' R'"]],
+["u",1,["R U R' U' R' U R U R U' R' U R' U R U2 R' U' R","R U R' U' R U' R U2 R2 U' R U R' U' R2 U' R2","x' R2 D2 R' U' R D2 R2 D R U R' D' x","U2 R' U2 R U R' U R U2 R U2 R2 U' R2 U' R2 U2 R"]],
+["u",1,["U R' U2 R U R' U R U2 R U2 R' U' R U' R'","U R U2 R' U' R U' R' L' U2 L U L' U L","U R U2 R' U' R U' R' U2 R' U2 R U R' U R","U R' F' R U R' U' R' F D' R U R' D R2"]],
+["u",2,["R' F R' F' R U R U' R' F R U' R' U R U R' F' R","R' F R U' R' U' R U R' F' R U R' U' R' F R F' R","R U' R2 U' R2 U R2 D' R2 U R2 U' R2 D R'","R U' R2 U' R2 U R' F' R U R2 U' R' F R2"]],
+["u",2,["R U2 R D r' U2 r D' R2 U R' U2 R U R' U R","r2 F2 r U2 r U' L' U R' U R U' L","U2 R' U' R U' R' U2 R U' R2 D r' U2 r D' R' U2 R'","R2 D' R U2 R' D R U2 R' F R U R U' R' F' R U2 R' U2 R"]],
+["u",2,["U' F2 R' F' R U R U' R' F R U' R' U R U R' F2","U' F2 R U' R' U' R U R' F' R U R' U' R' F R F2","U R U R' U R U2 R2 F' R U R' U' R' F R2 U' R' U2 R","U2 R' U R U' x' U L' U L U2 R U' R' U x"]],
+["u",2,["x' R2 U2 R' U2 l' U R U' L U' L' U R'","R2 B2 R' B2 R' U R U' L U' L' U R'","R2 D' R U2 R' D R U2 R2 U R' F' R U R' U' R' F R2 U' R'","R U R' U R U2 R' U R2 D' r U2 r' D R U2 R"]],
+["u",2,["U' R' U' R F R2 D' R U R' D R2 U' F'","U' R' U' R F R2 D' R U R' D R2 U' F'","U' B' U' R2 D R' U R D' R2 B R U' R'","U l' U' L U l F' L' F R U R' U' R' F R U R U' R' F'"]],
+["u",2,["U' F U R2 D' R U' R' D R2 F' R' U R","U' F U R2 D' R U' R' D R2 F' R' U R","U' R U R' B' R2 D R' U' R D' R2 U B","R U R D R' U' R D' R2 U' R2 D' R U' R' D R U R"]],
+["u",2,["R' U2 R U R' U2 R U R2 F' R U R U' R' F R U' R' U' R","U R' U R U R' F' R U R' U' R' F R2 U' R' U2 R U' R' U2 R","F U R U' R' S U f' R' f R U' R' f' R","R' U2 F' R U R' U' R' F R2 F U' R' U' R U F'"]],
+["u",2,["U R' U' R U' R2 U2 R U R2 F' R U R U' R' F R2","U' R2 F' R U R' U' R' F R2 U' R' U2 R2 U R' U R","R U' R' U R U' L U L' U x' U2 R U2 R2 x","U R' B2 R2 U R' U R U' R2 B2 R U2 R U R'"]],
+["u",2,["U' R2 D' R U2 R' D R U2 R U R' U2 R U R' U R","U' r U R' U' r' F R2 U' R' U' R U2 R' U' F'","L U L' F U' R U2 L U2 L' U2 R' U F'","U' R2 F R F' R U R2 F' U' F U R U2 R"]],
+["u",2,["U' R2 D R' U2 R D' R' U2 R' U' R U2 R' U' R U' R'","R2 F R U R U' R' F' R U' R2 D' R U R' D R2","U F U R U2 R' U R U2 R' U' R' F' R U2 R U2 R'","U' R2 D R' U2 R D' R' U2 R' U' R U2 R' U' R U' R'"]],
+["u",2,["U F U R U2 R' U R U R2 F' r U R U' r'","U F U R U2 R' U R U R2 F' r U R U' r'","U R' U' R U' R' U2 R U' R' U2 R' D' R U2 R' D R2","U' R' U2 R2 L U2 L' U' L U2 R2 U L' R"]],
+["u",2,["U R U R' U R U2 R' U R U2 R D R' U2 R D' R2","U R U R' U R U2 R' U R U2 R D R' U2 R D' R2","U' R U2 R' U2 R' F R U R U2 R' U' R U2 R' U' F'","U2 F R2 U R' D R2 D' R U' R2 F' R U' R'"]],
+["u",3,["R2 D R' U' R D' R' U' R' U R U R'","U R' D' R U' R' D R2 U2 R' U R U R'","R2 D R' U' R D' R' U' R' U R U R'","R' D R2 U2 R' U R U R2 D' R"]],
+["u",3,["U2 R' U' F' U F R U F U R U' R' U R U' R' F'","U2 M' U R' U' F' U F R2 U R' U R U2 r'","U2 F U R U2 R2 U2 R U R' U R U2 R U R' F'","U2 M U' M' F R U R' U' F' M U M'"]],
+["u",3,["L' R U R' U R U R' U2 L R U' R'","R' U' F' U F U' R S' R' U R S","L' R U R' U R U R' U2 R L U' R'","R' U' R U' F U' R' U R U R' U R U' F'"]],
+["u",3,["U F U' R' U R U F' R' U2 R","R' U R U R' U' R' D' R U' R' D R2","U F U' R' U R U F' R' U2 R","R' U R U R' U2 R2 D R' U' R D' R'"]],
+["u",3,["U2 F U R U2 R' U R U R' U R U2 R' U R U R' F'","U2 F U R U2 R' U R U R' U R U2 R' U R U R' F'","U2 F R U' R' U' R U2 R' U' R U' R' U' R U2 R' U' F'","f U2 R2 U2 R2 U' S R2 S' U' R2 f'"]],
+["u",3,["U' F U R U' R' F' R U R' U' M' U R U' r'","U r U R' U' M U R U' R' F R U R' U' F'","U2 R' F' M U' M' F M U r","U2 R' F' U' F U F R S R' F' R S'"]],
+["u",3,["M' U' R U R' U M F R' F' R2 U2 R'","U r U2 R2 F R F' U2 r' R U R U' R'","U' R U R' U' M' U R2 B' R' B U' r'","U R U2 R2 F R F' M' U' R U' R' U M"]],
+["u",3,["U L' U' L U' L' R U' R' U2 L R U' R'","U R' U2 R F U' R' U R U R' U R U' F'","U' R' D R2 U' R' U R U2 R' U' R U R2 D' R","U' R' U' R U' R' L U' R U R' L' U2 R"]],
+["u",3,["U' F' U L U' L' U' F L U2 L'","U2 R U' R' U' R U R D R' U R D' R2","U' F' U L U' L' U' F L U2 L'","U2 R U' R' U' R U2 R2 D' R U R' D R"]],
+["u",3,["U' R B' R2 F R2 B R2 F' R F U R U' R' F'","U F R U R' U' R U R' U' F' U' R' F' U' F U R","U R U2 R2 D' R U' R' D R U' R' F R U R U' R' F'","U' S' R' U R S R' U2 R' F R F' U R"]],
+["u",3,["U2 R' U2 R U L U2 R' U' R U2 L'","U2 R2 D' R U R' D R U R U' R' U' R","U2 R' U2 R F U' R' U' R U F'","U2 R' U2 R U2 R' F' R U R' U' R' F R2"]],
+["u",3,["U2 R U R' U L' U R U' R' L U' R U' R'","U2 R U R' L' U2 R U' R' U' R U' R' L","U2 R U R' U R' F R F' U' S' R U' R' S","U2 S' R' U' R S R' U F' U' F U R"]],
+["u",4,["R U R' U R U2 R2 U2 R' D' R U2 R' D R2","U2 R' U2 R' D' R U2 R' D R U2 R U R' U R","U' R U' R' U' R U R' U R U R2 F' R U R U' R' F","U L' U R U' L U R' L U L' U L U2 L'"]],
+["u",4,["U R' U R U R' U2 R U R D R' U2 R D' R'","U R' U R U R' U2 R U R D R' U2 R D' R'","U' L U L' U L U2 L2 U R U' L U R'","U R U R' U R U2 R2 U L U' R U L'"]],
+["u",4,["R' U' R2 D R' U' R D' R2 U2 R","R2 D' R U' R' D R2 U' R' U2 R","U' R' U R U2 R D r' U2 r D' R'","R' U' R2 D R' U' R D' R2 U2 R"]],
+["u",4,["U' R2 D' r U2 r' D R U2 R","U' R2 D' r U2 r' D R U2 R","F U R U' R2 F' R2 U' R' F' U' F R U R'","U' R2 D' L F2 L' D R U2 R"]],
+["u",4,["U2 R' U2 R2 D R' U2 R D' R2 U R U2 R' U2 R","U2 R' U2 R2 D R' U2 R D' R2 U R U2 R' U2 R","U' R' F' r U2 R' D R U' R' D' R2 U' r' F","U' S R2 S' D' R U2 R' D R' U2 R2 U2 R'"]],
+["u",4,["U' R2 D' R U2 R' D R U2 R","U' R2 D' R U2 R' D R U2 R","U2 F x R2 D2 R U R' D2 R U' R x' F'","U L2 D' L U2 L' D L U2 L"]],
+["u",4,["U' R D r' U2 r D' R' U2 R' U R U R' U R","U2 R' U R U R' U2 R y U2 R U' R' U2 R U' R'","U2 R' U R U R' U2 R y U2 R U' R' U2 R U' R'","U2 R' U R U R' U2 R U' D' R U' R' U2 R U' R' D"]],
+["u",4,["R U2 F U F' R' U F U2 F' R U2 R'","U F R U R' U' R2 D R' U' R D' R2 U' R U R' F'","R B R' U2 R B' R2 D2 r U' r' D2 R","U F R U R2 D' R U' R' D R2 U' R' U' R U R' F'"]],
+["u",4,["R U' R U D R' U R U2 R' U R D' R' U R'","U' R2 D' R U2 R' U' D R' U' R2 U R U R2","U2 R2 D R' U R D' R2 U' R U' R' U2 R U' R' U2 R U R'","U' R' U2 F U F' R F U2 R' U' R U F'"]],
+["u",4,["R U L' U R' U' L U' R U R' U R U' R'","U2 R2 F' R U2 R U2 R' F U' R U R' U' R","R U L' U R' U' L U' R U R' U R U' R'","U' R2 D' R U2 R' D R U' R' U' R' U' R' U R U R2"]],
+["u",4,["U2 R' U R U' R' U' R U2 R D R' U' R D' R2 U' R","U2 R' U R U' R' U' R U2 R D R' U' R D' R2 U' R","R' U' R U' R' U R F U' R' U' R U F' R' U2 R","U' R D R' U2 R D' R' U R' U R U' R' U' R U R' U' R"]],
+["u",4,["U2 R U R' U2 F2 R U2 R' U2 R' F2 R2 U R'","U' F U R U' R D R' U' R D' R2 U R U R' F'","R2 U' R2 U' R U2 D' R U' R' U' D R U R2","U2 R U R' U2 F2 R U2 R' U2 R' F2 R2 U R'"]],
+["u",5,["R U2 R D R' U2 R D' R' U2 R' U' R U' R'","R U2 R D R' U2 R D' R' U2 R' U' R U' R'","U z U R' D' R U' R' D U' R' U R' U' R2 U z'","U' R U' L' U R' U' L R' U' R U' R' U2 R"]],
+["u",5,["U2 R2 D R' U R D' R2 U R U2 R'","U2 R U R2 D' R U R' D R2 U2 R'","U2 R U R' U R U' R' U' R' F R U R U' R' F'","U2 R2 D R' U R D' R2 U R U2 R'"]],
+["u",5,["U R U' R' U' R U2 R' U' R' D' R U2 R' D R","U R U' R' U' R U2 R' U' R' D' R U2 R' D R","U R' U' R U' R' U2 R2 U' L' U R' U' L","U2 F R' F' U' F R S U R2 U' R' f'"]],
+["u",5,["U' R2 D r' U2 r D' R' U2 R'","U' R2 D r' U2 r D' R' U2 R'","U R' U r' F R F' r U2 R' U R","U R' U2 R U R2 F' R U R U' R' F R"]],
+["u",5,["U' R2 D R' U2 R D' R' U2 R'","U' R2 D R' U2 R D' R' U2 R'","U L2 D L' U2 L D' L' U2 L'","R U R' U2 R' D' R U2 R' D R2 U' R'"]],
+["u",5,["R U2 R2 D' R U2 R' D R2 U' R' U2 R U2 R'","R U2 R2 D' R U2 R' D R2 U' R' U2 R U2 R'","U r U R' U R' D' R U R' D R U r' F R F'","U' S R2 S' D R' U2 R D' R U2 R2 U2 R"]],
+["u",5,["U R' U' R U R U R' U' R' U F R U R U' R' F'","U2 R' F' R U2 R' F R2 D2 r' U r D2 R'","U2 R' F' R U2 R' F R2 u2 R' F R u2 R'","U' R' U R D' R U R' D R2 U' R U R U2 R"]],
+["u",5,["U R U2 R2 U' R F' U' R' U2 R U F R U' R'","U' R' D' r U2 r' D R U2 R U' R' U' R U' R'","U R U R' U' R U R2 D' R U R' D R2 U R' U' R U' R'","U R U R' F' U' F2 D R' U R' U' R D' F'"]],
+["u",5,["R U' R' U R U R' U2 R' D' R U R' D R2 U R'","R U' R' U R U R' U2 R' D' R U R' D R2 U R'","U R' U2 R U F' R' D U' R U R' D' U R F","U R F2 U' R2 U' R U2 R' U' R U' R U F2 R'"]],
+["u",5,["U2 R' U' L U' R U L' U R' U' R U' R' U R","R U R' U R U' R' U F' R U2 R' U2 R' F R","U' R2 F2 R2 U R U2 R' U' R U R F2 R' U2 R'","U R D' R' U R2 D' r' D2 r' U' r2 D' R2"]],
+["u",5,["U2 R' U R' D' U' R U' R' U2 R U' R' D R U' R","R2 D' R U' R' D R2 U R' U R U2 R' U R U2 R' U' R","U2 R2 U F' R2 U' R2 U' R2 U2 R2 U' F U' R2","U2 R' U R' U' D' R U' R' U2 R U' R' D R U' R"]],
+["u",5,["U2 L' U' L U2 F2 L' U2 L U2 L F2 L2 U' L","U2 R U R' U R U' R' U R U' R' U' L' U R U' R' L","U2 R U R' U R U' R' U R U2 R' r U R' U' r' F R F'","U2 R U R' U R U' R' U R U' R' U' r' F R F' M'"]],
+["l",0,["L' U L U2 R' L' U L U R U R' U R","U2 R' U R U2 R' L' U R U L U r' F r","U2 S R B' U' R2 U B U' R2 U R' S'","L' U R' U' L R U2 R' U R U R' U R"]],
+["l",0,["L' U R' U' L U' R' U2 R' U R' U' R U2 R2","U F' R U2 R' U2 R' F U2 R U R U' R2 U2 R","M U M' F' L F L' U' L' U l U' M'","R' D U R' U2 R U' R' U' R D' R U R' U2 R"]],
+["l",0,["U2 R' U' R U R' F2 R U2 R' U2 R' F2 R2","U2 R2 D' r U2 r' R U R' D R U R","U2 r U2 r' U2 r' F2 r F2 L' U L U' L' U2 L","U2 R2 D' r U2 M U R' D R U R"]],
+["l",0,["U' R' D R' U R D' R' U R2 U' R2 U' R2","U' R' D R' U R D' R' U R2 U' R2 U' R2","R U R' U R' D' r U2 r' D R2 U' R' U R U' R'","S' R' U' R f R' F' U R U R U' R'"]],
+["l",0,["U2 R U L' U R' U' L U' R U R' U2 R U2 R'","R U R' U R U' R' U R U' R' U R2 D R' U2 R D' R2","U' F R' F' R U R U' R' F U R U' R' U R U' R' F'","U2 R U r' F R' F' r U' R U R' U2 R U2 R'"]],
+["l",0,["U F' r U R' U' L' U l","U F' r U R' U' r' F R","U2 R2 D' R U' R' D R U R","U' x' U' R U L' U' R' U r"]],
+["l",0,["R' U' R F U' R' U' R U F' R' U2 R","R' U' R U2 R' F' R U R' U' R' F R2 U R' U2 R","R' U' R F U' R' U' R U F' R' U2 R","U R U2 R' U2 D R' U R' U' R' U R2 D'"]],
+["l",0,["L' R' U R U' L R' U' R U' R' U R","U2 R' F R U R U' R' F' U R U R' U R U' R'","R' L' U R U' L R' U' R U' R' U R","R' F R U R' U' F' U R F' U' L' U L F"]],
+["l",0,["U2 F R U' R' U' R U2 R' U' F'","U2 F R U' R' U' R U2 R' U' F'","L' U' L F U R U2 R' U' F'","U2 R' U' R F U' R' U2 R U F'"]],
+["l",0,["U F' R U2 R' U2 R' F R U R U' R'","U F' R U2 R' U2 R' F R U R U' R'","U F' L' U' L U L F L' U2 L' U2 L","U R U2 R' U' R U R D R' U' R D' R' U' R'"]],
+["l",0,["R' U' R U' R' U R U L U' R' U M x","R U R' U R' D' R U2 R' D R2 U' R' U R U' R'","R' U' R U' R' U R F R' U R U' F'","R' U' R U' R' U R U L U' R' U M x"]],
+["l",0,["U' R' U' R' D' R U2 R' D R U R U' R' U' R","U' R' U' R' D' R U2 R' D R U R U' R' U' R","U F B' R2 U R2 U' R2 F' U' B","U S' R U2 R' S U2 F' U' F"]],
+["l",1,["R U R' U' R B2 R' U2 R U2 R B2 R2","U2 R2 D' R U2 R' D R2 U R2 F' R U R U' R' F R","R2 D r' U2 r R' U' R D' R' U' R'","U2 R2 U R' U' R' U R' D U' R' U R D'"]],
+["l",1,["U' R D' R U2 R2 U R2 U R2 U' R D R'","U' R U' R' U R U' R' U' R U R2 D' R U' R' D R","U2 S' R U R' F' U f U' R' U' R' U R","U' R' D R2 U' R' U R U' R' U' R U R2 D' R"]],
+["l",1,["U2 L U' R U R' L' U2 R U' R' U' R U' R'","U2 L U' R U R' L' U2 R U' R' U' R U' R'","U2 R' U2 R F U' R' U2 R U F' U' R' U R","U' R2 U R U R D' R U' R' D U' R' U2 R'"]],
+["l",1,["U2 R' U2 R2 U R' U' R' U2 F R U R U' R' F'","U2 R' U2 R2 U R' U' R' U2 F R U R U' R' F'","U2 R' U' R' D' R U' R' U' D R' U' R2 U R U R2","U2 L U' R U L' U R U2 R U' R U R' U2 R2"]],
+["l",1,["U' F R' F' r U R U' r'","U' F R' F' r U R U' r'","U2 x' R U' R' D R U R' D' x","R2 D R' U R D' R' U' R'"]],
+["l",1,["R' U' L U' R U L' U R' U' R U2 R' U2 R","U2 R' U' R U' R' U R U' R' U R U' R2 D' R U2 R' D R2","U2 R' U2 R U R' U' F' R U R' U' R' F R2 U R' U R","U2 R' F R U R' U' F' R' F R F' R' F R F' U R"]],
+["l",1,["U2 R U R' B' U R U R' U' B R U2 R'","U R' U2 R U2 D' R U' R U R U' R2 D","U2 R U R' U R U R' U' R U R D R' U2 R D' R' U' R'","x' r U r' D' F r U r' F' D r U2 L'"]],
+["l",1,["U2 L R U' R' U L' R U R' U R U' R'","U2 R U R' F' U' F U R U2 R' f R U R' U' f'","U2 R F U' R' U R U R' U R U' F' R'","U2 L R U' R' U R L' U R' U R U' R'"]],
+["l",1,["U' F R U R' U' R' F' R U2 R U2 R'","U' F R U R' U' R' F' R U2 R U2 R'","U x' M' U L' U2 R U2 L U' L' U' R' U R","U' F R' F' r U2 R' U' R2 U' r' U R' U R"]],
+["l",1,["U2 F' L' U L U L' U2 L U F","U R' F' R U R' U' R' F R U' R U R' U R","R U R' F' U' r' F2 r U F","R U R' U' R' F R F' l' U2 L U L' U l"]],
+["l",1,["U' R U R D R' U2 R D' R' U' R' U R U R'","U' R U R D R' U2 R D' R' U' R' U R U R'","U' S U2 R' U2 R U2 F R f'","U2 M' U2 y R' U2 R U2 F l U' z'"]],
+["l",1,["U2 R U R' U R U' R' U' L' U R U' L R'","U2 R U R' U R U' R' U' L' U R U' R' L","U' R U' R' U' R' D' r U2 r' D R U' R U R'","U2 R U R' U R U' R' U' r' F R F' M'"]],
+["l",2,["L' U R U' L U R2 U2 R U R' U R","U2 R' D' R U2 R' D R U R U2 R' U R U R'","L' U R U' L U R2 U2 R U R' U R","U2 f R U R2 U' S' R' F' U F R F'"]],
+["l",2,["R U R' U R U2 R D R' U2 R D' R' U2 R'","R U R' U R U2 R D R' U2 R D' R' U2 R'","U2 R2 D R' U2 R D' R' U2 R2 U2 R U R' U R","U' S R U R' U' F' U2 F U R U R' S'"]],
+["l",2,["U' R U2 R D r' U2 r D' R2","U2 R' F' R U R' U' R' F R2 U' R' U2 R","U' R U2 R D r' U2 r D' R2","R' U M' U' R U' R' U' R U2 r' F R' F' R U' R"]],
+["l",2,["R U2 R' U' R2 D R' U' R D' R2","R U2 R' U' R2 D R' U' R D' R2","R U2 R2 D' R U' R' D R2 U' R'","F R U R' U' R' F' R U R U R' U' R U' R'"]],
+["l",2,["U' R U2 R' U2 R U R2 D' R U2 R' D R2 U2 R'","U' R U2 R' U2 R U R2 D' R U2 R' D R2 U2 R'","l x' U L' U' z' R U L' U' R' U L2 z L U' l2","U' F R' F' r U' R' D' R U' R' D R U' R U' r'"]],
+["l",2,["U' R U2 R D R' U2 R D' R2","U' R U2 R D R' U2 R D' R2","U x' R U R' D R U2 R' D' R U R' x","U L U2 L D L' U2 L D' L2"]],
+["l",2,["U' D R' U' R U2 R' U' R D' U' R U2 R' U R U R'","R U R' U R U R' U2 R' D' r U2 r' D R","R U R' U R U' R2 D' R U' R' D R2 U' R' U R U' R'","U' R' U' R U2 R' U' R D' U' R U2 R' U R U R' D"]],
+["l",2,["F R U R' U' R' F' U' R U R U' R' U' R' U R","F R U R' U' R' F' U' R U R U' R' U' R' U R","U2 R' U2 R' U' R' U R2 D' R U' R' D R' U' R","R U R' U2 R U R2 D' r U2 r' D R2 U' R'"]],
+["l",2,["U' R' U' R U R' U R U' L U' R' U L' U R","R' F' R U2 R U2 R' F U' R U R' U' R U' R'","U' R' U' R U R' U R U2 F R' U R U' F' U R' U R","U2 R2 D' R2 U R' D R2 U' D r2 D2 r2 D' R'"]],
+["l",2,["U' R' U R' D' R U R' U2 R U R' D U R U' R","U' R' U R U2 R' U' R U2 R' U' R U' R2 D' R U R' D R2","U' R' U R' D' R U R' U2 R U R' U D R U' R","R U R2 D' r U2 r' D R2 U' R' U' R U2 R'"]],
+["l",2,["L U2 L' U R' U2 L U2 R U L' U R' U R","U R' F' R U R' U' R' F D' R U' R' D R2 U R' U R","U F U' R U R' U R' U2 R U R' U R2 U' R' U F'","L' R U R' U' L U R U R' U' R U R' U' R U' R'"]],
+["l",2,["U' R U' R2 D' R U' R' D R U2 R U' R' U' R U R'","U' R U' R2 D' R U' R' D R U2 R U' R' U' R U R'","S R' U' F R' F' R2 U F R F' U2 S'","U' L U' R U L' U' R' U R U' R' U R U' R' U' R U R'"]],
+["l",3,["R' U2 R' D' r U2 r' D R2","R' U2 R' D' r U2 r' D R2","U2 R U' R' F' U F R U R2 F R2 U R' U' F'","R U R' U2 L U' R U L' U R'"]],
+["l",3,["U' R' U2 R U R2 D' R U R' D R2","U' R' U2 R U R2 D' R U R' D R2","U R D r' U2 r D' R' U2 R' U' R","R U2 R' U' R U' R' U' R2 D' R U2 R' D R U2 R"]],
+["l",3,["U R D R' U2 R D' R' U' R' U2 R U' R' U' R","U R D R' U2 R D' R' U' R' U2 R U' R' U' R","U' L U' R' U L' U' R2 U2 R' U' R U' R'","U2 L' U' L U' L' U2 L U R U' L' U R' U' L"]],
+["l",3,["U' R' U' R U' R' U2 R' D' R U2 R' D R U2 R","U' R' U' R U' R' U2 R' D' R U2 R' D R U2 R","S R' U' R U f R2 f' U' R' U' R S'","U F' R U R' U' R' F R2 U' R' U' R U' R' U R U R'"]],
+["l",3,["R' U2 R' D' R U2 R' D R2","R' U2 R' D' R U2 R' D R2","U2 x R' U' R D' R' U2 R D R' U' R x'"]],
+["l",3,["R' U2 R U2 R' U' R2 D R' U2 R D' R2 U2 R","R' U2 R U2 R' U' R2 D R' U2 R D' R2 U2 R","U2 F' r U R2 D R U R' D' R U2 r' F R","R U2 R2 U2 R D' R U2 R' D S R2 S'"]],
+["l",3,["D' R U R' U2 R U R' D U R' U2 R U' R' U' R","U' R' U' R U' R' U' R U2 R D r' U2 r D' R'","R U R' U2 R U R' U2 F' U2 y' R U' R' U' R","R U R' U2 R U R' U D R' U2 R U' R' U' R D'"]],
+["l",3,["U R U2 R U R U' R2 D R' U R D' R U R'","U' F R U' R' U R U R2 D' R U R' D R2 U' R' F'","U' F R U' R' U R2 D R' U R D' R2 U R U' R' F'","U R U2 R U R U' R2 D R' U R D' R U R'"]],
+["l",3,["U R2 U R U R2 U2 R2 D R' U R D' R U R'","U' R' U' R2 D r' U2 r D' R2 U R U R' U2 R","R' U2 R' D' R' F2 R2 U2 R2 F2 R D R2","R2 U' R' U' R2 U R U D' R U2 R' D R2"]],
+["l",3,["U2 L U L' U' L U' L' U R' U L U' R U' L'","R' U R U' R' U F' R U2 R' U2 R' F R2","U' R' U2 R U R2 D' R U' R' r U2 r' D R2","R U R' U' R U' R' U L' U R U' L U' R'"]],
+["l",3,["R' U R2 D R' U R D' R' U2 R' U R U R' U' R","R' U R2 D R' U R D' R' U2 R' U R U R' U' R","R' U R U' R' U R U R' U' R U' R D R' U2 R D' R'","U2 f U' R2 U' R' F R' F' U' R U' R' U' f'"]],
+["l",3,["U' R U' R2 F2 R U2 R U2 R' F2 U2 R U' R'","U' F R U' R' U' R2 D R' U R D' R' U R' U' F'","U' R U' R2 F2 R U2 R U2 R' F2 U2 R U' R'","U2 F U R' U' R F' R' U' R U R' U' R U R' U R"]],
+["l",4,["r U2 R r2 F R' F' r2 U2 r'","r U2 R r2 F R' F' r2 U2 r'","r U2 r2 R F R' F' r2 U2 r'","U2 R' U2 R U R2 F R F' R' F R F' R' F R F' U R"]],
+["l",4,["U L' U' L U' x M U' R' U2 L U R U2 R'","R' U R U' R' U R U R' U' R U2 R D R' U' R D' R'","R' D' R U' R' D R U2 R U' R' U R U R' U' R U R'","U' R' U' R U' R' U' F U' F' U' R F U2 F'"]],
+["l",4,["U2 R U R' U x M U L U2 R' U' L' U2 L","U R U' R' U R U' R' U' R U R' U2 R' D' R U R' D R","R U2 R' U' L' U2 R U M' x' U L' U L","U2 R U R' U R U' R' F2 R U2 R' U2 R' F2 R2 U' R'"]],
+["l",4,["U r U2 r2 F R F' r2 R' U2 r'","U r U2 r2 F R F' r2 R' U2 r'","U2 R' F2 R2 U' r' F R' M' F2 R","U r U2 r2 F R F' R' r2 U2 r'"]],
+["l",4,["U F R U R' U' F' r U r' U R U' M' U' r'","r U R2 D' R U2 R' D R U r' F R F'","U F R U R' U' F' r U r' U R U' R' r U' r'","U L' U R2 D' R' U2 R D R' U L U R'"]],
+["l",4,["r U M U R' U' r U' r' F U R U' R' F'","U2 F' r U R' U R' D R U' R' D' R U' r' F R","r U r' R U R' U' r U' r' F U R U' R' F'","U R U2 R2 F R F2 r' U' F2 U r F"]],
+["l",4,["U' F2 R U' R' U R U R2 F' R U R U' R' F'","U R' U R U' R' U' R U' R' U2 R' D' R U' R' D R2","U2 x' r2 U' r U2 R' F R U2 r2 F L'","U' F R U R' U' R' F R2 U' R' U' R U R' F2"]],
+["l",4,["U' R' U' F R U' R' U R U R2 F' R U R U' R' U R","U2 B' R U R' U' R' F R2 U' R' U' R U R' S z'","R U' R' U R U R' U R U' R2 D' R U R' D R","U M' U' r U2 R' F R U2 r2 F R"]],
+["l",4,["R2 F' R U R U' R' F R U' R' U R","U' R' U' R U R' F' R U R' U' R' F R2","U r U2 R2 F R F' R U2 r'","R U2 L' U R' U' L R U2 R'"]],
+["l",4,["U' F U R U2 R' U2 R U R' U R U' R' F'","U F R U R2 F R F' R U' R' F'","F R U R' U' R U' R' U2 R U2 R' U' F'","F R U R' U' R2 x' U' R' U R' D' x"]],
+["l",4,["U2 R U R' L' U2 R U R' U2 L","U' L' U2 R U' R' U2 L R U' R'","r' U2 R2 B' R' B R' U2 r","U F R U R' U' F' r U R' U R U2 r'"]],
+["l",4,["U' F U R U2 R D R' U R D' R' U' R' U R U R' F'","U2 R U R' U F' R U2 R' U' R' U' R' F R U R","U F U' R' U R D R' U R U D' F' R' U R","R' U2 R2 U R' F' R U R' U' R' F R2 U' R' U' R' U2 R"]],
+["l",5,["R U2 R2 U2 R' U R' U' R U2 R U2 R U2 R'","U2 R2 U R' U' R' U R U R' U R U' R U' R2","U R U2 R' U' R U' R2 U2 R U R' U' R U R' U R","R' U2 R' U' R2 U' R U R' U' R U2 R U' R"]],
+["l",5,["U2 R' U' R U' R' U2 R U' R U R' U R U2 R'","U2 R' U' R U' R' U2 R U' R U R' U R U2 R'","L' U' L U' L' U2 L U R U R' U R U2 R'"]],
+["l",5,["U2 R' U2 R U R' U R U' R U2 R' U' R U' R'","U2 R' U2 R U R' U R U' R U2 R' U' R U' R'","L' U2 L U L' U L U' L U2 L' U' L U' L'"]],
+["l",5,["R2 U' R U' R U R' U R U R' U' R' U R2","R2 U' R U' R U R' U R U R' U' R' U R2","R U R' U R U' R' U R U2 R2 U' R U' R' U2 R","U F' R U2 R' U2 R' F2 R2 U R' U' R U R' U' F'"]],
+["l",5,["U' R U R' U R U2 R' U R' U' R U' R' U2 R","U' R U R' U R U2 R' U R' U' R U' R' U2 R"]],
+["l",5,["U' R2 U' R U R U' R' U' R U' R' U R' U R2","U' R2 U' R U R U' R' U' R U' R' U R' U R2","R' U2 R U R' U R2 U2 R' U' R U R' U' R U' R'","U r U r' U R U' R' U R U' R' M' U R U2 r'"]],
+["l",5,["U' R U2 R' U' R U' R' U R' U2 R U R' U R","U' R U2 R' U' R U' R' U R' U2 R U R' U R","U' R U2 R' U' R U' R' y R' U2 R U R' U R"]],
+["l",5,["U R2 U R' U R' U' R U' R' U' R U R U' R2","U R2 U R' U R' U' R U' R' U' R U R U' R2","U R' U' R U' R' U R U' R' U2 R2 U R' U R U2 R'","U2 R U R' U R U' R' U R U2 R' L' U' L U' L' U2 L"]],
+["l",5,["U2 R' U2 R U R' U R U2 R' U' R U' R' U2 R","U' R U2 R' U' R U' R' U2 R U R' U R U2 R'","U2 R' U2 R U R' U R L' U' L U' L' U2 L","U' R U2 R' U' R U' R' L U L' U L U2 L'"]],
+["l",5,["U2 R' U' R U' R' U2 R U2 R' U2 R U R' U R","U' R U R' U R U2 R' U2 R U2 R' U' R U' R'","U2 R' U' R U' R' U2 R U2 R' U2 R U R' U R","U' R U R' U R U2 R' L U2 L' U' L U' L'"]],
+["l",5,["U R U2 R' U' R U R' U' R U R' U' R U' R'","U R U R' U R U' R' U R U' R' U R U2 R'","R' U' R U' R' U R U' R' U R U' R' U2 R","R' U2 R U R' U' R U R' U' R U R' U R"]],
+["l",5,["U R U2 R' L' U' L U' L' U2 L R U R'","U2 R U R' U R U' R' U R U2 R' U' R U2 R' U' R U' R'","U2 R U' R' L' U2 L U L' U L R U2 R'","U R U2 R' U2 R' U' R U R U' R' U2 R' U2 R"]],
+["h",0,["L R' U' R U' R' U R U2 L' U R' U2 R","U F' r U R' U' r' F R2 U2 R' U' R U' R'","R U2 R' U' R U' R' F R U' R' U' R U2 R' U' F'","R' F R U R' U' R' F' R U R2 U2 R' U' R U' R'"]],
+["h",0,["U2 L' R U R' U R U' R' U2 L U' R U2 R'","U' F R' F' r U R U' r2 F2 r U L' U L","U' R U R' U R U2 R' U' R2 D R' U R D' R' U' R'","U2 L' R U R' U R U' R' U2 L U' R U2 R'"]],
+["h",0,["R U2 R' U' R U' R D' R U' R' D R U R","U' R U2 R' U' R U R' U2 R' F R2 U' R' U' R U R' F'","U R U R D R' U R' U' R U R2 D' R U' R U' R'","R U2 R' U' R U' R D' R U' R' D R U R"]],
+["h",0,["U2 R' U2 R U R' U R' D R' U R D' R' U' R'","U F' R U2 R' U2 R' F U' R U R U' R' U' R' U R","U2 R' U2 R U R' U R' D R' U R D' R' U' R'","U R' D R2 U' R2 D' R U' R' D R2 U2 R2 D' R"]],
+["h",0,["U' R U R2 F' U2 R U R' U R2 U2 R' U F R U' R'","U' R U2 R' U' R U R' U' F' R U R' U' R' F R2 U' R'","U' r U2 R' U' R U' r' U R U2 R' U2 R' F R F'","U R' U2 R U' L U2 R' U2 R U2 L' R' U R"]],
+["h",0,["U2 R' U2 R2 U R2 U R U2 R' F R U R U' R' F'","U2 R' U2 R2 U R2 U R U2 R' F R U R U' R' F'","R U R' U R U' R' U R U' R2 F' R U R U' R' F R U' R'","R' F' R U R' U' R' F D' R U' R' D R U2 R"]],
+["h",0,["U2 R' U' R U' R' U R U R' F R U R' U' R' F' R2","R U R' U R U' R2 F' R U2 R U2 R' F R U' R'","U' F R U R' U' R' F' U2 R U R' U R2 U2 R'","U R' D' R U2 R' D R U R U2 R' U R U' R' U' R U' R'"]],
+["h",0,["U2 F R U' R' U R U2 R' U' R U R' U' F'","U2 F R U' R' U R U2 R' U' R U R' U' F'","U2 f R U R' U' f' R U R' U' R' F R F'"]],
+["h",0,["U F' R U2 R' U2 R' F R U R U R' U' R U' R'","U F' R U2 R' U2 R' F R U R U R' U' R U' R'","U2 f R2 S' U' R2 U' R2 U R2 F'","F B' R2 B R2 U' R2 U' R2 U R2 F'"]],
+["h",0,["F U' R U2 R' U2 R U' R' U' R U R' U F'","F U' R U2 R' U2 R U' R' U' R U R' U F'","U' R D' R U2 R' U2 R U' R' U' R U R' D R'","U f U2 R F R' F' R U2 R U2 R2 U2 f'"]],
+["h",0,["U' R' U R U R' U' R' D' R U' R' D R U' R' D' R U R' D R2","U2 F R' F' R2 U2 R' U R U2 R' U R U' R2 F R F'","R F R2 U' R2 U' R2 U2 R2 U' F' R'","U' R' U R D' R U R' U2 R U R' U D R' U' R"]],
+["h",0,["U' R' U2 R U2 R2 F' R U R U' R' F U R","U' R' U2 R U2 R2 F' R U R U' R' F U R","U L' U2 M' x' D R2 U R2 u' R2 B","U l F l2 U2 F l U2 l2 U' l2 U2 l' U2 l"]],
+["h",1,["R2 D' R U' R' D R2 U' R2 D' R U2 R' D R2","R2 D' R U' R' D R2 U' R2 D' R U2 R' D R2","U2 R' U2 R U R' U R2 y R U' R' U' R U2 R' U' F'","U R' U L' U' R U2 L U' L' U' L U L' U' L"]],
+["h",1,["R2 D R' U R D' R2 U R2 D R' U2 R D' R2","U R' U2 R U R' U' F' R U R' U' R' F R U2 R","R2 D R' U R D' R2 U R2 D R' U2 R D' R2","U' r U R' U R U2 r2 F' r U' L' U L U L F' L' F"]],
+["h",1,["U' R' U2 R U R2 D' R U' R' D R2 U R' U R","U' R' U2 R U R2 D' R U' R' D R2 U R' U R","R2 D' R U2 R' D R' U R2 U R2 U2 R'","U R U2 R2 U' R' D R' U' R D' R U2 R"]],
+["h",1,["U R U2 R' U' R2 D R' U R D' R2 U' R U' R'","U R U2 R' U' R2 D R' U R D' R2 U' R U' R'","U' R' U2 R2 U R D' R U R' D R' U2 R'","U L' U2 L2 U L D' L U L' D L' U2 L'"]],
+["h",1,["R2 D' R U2 R' D R2 U R' U R U R' U2 R U R' U R","R' U' R U' R' U F' R U R' U' R' F R2 U' R' U R","R' U' R U' R U R2 U R2 U L' U R' U' L","U R' U' R F D R' U R U' R' U R D' R' U' R F'"]],
+["h",1,["U2 R' F' R U2 R U2 R' F R' U' R2 U' R' U R' U R","U2 F R' F' R U2 R U2 R' U' R' F2 r U r' F R","R U R' U R' U' R2 U' R2 U' L U' R U L'","U' R' D' R U R' D R2 U R' U2 R U2 R' U R U2 R'"]],
+["h",1,["U' R U R' U R U2 R' F R U' R' U' R U2 R' U' F'","U' R U R' U R U2 R' F R U' R' U' R U2 R' U' F'","R2 D' r U2 r' D R' U R2 U R2 U2 R'","U' R U' L U L2 R' U2 L U L' U L U L U' L'"]],
+["h",1,["U' r' F' r U R U2 r' F2 r U' R' U R U2 R'","U F R U' R' U' R U2 R' U' F' U R U R' U R U2 R'","U R' U' R f U R U2 R' U2 R' U2 R2 U R' f'","U2 R' U' R D' R U' R' U2 R U2 R U R U' R2 D"]],
+["h",1,["U2 R U R' U R U L' U R' U' L","U2 R U R' U R U r' F R' F' r","U' R' F R U R' U' R' F' R U' R U R' U R","U2 R U R2 D' R U2 R' D R U' R U2 R'"]],
+["h",1,["U' R U R' U R U2 R D' R U' R' D R U R","U' R' F R' F' R2 U' r' U r U' r' U' r","U' R U' L' U R2 U' R L U2 R' U' R","U' R U R' U R U2 R D' R U' R' D R U R"]],
+["h",1,["U R' U' R U' R' U2 R' D R' U R D' R' U' R'","U R U R2 F R F' r U' r' U r U r'","U l U' R U R' l' U r U' r' U r U r'","U' R U2 R' U' R U' R' U L' U R U' L U R'"]],
+["h",1,["L' U' L U' L' U' R U' L U R'","U2 R' F' R U2 R U2 R' F U' R U' R'","U2 R' U' R U' R' U' L U' R U L'","U2 R' U' R2 D R' U2 R D' R' U R' U2 R"]],
+["h",2,["F R' U R U2 R2 U' R U2 R' U' R2 U F'","U' R U R' U y' R' U R U' R2 F R F' R","F R' U R U2 R2 U' R U2 R' U' R2 U F'","U2 f R f' U R' U R U' R2 F R F' R"]],
+["h",2,["U' R U R' L' U2 R U R' U2 L R U2 R' U' R U' R'","R' U' F' U F R U' F U R U' R' U R U' R' F'","U' R' U' R U' R' U2 R U R' U' R U R' F' R U R' U' R' F R2","U R U' R2 F2 U' R2 U' R2 U F2 U R2 U R'"]],
+["h",2,["U F U R U' R' U R U' R' U R U' R' F'","U F R U R' U' R U R' U' R U R' U' F'","U F U R U' R' U R U' R' U R U' R' F'","U f U R U' R' U R U' R' U R U' R' f'"]],
+["h",2,["x' U' R U' R' U R' F2 R U' R U R' U x","x' U' R U' R' U R' F2 R U' R U R' U x","R U' L' U R' U' L R U' L' U R' U' L","F R' F R F' R U2 R' F R' F' R F'"]],
+["h",2,["R' U' R U' L U' R' U L' U2 R2 U2 R' U' R U' R'","R' U2 R U R' U R U R' U' R U R' F' R U R' U' R' F R2","R' U2 R U R' U R U' r U2 R2 F R F' R U2 r'","L' U L U' L' U' L U R' U' R U L' U' L U2 R' U' R"]],
+["h",2,["R U R' U L' U R U' L U2 R2 U2 R U R' U R","R' U' R U' R' U2 R2 U2 L' U R' U' L U' R U' R'","R U' R' U R U R' U' L U L' U' R U R' U2 L U L'","R' F2 r2 U' r' F r' F2 R2 U R' U R U2 R'"]],
+["h",2,["L U2 R' U R U2 L' R' U R U' R' U2 R U R' U R","U' R U' R2 U' F2 U' R2 U R2 U F2 R2 U R'","U' r U2 R2 F R F' R U2 r' L' U2 L U L' U L","U F R U R' U' R U R' U' F' U R' F' U' F U R"]],
+["h",2,["F U' R2 U R U2 R' U R2 U2 R' U' R F'","U2 R' F R' F' R2 U R' U' R y U' R U' R'","U' R' U' R y U' R U' R' U R l U' R' U l'","F' U' F U' R U' R' U R l U' R' U l'"]],
+["h",3,["R U2 R' U' R U R' U' R U' R'","R U2 R' U' R U R' U' R U' R'"]],
+["h",3,["R' U2 R U R' U' R U R' U R","R' U2 R U R' U' R U R' U R","U2 L' U2 L U L' U' L U L' U L"]],
+["h",3,["U' R' U' R U' R' U R U' R' U2 R","U' R' U' R U' R' U R U' R' U2 R","U L' U' L U' L' U L U' L' U2 L"]],
+["h",3,["U' R U R' U R U' R' U R U2 R'","U' R U R' U R U' R' U R U2 R'"]],
+["h",3,["R U2 R' U' R U' R' U' R' U' R U' R' U2 R","U2 R U2 R' U' R U' R' U' R' U' R U' R' U2 R","U2 R U2 R' U' R U' R' U r' F' r U' r' F2 r","U R L F2 L' R U2 R2 F U2 y' R' U2 R' U2 R' U2 R"]],
+["h",3,["R' U2 R U R' U R U R U R' U R U2 R'","R' U2 R U R' U R U R U R' U R U2 R'","R U2 R2 U2 R' U2 R U2 R' U2 R2 U2 R","U R U R2 U' R2 U R2 U2 R2 U2 R' U R' U R"]],
+["h",3,["U R' U' R U' R' U2 R U R U2 R' U' R U' R'","U R U R' U R U2 R' U' R' U2 R U R' U R","U' R' U' R U' R' U2 R U R U2 R' U' R U' R'","U R' U' R U' R' U2 R U R U2 R' U' R U' R'"]],
+["h",3,["R' U' R U' R U R2 U R U' R U R' U' R U R' U' R U' R'","U R U R' U R U' R' U R U' R' U R' U' R2 U' R' U R' U R","U F U R' F R F' R U' R' U R' F R F' R U' R' F'","U R U R' U R U' R' U R2 U R U R U' R' U' R' U R'"]],
+["pi",0,["R' U' R U' R' U R U' R2 D' R U R' D R U R","R' U' R U' R' U R U' R2 D' R U R' D R U R","U' F U R' U' R F' U' R' U R U' R' U2 R","R' U R' F R2 U R' U' R U R' U' F' R U2 R' U R"]],
+["pi",0,["U2 F' R U R' U' R' F R U' R U' R' U' R U R' U R U R'","R2 F2 R2 U' R U R' U R2 F2 R' U2 R'","U R U2 R2 U' R2 U' R' U2 R' F R U R' U' R' F' R2","U2 F' R U R' U' R' F R U' R U' R' U' R U R' U R U R'"]],
+["pi",0,["U R U2 R' U' R U R' U2 L' U R U' R' L","U R U R D R' U R D' R2 U' R U R' U' R U' R'","U R U2 R' U' R U R' U2 r' F R F' M'","U R U2 R' U' R U R' U2 L' U R U' M' x'"]],
+["pi",0,["U R' F R U R' U' R' F' R2 U' R' U R U' R' U2 R","U R' F R U R' U' R' F' R2 U' R' U R U' R' U2 R","R U R' U R2 F2 R' U2 R' U2 R2 F2 R2","U2 F' R U R' U R U' R' U' R' F R U' R U' R' U R U R'"]],
+["pi",0,["U' R U2 R' U2 R' F R2 U' R' U2 R U2 R' U' F'","U' R U2 R' U2 R' F R2 U' R' U2 R U2 R' U' F'","U' R' U' R' D' R U' D R' D' R U2 R' D R D' R' D R2","U' R U2 R' U2 l' U R' z' R' U' R U' r'"]],
+["pi",0,["U R U R' U' R' F R2 U R' U' R U R' U' F'","U R U R' U' R' F R2 U R' U' R U R' U' F'","U R U R' U' l' U R2 x' U R' U' R U R' U' F'"]],
+["pi",0,["x U R' U' R U2 L U L' U x' U' R U' R' U' R U' R'","U2 R U2 R' U' R U R' U' R' D' R U' R' D R2 U' R' U R U' R'","U R U2 R' U R2 D R' U2 R D' R2 U' R U2 R' U' R U R'","U2 R' U2 R U' D' R2 D R2 U' R' D' R D R' U R2"]],
+["pi",0,["U r' F' r U r U2 r' F2 U' R U R' U' R U' R'","U r' F' r U r U2 r' F2 U' R U R' U' R U' R'","F U R U' R' S R' D' R U R' D R2 U' R' f'","U' R U R' U R U R' U' R U2 R' U2 R' D' R U' R' D R"]],
+["pi",0,["U l U2 l' U2 R' U2 R B2 U R' U R","U R U R' U R U2 R' U' R U' L' U R' U' L","U R B2 R' U2 R' U2 R B2 U R' U R","U' R U2 R' U2 R' F2 R F2 U L' U L"]],
+["pi",0,["U' R2 D' R U' R' D R U' R U R' U' R U R' U R","R' U2 R U R' U R2 U' r' F R' F' r","R' U2 R U R' U R2 U' L' U R' U' L","U' R2 D' R U' R' D R U' R U R' U' R U R' U R"]],
+["pi",0,["R' F2 R U' R2 F2 R U R U R2 F2 R2","U2 R U R' U R U' R' U R U' R D R' U' R D' R2","L U' R' U L' U' R2 U R' U R U2 R'","R' F2 R U' R2 F2 R U R U R2 F2 R2"]],
+["pi",0,["R U R' U F2 R U2 R' U2 R' F2 R","R U R' U F2 R U2 R' U2 R' F2 R","U' R U R' U R U' R' U R' D' R U2 R' D R2 U' R' U2 R U2 R'","R U R' F' R U' r' F R' F r U F"]],
+["pi",1,["R' U2 R U R' U' R U R2 F R U R U' R' F' R","R' U2 R U R' U' R U R2 F R U R U' R' F' R","U2 L' R U2 R2 U' R2 U' R' U' L U R' U2 R","U' R2 B2 R2 U R' U' R U' R2 B2 R U2 R"]],
+["pi",1,["U' R U R' U R U' R' U R2 D R' U' R D' R' U' R'","U' R U R' U R U' R' U R2 D R' U' R D' R' U' R'","U' L' R U R' U' L U2 R U' R' U R U2 R'","U' M F R' F' r U2 R U' R' U R U2 R'"]],
+["pi",1,["U R U2 R' U L U' R' U' R2 U' R2 U2 R L'","U2 R U' R' U' R U' R' U R U R' U R' F' R U R U' R' F","U' R2 F R U R U' R' F' R U2 R U R2 U R2 U2 R'","U R U2 R' U L U' R' U' R2 U' R2 U2 R L'"]],
+["pi",1,["U2 R' U' R' D' R U' R' D R2 U R' U' R U R' U R","U2 R' U' R' D' R U' R' D R2 U R' U' R U R' U R","U2 R' U2 R U R' U' R U2 L U' R' U R L'","U2 R' U2 R U R' U' R U F R' U R U' F'"]],
+["pi",1,["U' F U R U' R' U R U' R2 F' R U R U' R'","U' F U R U' R' U R U' R2 F' R U R U' R'","U R U' R U2 R U2 R2 U R' F2 R' U R' U' R2 F2","U2 R U R' U R' F R2 U' R' U' R U R' F' U R U' R'"]],
+["pi",1,["U2 L U' R U R' L' U2 R U2 R' U R U2 R'","U2 R U' L' U R' U' L U' R U' L' U R' U' L","U' F U R U2 R' U2 R U R2 F' R U2 R U2 R'","U2 L U' R U R' L' U2 R U2 R' U R U2 R'"]],
+["pi",1,["U2 R2 F2 U R U R2 U' R' U' F2 R2 U' R U' R'","U2 F U R U' R2 F' R2 U R' F' U' F U2 R U' R'","U' R U R' U' R U R2 D' R U R' D R U R U' R' U R U2 R'","U2 F U' R2 U R U' R' U R2 U2 R' U' R' U R U' R F'"]],
+["pi",1,["U R U R' U R U' R' U F2 r U2 r' U' r' F r","U R U R' U R U' R2 F R F' R U' R' F' U F","U2 f R U R2 D' R U' R' D R S' R U R' U' F'","U F' U' L' U L S' L D L' U' L D' L2 U L f"]],
+["pi",1,["U' R' U' R U' B2 R' U2 R U2 l U2 l'","U' R' U' R U' B2 R' U2 R U2 l U2 l'","U' r' F R F' r U R' U R U2 R' U' R U' R'","U' R' F R F' r U R' U R U2 r' U' R U' R'"]],
+["pi",1,["U R' U' R U' R' U R U' R' U R' D' R U R' D R2","U R' U' R U' R' U R U' R' U R' D' R U R' D R2","U' L' U R U' L U R2 U' R U' R' U2 R","U' R B2 R' U R2 B2 R' U' R' U' R2 B2 R2"]],
+["pi",1,["R2 D R' U R D' R' U R' U' R U R' U' R U' R'","R2 D R' U R D' R' U R' U' R U R' U' R U' R'","U' R U2 R' U' R U' R2 U r f' U f r'","U L U2 L' U' L U' L2 U l F' L F l'"]],
+["pi",1,["U2 R' F2 R U2 R U2 R' F2 U' R U' R'","U2 R' U' R U' R' U2 R U' L' U R U' L U R'","U2 R' F2 R U2 R U2 R' F2 U' R U' R'","L' U' L U' L' U2 L U L' U R U' L U R'"]],
+["pi",2,["R' U2 R2 U R U R2 D' R U' R' D U' R'","U2 r U R' U R' F R F' R U' R' U R U2 r'","U' R F' U' R2 F U' F' U R2 U F R'","U2 R' U' R U R' U' R2 D R' U R D' R' U R' U2 R"]],
+["pi",2,["R U2 R' U' F' R U2 R' U' R U' R' F R U' R'","R U2 R' U' F' R U2 R' U' R U' R' F R U' R'","U S' R' U' R S U' R' U F' U F R","U' r U R' U R U' R' U x' R F' R U' R' U F' L'"]],
+["pi",2,["U' F R2 U' R U' R U' R' U2 R' U R2 F'","U' R2 D R' U2 R D' R2 U' R U R D R' U2 R D' R2","U' R F U' R2 U' R U' R' U2 R2 U F' R'","U' F R2 U' R U' R U' R' U2 R' U R2 F'"]],
+["pi",2,["U R U2 R' U R' D' R U R' D R2 U' R' U R U' R'","U R U2 R' U R' D' R U R' D R2 U' R' U R U' R'","U R' U R U F U R' U' R F' U' R' U' R","L' U2 L U2 L U F' U' L2 U L U' L' U L F"]],
+["pi",2,["U F R U' R' U2 R' U2 R2 U R2 U R U' F'","U' F U R' U' R2 U' R2 U2 R U2 R U R' F'","U R U' R2 D' R U2 R' D U2 R2 U R2 U R","U' F U R' U' R2 U' R2 U2 R F' L' U L"]],
+["pi",2,["R2 D' R U2 R' D R U2 R' D' R U' R' D R U R","U' R U2 R2 F R F' R' F R F' R' F R F' R U2 R'","R' U' R' D' R U R' D R U2 R' D' R U2 R' D R2","R2 D' R U2 R' D R U2 R' D' R U' R' D R U R"]],
+["pi",2,["U R U R' U R U R' U' R U R D R' U R D' R2","U' R2 D R' U' R D' R' U' R' U R U' R' U' R U' R'","U' R U R' U L' U2 R U2 R' U2 L U' R U' R'","U R U R' U R U R' U' R U R D R' U R D' R2"]],
+["pi",2,["U R' U' R U' R' U' R U R' U' R' D' R U' R' D R2","U' R2 D' R U R' D R U R U' R' U R U R' U R","U' R' U' R U2 F U' R' U2 R U F' U2 R' U R","U' L U L' U R' U L U R U R' U M x"]],
+["pi",2,["R U R' U' R U R2 D' R U' R' D R U' R U2 R'","R U R' U' R U R2 D' R U' R' D R U' R U2 R'","U' R' U R U F R' U R U' F' U' R' U' R","U' F' L' U' L U L' U' L2 U F U' L' U2 L' U2 L"]],
+["pi",2,["U F R2 U' R U2 R U R' U R' U R2 F'","U R F U' R2 U2 R U R' U R2 U F' R'","U R2 D R' U2 R D' R' U' R' U R2 D R' U2 R D' R2","U' S' R U R' S R U' R2 F' U' F U' R U R' U R"]],
+["pi",2,["U R' U2 R U' R D R' U' R D' R2 U R U' R' U R","R U2 R' U2 R' U' F U R2 U' R' U R U' R' F'","U' R U D' R U R' D R2 U' R' U' R2 U2 R","U R' U2 R U' R D R' U' R D' R2 U R U' R' U R"]],
+["pi",2,["U2 R U R' F' R U R' U R U2 R' F U R U2 R'","U2 R U R' F' R U R' U R U2 R' F U R U2 R'","U' R' F' U' F U' R U S' R' U R S","U' r' U' R U' R' U R U' R' U R' F R F' U r"]],
+["pi",3,["R' U2 R2 U R2 U R2 U2 R'","R' U2 R2 U R2 U R2 U2 R'","U2 L' U2 L2 U L2 U L2 U2 L'"]],
+["pi",3,["U' R' U' R U' R' U2 R2 U2 R' U' R U' R'","U R U2 R' U' R U' R2 U' R U' R' U2 R","S' r U' r2 U r2 U r2 U' r S","U' R' U' R U' R' U2 R2 U2 R' U' R U' R'"]],
+["pi",3,["U2 R U' R' U2 R U R' U2 R U R' U2 R U2 R'","U2 R' U R U' R2 U2 R U R' U R2 U' R' U R","U' r U2 R2 F R F' R' F R F' R U2 r'","R' U2 R2 U R2 U' R2 U2 R' S R2 S'"]],
+["pi",3,["U2 R' U R U2 R' U' R U2 R' U' R U2 R' U2 R","U2 R U' R' U R2 U2 R' U' R U' R2 U R U' R'","R U2 R2 U' R2 U R2 U2 R S R2 S'","U2 R2 U2 R U R U' R' U R' U R2 U' R' U R"]],
+["pi",3,["U' R U2 R' U2 R U' R' U2 R U' R' U2 R U R'","U' R U2 R' U2 R U' R' U2 R U' R' U2 R U R'","U2 R U R' U' R2 U R' U R' U' R U R U2 R2","U R U2 L' U R' U' R U R' U' R L U2 R'"]],
+["pi",3,["U R' U2 R U2 R' U R U2 R' U R U2 R' U' R","U R' U2 R U2 R' U R U2 R' U R U2 R' U' R","U2 R U R' U' R2 U R' U R U2 R2 U' R U R'","U2 S' U2 S R U2 R2 U' R2 U R2 U2 R'"]],
+["pi",3,["U' R' U2 R U R' U R2 U R' U R U2 R'","U' R' U2 R U R' U R2 U R' U R U2 R'","S' r' U r2 U' r2 U' r2 U r' S","U R U R' U R U2 R2 U2 R U R' U R"]],
+["pi",3,["R U2 R2 U' R2 U' R2 U2 R","R U2 R2 U' R2 U' R2 U2 R"]],
+["pi",3,["R' U2 R2 U R' U R U2 R' U' R' U R","R U R' U R U2 R' U' R U R' U R U2 R'","R' U' R U R U2 R' U' R U' R2 U2 R","F' U' L' U L S' U' L' U L f"]],
+["pi",3,["R U2 R2 U' R U' R' U2 R U R U' R'","R' U' R U' R' U2 R U R' U' R U' R' U2 R","R U R' U' R' U2 R U R' U R2 U2 R'","U2 F U R U' R' S U R U' R' f'"]],
+["pi",3,["R U2 R' U' R U' R' U' R U2 R' U' R U' R'","U R U R' U R U2 R' U R U R' U R U2 R'","R' U2 R U R' U R U R' U2 R U R' U R","U' R' U' R U' R' U2 R U' R' U' R U' R' U2 R"]],
+["pi",3,["U R U2 R' U' R U R2 U2 R2 U R2 U R2 U' R'","F R U R' U' R U R' U' F' R U R' U' M' U R U' r'","R U R2 U' R2 U' R2 U2 R2 U' R' U R U2 R'","R U R' U' R' U' R U R U R' U' R' U R U' R U' R'"]],
+["pi",4,["R U R' U R U2 R2 F' r U R U' r' F","R U R' U R U2 R2 F' r U R U' r' F","R U R' U R U2 R2 U' R' F R U R U' R' F' R","U2 F U R U2 R' U R U R' F' R U R' U R U2 R'"]],
+["pi",4,["U' R U R D R' U' R D' R2 U R U2 R' U' R U' R'","r' F' r U' r' F2 r2 U R' U' r' F R F'","U2 R' U' R U' R' U2 R U' R U R D R' U' R D' R2","U R U2 R' U L' U2 R U R' U' R U' R' L"]],
+["pi",4,["U' R' U' R' D' R U R' D R' U R' U R U2 R'","U F R U' R' U R U R2 F' R U2 R U' R' U R U2 R'","U' R' U' R' D' R U R' D R' U R' U R U2 R'","U S R U R U' R' F U R' U' R U R' U' f'"]],
+["pi",4,["R' U' F U' R2 U R2 U F' R2 U2 R'","U' R U R D R' U' R D' R U' R U' R' U2 R","R' U' F U' R2 U R2 U F' R2 U2 R'","R' D R2 U2 R2 D' R U R' D R2 U R2 D' R"]],
+["pi",4,["U2 R2 F2 r U r' F R2 U2 B' R B R'","U F R U R' U' R' F' R U2 R' U' R2 U' R2 U2 R","U2 R' U2 R' D' R U R' D F' R U R U' R' F R","U2 R2 F2 r U r' F R2 U2 x' U' R U l'"]],
+["pi",4,["R U2 R' U F2 R U2 R' U2 R' F2 R2 U R'","U F R' F' R U2 R U2 R' U' r U R' U R U2 r'","U R U R' U R' F R F' R' U' F' U F R2 U' R'","U2 R U R2 F' R U R U' R' F U R U' R' U R U2 R'"]],
+["pi",4,["U2 R U2 R2 U' R U' R' U2 F R U R U' R' F'","U R2 F R U R U' R' F' R U' R' U' R U R' U R","U2 R U2 R2 U' R U' R' U2 F R U R U' R' F'","R U R' U R U2 R' F U R U2 R' U R U R' F'"]],
+["pi",4,["U2 F U R U' R' U R U2 R' U' R U R' F'","U2 F U R U' R' U R U2 R' U' R U R' F'","U R' U R U R' U R U' R2 D' R U' R' D R U' R","U R U y R U' R' U R U2 R' U' R U R' F'"]],
+["pi",4,["R' U' F R' F' R U' R U R' F U R U' R' F' R","R F U R2 U2 R2 U R2 U R2 F' R'","U2 R2 D' R U' R' D R U R' D' R U R' D R U R U' R' U' R","U' R' U R U' D' R U' R' U2 R U' R' D R' U' R"]],
+["pi",4,["U R' U' F' R U R' U' R' F R2 U2 R' U2 R","U R' U' F' R U R' U' R' F R2 U2 R' U2 R","U R' U' R U' L U2 R' U' L' U2 L R U2 L'","B' R2 U R2 U' R2 U' S R2 F z'"]],
+["pi",4,["R U R' U R U' R' U' R' F' R U2 R U2 R' F","R U R' U R U' R' U' R' F' R U2 R U2 R' F","U2 F R2 U' R2 U R2 U S R2 f'","U R U R' U L' U2 R U R' U2 L R U2 R'"]],
+["pi",4,["F U' R U' R' U R U R' U2 R U2 R' U F'","F U' R U' R' U R U R' U2 R U2 R' U F'","U2 R' B' U' R2 U2 R2 U' R2 U' R2 B R","U2 R' F' R U R U' R' F U R2 U R2 U R U' R U' R2"]],
+["pi",5,["R2 D R' U2 R D' R2 U' R2 D R' U' R D' R2","R2 D R' U2 R D' R2 U' R2 D R' U' R D' R2","R2 U R2 B' U' R2 U R2 B U R2 U' R2","U R' U2 R2 U R2 U R2 U' R' U' R' F R2 U' R' U' R U R' F'"]],
+["pi",5,["U R U R' U R2 D R' U' R D' R2 U R U2 R'","U R U R' U R2 D R' U' R D' R2 U R U2 R'","U R U2 R D' R U' R' D R' U' R2 U2 R","U' L U L' U L2 D L' U' L D' L2 U L U2 L'"]],
+["pi",5,["U2 R2 D' R U2 R' D R2 U R2 D' R U R' D R2","U2 R2 D' R U2 R' D R2 U R2 D' R U R' D R2","U2 R2 U' R2 F U R2 U' R2 F' U' R2 U R2","U' R' U R U' R' U R U R' U2 L' U R U' L"]],
+["pi",5,["U R' U2 R' D R' U R D' R U R2 U2 R'","U R' U' R U' R2 D' R U R' D R2 U' R' U2 R","U R' U2 R' D R' U R D' R U R2 U2 R'","U' L' U2 L' D L' U L D' L U L2 U2 L'"]],
+["pi",5,["U' L U' R' U L' U R2 U R2 U R U' R U' R'","U2 R U2 R' U' R U2 R' U2 R U' R2 D' R U' R' D R","R' U' F' R U2 R' U' R U' R' F U R U R' U2 R","U R' U2 R2 U R2 U R U' R U2 L' U R' U' L"]],
+["pi",5,["U' L' U R U' L U' R2 U' R2 U' R' U R' U R","U R' U' R U R2 F' R U R U' R' F U' R U R' U R","U R' U' R U' R' U2 R U' R' U' R U' R2 D' R U2 R' D R2","U R U2 R2 U' R2 U' R' U R' U2 L U' R U L'"]],
+["pi",5,["U R2 U R' U' R' U2 R' U2 R U R' D R' U R D'","U' R U2 R' U' R U' R' U' F U R U2 R' U R U R' F'","U' R U2 R' U' R U r' F2 r U2 R' U' r' F r","U L' U2 L U L' U' R U2 R' U2 L U R U' R'"]],
+["pi",5,["F U R U2 R' U R U R' F' R U2 R' U' R U' R'","F U R U2 R' U R U R' F' R U2 R' U' R U' R'","R2 D R' U R D' R2 U R U2 R2 U' R U' R' U2 R","U2 R U2 R2 U' R2 U' R D' r U2 r' D R2"]],
+["pi",5,["U' L U' R' U L' U R U R' U R","R U R' U F' R U2 R' U2 R' F R","U R U' L' U R' U L U L' U L","U l F' r' x F l' U L U L' U L"]],
+["pi",5,["U' L' U R U' L U' R' U' R U' R'","U' L' U R U' L U' R' U' R U' R'","R U2 R' U R' D' R U2 R' D R2 U' R'","U2 R' U' R U' R' U R' F R U R U' R' F' R"]],
+["pi",5,["U r' U r U r' U' r U R2 F R F' R","U r' U r U r' U' r U R2 F R F' R","U r' U r U r' U' r U l' R' U R U' R","U R' U' R' D' R U R' D R' U2 R' U' R U' R'"]],
+["pi",5,["U r U' r' U' r U r' U' l R U' R' U l'","U r U' r' U' r U r' U' R2 B' R' B R'","U r U' r' U' r U r' F R' F' R2 U' R'","U R U R D R' U' R D' R U2 R U R' U R"]],
+["s",0,["R U2 R' U2 B' U R U R' U' B R U' R'","R U2 R' U' R U R' U' R U R D R' U2 R D' R2","R U2 R D R2 U' R U R2 D' R U' R U' R'","U2 R U R' U R U2 R' U R U R' U' R' F R2 U' R' U' R U R' F'"]],
+["s",0,["U' R' U' F2 U' R2 U R2 U F2 R2 U2 R'","U' R' U' F2 U' R2 U R2 U F2 R2 U2 R'","U' R' U' R U' R2 F' R U R U' R' F U2 R","U' R2 D' R U2 R' D R U R U' R' U R U' R' U2 R"]],
+["s",0,["U R' U2 R U' L U' R2 U L' U' R2 U' R' U R","U2 R U R' U R' F R F' R U' R' F' U F R U' R'","U' F U R U' R' U l F' R U' R2 D' R U l'","U2 f R2 f' U R2 u' R U' R2 U R' u R2"]],
+["s",0,["U' F' U2 F' R2 u' L F2 L' u R2 F2","U2 R U R' U' R2 U' L' U R2 U' L U' R U2 R'","R U' R' U' R U' R' U2 R U R2 D' R U2 R' D R","U2 R2 u R' U R2 U' R u' R2 U F' U2 F"]],
+["s",0,["U F R' U2 R F' R' F U2 F' R","U F R' U2 R F' R' F U2 F' R","U2 R' D R2 D' R2 U R2 D R2 D' R2 U' R'","U x U R' B2 R U' R' U B2 U' R x'"]],
+["s",0,["U2 z' D U R2 U' L' U R2 z R2 U L' U' R","U F R' U R U F' R' U F U F' R","U2 R U' L' U R2 D2 R U' R' D2 R L","U2 R U R' U R U2 R2 U2 R U2 R' F R U R' U' R' F' R2"]],
+["s",0,["U' F R2 F' U2 R' U2 R2 U2 R U2 R F R F' R","U R U R' U R U' R D R' U R r' U2 r D' R2","U2 R' F r2 R2 U2 r U r' U2 R r2 F' R2","R2 D' r U2 r' R U R' D R U' R U R' U R"]],
+["s",0,["U' L' U' L U' R U2 L' U' R' U2 L U' R U' R'","U2 R U' R' U' R U R D R' U2 R D' R2 U R U2 R'","U F R U R' U' R' F' U2 R U R U' R' U R' U R","U' R' U2 R U R2 D' R U2 R' D R U R U' R' U' R"]],
+["s",0,["L' U2 R L U' L' U2 R' U2 L U2 R U' R'","U R' U2 R' D' R U R' D R U' R U R' U R","U R' U2 R U' R D R' U R D' R' U R' U R","R U R' L' U2 R U2 R' U2 L U2 R U' R'"]],
+["s",0,["U' L U2 R' U L' U' L R U R' U L' U' R","R U R' U R U' R D R' U R D' R' U2 R'","U2 R U R' f' R U R' U R U2 R' U f R U' R'","R U R' U R' D' R U R' D R U' R U2 R'"]],
+["s",0,["U R U R' U R U' R D R' U' R D' R2","U R U R' U R U' R D R' U' R D' R2","L R U2 R' U' R U2 L2 U R' U' L","U L' U R U' L U R' L U2 L' U' L U' L'"]],
+["s",0,["R2 D' R U' R' D R U' R U R' U R","R2 D' R U' R' D R U' R U R' U R","U2 R U R' U' R' F R F' r U R' U R U2 r'","U' R' U' R U' R' U2 R L' U R U' L U R'"]],
+["s",1,["R' D' R U R' D R2 U R' U2 R U R'","R' D' R U R' D R2 U R' U2 R U R'","U2 R' U2 R2 D R' U' R D' R' U2 R' U R","U' R U2 R2 U' R2 U' R2 U' L U' R U L'"]],
+["s",1,["R U R2 F' R U R U' R' F U R U2 R'","U' f R' F' R U2 R U2 R' U2 S'","R U R2 F' R U R U' R' F U R U2 R'","U2 L R U' R' U L' R U R' U2 R U2 R'"]],
+["s",1,["U' x M U R' U' L U2 R U2 R'","U' L' R U R' U' L U2 R U2 R'","U' M F R' F' r U2 R U2 R'","U' r' R F R' F' r U2 R U2 R'"]],
+["s",1,["U' L' R' U2 R U R' U2 L U R U R' U R","R' U2 R U R2 D' R U' R' D R U2 R","U' F R U' R' U' R U R' U R U' R2 F' R U R U' R'","U' L' R' U2 R U R' U2 L U R U R' U R"]],
+["s",1,["U2 R' U' F U' R2 U R2 U F' R U' R U' R'","U' R' F' R U R U R' U' R U' R' F R U R' U R U' R'","U2 R' U' F U' R2 U R2 U F' R U' R U' R'","L U' R' U L' U R' D' R U2 R' D R2"]],
+["s",1,["U2 L U' R' U L' U2 R U L U' R' U L' R","R U' L' U R' U2 L U R U' L' U R' L","U2 L' R U R' U' L U R2 D R' U' R D' R2","U2 M F R' F' r U R2 D R' U' R D' R2"]],
+["s",1,["U L U L' U L U2 R U2 R' U' R U2 L' U R'","U' F U R U' R' S R' F' R U R U' R' S'","U' R' D R' U R D' U R U' R' U' R2 U R U' R'","U' R U R' U R U2 R2 U2 R U R' F' R U R' U' R' F R2 U' R' U R"]],
+["s",1,["U R2 D' r U2 r' D R2 U R' U R","U R2 D' r U2 r' D R2 U R' U R","U L U2 L' U R' U2 L U' L' R U R' U R"]],
+["s",1,["U R2 D' R U2 R' D R2 U R' U R","U R2 D' R U2 R' D R2 U R' U R","U' L2 D' L U2 L' D L2 U L' U L"]],
+["s",1,["R U R2 F' r U R U' r' F U R U2 R'","U' F R U R' U' R' F' R U2 R U' R' U R U2 R'","R U R2 F' r U R U' r' F U R U2 R'","U' R' U2 R U R D R' U R D' R2 U R U' R' U R"]],
+["s",1,["U R' F' R U R' U' R' F R U' R U R' U' R U R' U R","U' R' U2 R U R' U R' D' R U2 R' D R U2 R","U' R U R' U R U2 R' U2 R U R' U' R' F R2 U' R' U' R U R' F'","U' R U R' U R U2 R' L' U' L U L F' L2 U L U L' U' L F"]],
+["s",1,["U' R2 F R U R U' R' F' R U' R' U R","U' R2 F R U R U' R' F' R U' R' U R","U' R U R' U' R' F R2 U' R' U' R U R' F' R U R' U R U2 R'","U' R' U R U R' U' R' D' R U R' D R2 U R' U R"]],
+["s",2,["R2 D R' U2 R D' R' U' R' U R U2 R'","R2 D R' U2 R D' R' U' R' U R U2 R'","R U R' U' F' L' U2 L U x U2 R' U' l"]],
+["s",2,["U' R' U2 F' R U R' U' R' F R U2 R","U' R' U2 F' R U R' U' R' F R U2 R"]],
+["s",2,["U R' U2 R U R' U' R' D' R U2 R' D R2","U R' U2 R U R' U' R' D' R U2 R' D R2","R' U2 R U R' U' R U R2 F' R U R U' R' F R","R' U2 R L U2 R' U L' U' L U' R U2 L'"]],
+["s",2,["R2 D R2 U2 R U R' U R2 D' R' U2 R'","U R U R' U R U' R2 D' R U R' D R2 U2 R'","U R U2 R' U2 R' F R2 U R' U' R U R' U' F'","L U2 L F L' U' L' U L F' U2 L'"]],
+["s",2,["U' R' U2 R2 U R D' R U R' D R2 U' R U' R'","U' R' U2 R2 U R D' R U R' D R2 U' R U' R'","F R2 D R' U R D' R2 U' R U R' U' R U R' U' F'","U2 R' U' R U' R' U R U' R2 D' R U R' D R2 U' R' U2 R"]],
+["s",2,["U2 L U' R' U L' U' R","R U' L' U R' U' L","R U' r' F R' F' r","U2 L U' R' U L' U' R"]],
+["s",2,["L' U' L U' L' U' R U' L U' R' U' R U' R'","U' R U R' U R U2 R2 U R U2 L' R' U R U' L","R U' R' U R U' R' F R' F' R U' F' U F","U' R U R' U R U2 R2 U R U2 R' L' U R U' L"]],
+["s",2,["U R' U2 R' D' R U' R' D R U R U' R' U R U R' U R","U2 R U R' F' R U R' U R U' R' U' R' F R2 U' R'","U' D' R2 U R U' R2 U' R U R' D R' U R","R U R' U R U R' U' R U R D R' U' R D' R' U2 R'"]],
+["s",2,["R2 U R U R' U' R' U' R' L' U R' U' L","R2 D r' U2 r D' R' U' R' U R U2 R'","U R' U' R U' R' U R U' R D R' U' R D' R' U R' U2 R","R2 U R U R' U' R' U' R' L' U R' U' L"]],
+["s",2,["U' R2 F2 R2 U R U' R F2 R' U2 R' U R U2 R'","U' R' U' D R' U R D' U2 R2 U R' U' R'","U' R' U' D R' U R U2 D' R2 U R' U' R'","U2 R U' R' y' U' R' U2 R U' R' U' R y R U2 R'"]],
+["s",2,["U' L' U' L' U L2 D' U2 L U L' D U' L'","U R' U' R' U R2 D' U2 R U R' U' D R'","R' L' U2 R L2 U' R' U L2 U2 R U' L","U' R' U2 R y R U' R' U' R U2 R' U' y' R' U' R"]],
+["s",2,["U' F2 R U' R' U' R U2 R2 U' R F2 R' U R","U2 L U' R' U L' R' U' R' U' R' U R U R2","U R' U2 R U R' U' R' D' r U2 r' D R2","U R' D' L D R' D' L' D' F2 R2 B2 U R2 F2 L2 D' R2"]],
+["s",3,["R U R' U R U L U2 R' U R U2 R' L'","R U R' U R U' R2 F' R U R U' R' F R U' R'","U R U2 R D R' U' R D' R2 U R U2 R'","R U R' U R U L U2 R' U R U2 R' L'"]],
+["s",3,["U2 R U R' U' R U R2 D' R U2 R' D R2 U2 R'","U2 S' U2 L' U2 L U2 L F' L' f","R' U2 R D R D' R' U' R D R' D' U2 R' U R","U2 R' U2 R U2 R' U R L' U R' U' R L"]],
+["s",3,["U2 R' U2 R U2 L U' R' U M x","U2 R' U2 R U F R' U R U' F'","L' U2 L U2 R U' L' U R' L"]],
+["s",3,["R' U R U2 R' U R2 D R' U R D' R'","R' U R U2 R' U R2 D R' U R D' R'","U' R U R' U R2 D R' U' R D' R' U' R'","U' R' U' R U R2 F' R U R U' R' F U R"]],
+["s",3,["U' R' U2 R' D R' U R D' R U R U' R U' R'","F' R U R' U R U2 R' F U R U' R' U2 R U' R'","U' R U' R2 U2 R2 U R' D' U R U R' D U' R' U R","U' R' U2 R' D R' U R D' R U R U' R U' R'"]],
+["s",3,["R L' U R' U' L U R U2 L' U R' U' L","U R' F R U R' U' R' F' D' R U R' D R2","U' R2 D' R U' R' D R2 F R' U R U' F'","U2 R U R' U' R U R2 D' r U2 r' D R2 U2 R'"]],
+["s",3,["U2 R U R' U R2 D r' U2 r D' R2","U2 R U R' U R2 D r' U2 r D' R2","U2 F R U R2 U' R2 U' R2 U2 R U R U R' F'"]],
+["s",3,["U2 L' U R' U2 L U' L' U2 L U2 R U R' U R","U' R' U' R U R2 U' R' U' R U D' R U R' D R'","U' R' U2 R U R' U R2 U R' F' R U R' U' R' F R2 U' R'","R' U L' U2 R U' R' U2 R U2 L U L' U L"]],
+["s",3,["R U R' U' L U' R U L' U' R' U' R U2 R'","R U2 R D R' U2 R D' R' U R' U R U2 R'","R U R' U' L U' R U L' U' R' U' R U2 R'"]],
+["s",3,["R' U2 L U' R2 U L' R' U2 R U R' U' R' U R","U R U R' U' R U R2 D' R U R' D R U R U2 R'","U' R' U2 R' D R' U R D' R' U' R' U R' U R","U' R' U2 R U R' U' R' F' R U R U' R' F R U R' U R"]],
+["s",3,["U2 R U R' U R2 D R' U2 R D' R2","U2 R U R' U R2 D R' U2 R D' R2"]],
+["s",3,["F R' U' R2 U' R2 U2 R2 U' R' F'","U' R' D' R U2 R' D R U' R U R' U2 R U R'","R U R2 F' R U2 R U2 R' F R U' R'","F R' U' R2 U' R2 U2 R2 U' R' F'"]],
+["s",4,["R U R' U L' U R U' L U2 R'","R U R' U L' U R U' L U2 R'","R U R' U r' F R F' r U2 R'","U2 F' R U2 R' U2 R' F2 R U R U' R' F'"]],
+["s",4,["U2 F U' R' U R U F' R U R2 U R2 U2 R'","U2 F U' R' U R U F' R U R2 U R2 U2 R'","U2 R U R' D' R2 U R U' R2 D R' U R2 U2 R'","U2 R U R U R U' R2 D R' U R D' R U2 R'"]],
+["s",4,["U2 F R U' R2 U2 R U R' U R2 U R' F'","U2 F R U' R2 U2 R U R' U R2 U R' F'","U2 R' F R F' U R U R' U2 F R' F' R","R U R' F' R U R' U R U2 R' F R U' R'"]],
+["s",4,["U2 R' U2 L U' R U L' U R' U R","U2 R' U2 L U' R U L' U R' U R","U2 R' U R U2 R' U R U2 R D R' U' R D' R'","r' F2 R F' r U R' U r' F r"]],
+["s",4,["U R' U2 L R2 U2 R' U' R U2 L' U R2 U R","U R' U2 R2 U R' F' R U R' U' R' F R2 U' R2 U R","U R' U' F U R U' R' F' R2 U R' U' R' F R F'","U R U' L' U R' U' R U' L U R' U' L' U L"]],
+["s",4,["U2 L' U2 L U R U2 L' U' L U' R' U R U2 R'","U2 F R U R' U R U2 R U2 R2 U' R2 U' R2 F'","U2 R' U2 R U R' U' L U' L' U2 R U L U2 L'","U2 R U R2 F2 R U2 R U2 R' F2 U R U2 R'"]],
+["s",4,["U' R' U2 R U R' U' R L U' R' U L' U2 R","U2 R' U2 R U R' U' R F U' R' U' R U F'","U R U2 R' U' R U R' U' F' R U2 R' U' R U' R' F R U' R'","U' R' U2 R U R' U' R L U' R' U L' U2 R"]],
+["s",4,["U R U2 L' U R' U' L R U' R' U R U2 R'","U2 L' U2 R U' R' U2 L U R U' R' U R U2 R'","r F' U2 F r' U2 R' U' R' U R' U R2","U R' U' R f R' U R U' F' R U R' U' R' F R f'"]],
+["s",4,["U' L' U2 R L U2 L' U2 R' U2 L U' R U' R'","U' R2 U R2 F' R U2 R' U' R U' R' F R2 U' R2","R U' R D R2 U' R U' R' U2 R2 D' R' U R'","R U' R' U' R U' R' U2 R U R' U R' D' R U R' D R"]],
+["s",4,["U' F U R' F R F' R U' R' U R U' R' F'","U' F U R' F R F' R U' R' U R U' R' F'","U F' L' U' L U L' U' L F' L F L' U F","U R U R' U R U' R' U R U' R' L' U2 R U R' U2 L"]],
+["s",4,["U R2 U2 R U' R' U R' U L' U R' U' L U' R'","U' F' R U R' D R U R' U' D' R U' R' F","U2 R' U R U2 R' U2 R' F' R U R U' R' F U' R","U2 R' U R' D' R2 U2 R' U' R U' R2 D R U' R"]],
+["s",4,["L U' R U' R2 U L' U' R U2 L U R U2 R' L'","U R U' R2 U2 D' R U R' U D R2 U R'","U' R' U R2 U D R' U R D' U2 R2 U' R","R' U' R U R' F' R U R' U' R' F R U2 R U R' U R"]],
+["s",5,["R2 U' R2 U' R U R2 U' R2 U R' U R2","R U R2 F' R U2 R U' R' U' R' F R2 U' R'","U R U R' U R' U' R2 U' R' U R' U' R U R' U R","U' R' U2 R U R' U R2 U' R U R U R U' R' U' R2"]],
+["s",5,["U' R' U2 R U R U R U R' U' R U R U' R U' R'","R U R' U R U R U R U R U' R' U' R2","U' R2 U R' U' R' U' R U2 R' U' R2 U' R2","U2 R' U' R U' R U R' U R U2 R' U' R' U R"]],
+["s",5,["U' R2 U' R' U' R U R U R U R U R' U R","U' R U R' U' R' U2 R U R' U R U' R U' R'","U L' R u R2 u' R2 U R U' L","S r U R' U R U2 r' U2 S'"]],
+["s",5,["U' R' U' R U' R U R' U' R U R2 U R2 U' R' U R U' R'","R U R' U R U' R' U R' U' R2 U' R' U R' U R","U' R2 U' R2 U' R U2 R U' R' U' R U R2","R U R' U R U' R' U' L' U' L U2 R U' R' U' L' U L"]],
+["s",5,["R' U2 R2 U2 R2 U' R2 U' R2 U R","R' U2 R2 U2 R2 U' R2 U' R2 U R","R' U2 R2 U R' U R U2 R' U2 R' U2 R","U' R' U2 R2 U R U' R' U R U R2 U' R'"]],
+["s",5,["R U R' U R U2 R'","R U R' U R U2 R'","R U R2 U' R2 U R' S R2 S'"]],
+["s",5,["R U R2 U' R2 U' R2 U2 R2 U2 R'","R U R2 U' R2 U' R2 U2 R2 U2 R'","U R U2 R' U2 R' U2 R U R' U R2 U2 R'","U2 R' U' R2 U R U R' U' R U R2 U2 R'"]],
+["s",5,["U' R' U2 R U R' U R","U' R' U2 R U R' U R","U L' U2 L U L' U L"]],
+["s",5,["U' R' U' R U R U R' U' R' U R U R U' R'","U' R' U' R U R U R' U' R' U R U R U' R'","R' F' U' F U R F U R U' R' F'","U F' L' U' L U F U' F U R U' R' F'"]],
+["s",5,["U' R2 U' R' U' R2 U R U R2 U R' U R","U' R U R' U' R' U2 R U R U' R' U R' U R","R U R' U R2 U R U R2 U' R' U' R2","U' R2 U' R' U' R2 U R U R2 U R' U R"]],
+["s",5,["U' R' U2 R2 U R2 U R U' R U' R'","U' R' U2 R2 U R2 U R U' R U' R'","U2 R' U' R U' R U R2 U R2 U2 R'","U L' U2 L2 U L2 U L U' L U' L'"]],
+["s",5,["U' R2 U R' U R U2 R U2 R U R' U R2 U R'","R U R' U' R U R' U R U R U2 R' U' R U' R' U R'","U' R' F R U R' U' R' F' R U' R' D' R U2 R' D R2","R U R' U R U2 R' U R U R' U R' U' R2 U' R' U R' U R"]],
+["as",0,["L' R U' L U R' U2 L' U2 L","U F U R' U' R F' U' R' U2 R","L' R U' L U R' U2 L' U2 L","U2 x' M' U' R U L' U2 R' U2 R"]],
+["as",0,["U R U2 R' U' R2 D R' U R D' R' U2 R'","U2 R U R' F' R U R' U' R' F R2 U R' U' R U' R'","U R U2 R' U' R2 D R' U R D' R' U2 R'","U2 L R U2 R' U' R U2 L' U' R' U' R U' R'"]],
+["as",0,["U R D R' U' R D' R2 U' R U2 R' U' R","U2 R' U' F' R U R' U' R' F R2 U' R' U R","U' R U R D R' U R D' R2 U' R U' R'","U' R U2 R2 D' R U R' D R U2 R U' R'"]],
+["as",0,["U R U2 R2 D' R U2 R' D R2 U' R' U R U' R'","f' L F L' U2 L' U2 L U2 S","U' L' R' U R U' L R' U' R U2 R' U2 R","R2 U' R U' R2 D' R U R' D R U R U' R"]],
+["as",0,["U' L' U R U' L U2 R' U' L' U R U' R' L","U2 R2 D' R U' R' D F R U R U' R' F' R","U2 F U R' U' R F' R2 D' R U R' D R2","U' L' U R U' L U2 R' U' L' U R U' L R'"]],
+["as",0,["U' R U B' U R2 U' R2 U' B R' U R' U R","U' R U R' U2 R U R' U' F' R U2 R' U' R U' R' F","R2 D R' U2 R D' R U' R2 U' R' U R' U R","U L' U R U' L U' R D R' U2 R D' R2"]],
+["as",0,["U2 R2 F2 U' R F2 R' U F' R U R U' R' F' U R","U' R U R' U R U' R2 F R F' r U' r' U r U r'","U2 R U R' U' R' U2 R U R' U R2 U r' F R' F' r","U2 R D' R U' R' D U' R' U R U R2 U' R' U R"]],
+["as",0,["R2 D r' U2 r D' R2 U' R U' R'","R2 D r' U2 r D' R2 U' R U' R'"]],
+["as",0,["U R' U' R U' R U R D R' U' R D' R U2 R","U2 R U2 R' U' R' D' R U' R' D R2 U' R' U R U' R'","U R' U' R U' R' F' R U R' U' R' F R U R U' R' U2 R","U R' U' R U' R U R D R' U' R D' R U2 R"]],
+["as",0,["R2 D R' U2 R D' R2 U' R U' R'","R2 D R' U2 R D' R2 U' R U' R'"]],
+["as",0,["U2 R U R' F' R U2 R' U2 R' F R2 U' R'","U2 R U' R' U2 R U' R' U R' D' R U2 R' D R","U2 R U R' F' R U2 R' U2 R' F R2 U' R'","U' F R U R2 U2 R2 U R2 U R F'"]],
+["as",0,["U2 R U2 R' U R U L U' R' U L' U R U' R'","U2 R U2 R' U' R U' R D R' U2 R D' R' U2 R'","U2 R U2 R' U R U L U' R' U L' U R U' R'"]],
+["as",1,["R' D' R U2 R' D R2 U' R' U2 R U R' U R U R'","R' D' R U2 R' D R2 U' R' U2 R U R' U R U R'","U' R' U2 R' U2 F' R U R U' R' F R' U2 R U2 R","U' r U' r' U2 R' F R U2 F2 U' R U' R' F'"]],
+["as",1,["U x' R U' R' D R2 U l' U R' U' R U R' U' F'","U' R' U R U R' U R U2 R' U' R2 D R' U2 R D' R'","U D R2 U' R U' R2 U R' U R2 D' R U2 R'","U R' U' R U' R D' R U2 R' D R U2 R U2 R"]],
+["as",1,["U' R' U2 F' R U R' U' R' F R2 U R' U R","U' R' U2 F' R U R' U' R' F R2 U R' U R","U R U2 R2 F2 U' R2 U' R2 U F2 U R","U' R' U2 R U R' U' R U R' U' R' D' R U2 R' D R2"]],
+["as",1,["R U R' U' L' U2 R U' R' U2 L U' R U2 R'","R2 D R' U2 R D' R' U' R' U R U' R' U R U2 R'","R U R' U R' D R2 U' R' U R2 D' R' U2 R'","R U R' U' L' U2 R U' R' U2 L U' R U2 R'"]],
+["as",1,["U2 R U2 R' L' U2 R U' R' U2 R L U2 R'","U' R' F U' F' U' R F U' R' U' R F'","U' R U R' U R' U' R U' R D R' U R D' U' R2 U2 R","U L' R' D2 R U R' D2 R2 U' L U R'"]],
+["as",1,["R U R2 D R2 D' R2 U' R2 D R2 D' R","U' R' F U2 F' R F R' U2 R F'","U' R' F U2 R' D' R U2 R' D R F' R","U' x R' U B2 U' R U R' B2 R U' x'"]],
+["as",1,["R U2 R' U' R U2 R' U R U' R' U' R U R2 D' R U' R' D R","U' R2 D r' U2 r R' U' R D' R' U R' U' R U' R'","U R B' r2 R2 U2 r' U' r U2 R' r2 B R2","U2 R' U' R U' R' U R' D' R U' R' r U2 r' D R2"]],
+["as",1,["U2 R U R' U L' U2 R U L U2 R' U L' U L","R U2 R' U' R2 D R' U2 R D' R' U' R' U R U R'","U' R' U' R U' R U R' U' R' U2 F R U R U' R' F'","R2 U R2 U R U2 R' U2 R' U' D R' U R D'"]],
+["as",1,["U' R' U' R U' R' U R' D' R U' R' D R U2 R","U' R' U' R U' R D R' U' R D' R' U R' U2 R","U' R' U' R U' R' U R' D' R U' R' D R U2 R","U2 R U R D' R' U2 R D R' D' R' U2 R U' D R'"]],
+["as",1,["U' R2 D' R2 U2 R' F2 U F2 U R2 D R'","U2 R U2 R D R' U' R D' R' U R' U' R U' R'","U2 R U2 R' U R' D' R U' R' D R U' R U' R'","U2 R' U L U' R U' R' L' U L U' R U2 L'"]],
+["as",1,["U' R2 D R' U R D' R' U R' U' R U' R'","U' R2 D R' U R D' R' U R' U' R U' R'","U' L' U R U' L2 U2 R' U R U2 L' R'","U2 R U R' U' D R' U' R U R2 U' R U R2 D'"]],
+["as",1,["U2 R' U' R U' R' U R' D' R U R' D R2","U2 R' U' R U' R' U R' D' R U R' D R2","r U2 R' U' R U' r' F R' F' R U R U' R'","R U' L' U R' U' L R' U2 R U R' U R"]],
+["as",2,["R U2 R' U' R U R D R' U2 R D' R2","R U2 R' U' R U R D R' U2 R D' R2"]],
+["as",2,["U' R' U2 R' F' R U R U' R' F U2 R","U' R' U2 R' F' R U R U' R' F U2 R"]],
+["as",2,["U' L U2 R' U L' U L U' R U2 L' R' U2 R","U R2 D' R U2 R' D R U R U' R' U2 R","U R' F' R U R' U' R' F R2 U' R' U R U' R' U2 R","U' L' U' L U F R U2 R' U' x U2 L U r'"]],
+["as",2,["L U2 F L' U' L U L F' L' U2 L'","U' F U R U' R' U R U' R2 F' R U2 R U2 R'","U' R U2 R2 D' R U' R' D R2 U R' U' R U' R'","U2 R U2 R D R2 U' R U' R' U2 R2 D' R2"]],
+["as",2,["U' L' U R U' L U R'","U' L' U R U' L U R'","U R' U L U' R U L'","U' r' F R F' r U R'"]],
+["as",2,["U' R2 U' R U' R U R' U R2 D' U R U R' U' R U' R' D","U2 F U R U' R' U R U' R' U R2 D R' U' R D' R2 F'","R' U2 R U R2 D' R U' R' D R2 U R' U' R U R' U R","U' R U R' U R2 D' R U' R' D R' U' R2 U2 R"]],
+["as",2,["U' R U R' U R U L' U R' U L U L' U L","U' R' U R U R' U' R' D' R U R' D R U R U' R' U2 R","L' U R' U' R L U2 R' U' R2 U2 R' U' R U' R'","U2 R U2 R' U' R U R D R' U R D' R' U' R' U R U R'"]],
+["as",2,["U' D R' U' R D' R U' R' U R2 U R' U' R2","U2 R U R2 F' R U R U R' U' R U' R' F R U' R'","U' D R' U' R D' R U' R' U R2 U R' U' R2","U2 R2 U' R' U R2 U R' U' R D' R U' R' D"]],
+["as",2,["R' U' R2 U2 R2 D U' R2 U' R2 U R2 D' R2 U' R","U2 R D' U R U' R' U2 D R2 U' R U R","L U D' L U' L' U2 D L2 U' L U L","F' U' f R U R2 U' R U R U' S'"]],
+["as",2,["U' F R U' R' U R U R2 F' R U R U R' U' R U' R'","U R2 D' r U2 r' D R U R U' R' U2 R","U' F R U' R' U R U R2 F' R U R U R' U' R U' R'","U' R' U' R F2 R' U R2 U2 R' U R U R' F2"]],
+["as",2,["U' L' U R U' L R U R U R U' R' U' R2","R U2 R' U' R U R D r' U2 r D' R2","U' R' U2 R' D' R U R' D R U' R U R' U' R U R' U R","U' L' U R U' L R U R U R U' R' U' R2"]],
+["as",2,["R U R U' R2 D U2 R' U' R D' U R","R U R U' R2 D U2 R' U' R U D' R","U2 R U2 R' U' R U2 R F2 R' U R' U' R2 F2 R2","U S U' R U R U' R2 U R F R' f'"]],
+["as",3,["R U2 R' U2 L' U R U' R' L","R U2 R' U2 L' U R U' R' L","U F U2 F' U' R' F U' F' U R","R U2 R' U2 r' F R F' r R'"]],
+["as",3,["U2 R U' R' U2 R U' R2 D' R U' R' D R","U2 R U' R' U2 R U' R2 D' R U' R' D R","U L U' R' U L' U R2 U R2 U R2 U2 R'","U' R' U' R U2 R D R' U R D' R2 U2 R"]],
+["as",3,["U R' U2 R' D' R U R' D R2 U' R' U2 R","U R' U2 R' D' R U R' D R2 U' R' U2 R","U2 R' U' R U' R' U' L' U2 R U' R' U2 R L"]],
+["as",3,["U2 S U2 R U2 R' U2 R' F R f'","U2 S U2 R U2 R' U2 R' F R f'","U' R U2 R' U' F' R U R' U' R' F R2 U' R'","R U2 R' U2 R U' R' L U' R U R' L'"]],
+["as",3,["L' R U' L U R' U' L' U2 R U' L U R'","U' R2 D R' U R D' R2 U' r' F R F' M'","U' R2 D R' U R D' R2 U' L' U R U' R' L","R L' U' L U R' U' L' U2 R U' L U R'"]],
+["as",3,["U2 F R U R' F R' F' U2 R2 U R2 U R F'","U' R U R' U' R U' R' F' R U R' U R U' R' U' R' F R","U' R U R' U R' F U' R2 U' R2 U F' U R","U' R U R' U2 R' D' R U' R' D U' R2 U' R2 U2 R"]],
+["as",3,["R' U' R U' R2 D' r U2 r' D R2","R' U' R U' R2 D' r U2 r' D R2","U2 R D' R U' R D R' U R2 D' R U2 D R' U2 R"]],
+["as",3,["U' R U R' U' R2 U R U R' U' D R' U' R D' R","S R U R' U' R' F R S' R U R' U' F'","S R U R' U' R' F R f' F R U R' U' F'","U2 F R' F' U2 R U F' R' U R U F R U' R'"]],
+["as",3,["U R U R' U R U2 R2 L U L' U' R U2 L U2 L'","R U2 R' U' R U R' U2 R' F R U R U' R' F'","U' R U2 R' U' F' r U R' U' r' F R2 U' R'","U' L U L' U L U2 L2 R U R' U' L U2 R U2 R'"]],
+["as",3,["U2 R' U2 R' D' R U2 R' D R U' R U' R' U2 R","U2 R' U2 R' D' R U2 R' D R U' R U' R' U2 R","U' R' U' R U' R' U R U' R' U R' F' R U R U' R' F R","U' R' U' R U' R' U y' R' U2 R U' R' U' R B"]],
+["as",3,["U2 R' U' R U R' F R U R' U' R' F' R2","U2 R' U' R U R' F R U R' U' R' F' R2","U' L U2 L' U2 R' U L2 U' R U L' U' L'","U' R U2 R' U2 R' F R2 U' R' U' R U R' F'"]],
+["as",3,["R' U' R U' R2 D' R U2 R' D R2","R' U' R U' R2 D' R U2 R' D R2"]],
+["as",4,["R U R' U L' U2 R U2 R' U2 R L U2 R'","U2 R2 U R2 F' R U R' U R U2 R' F R2 U' R2","R U R' U L' U2 R U2 L U2 L' R' U2 L","U2 R U2 R' F' R U R' U F U F' U R' F R2 U' R'"]],
+["as",4,["L' U2 R U' R' U2 L R U R' U' R U R' U' R U' R'","U2 F R U R' U' R U R' F R' F' R U' F'","L' U2 R U' R' U2 L R U R' U' R U R' U' R U' R'"]],
+["as",4,["U2 R U' R2 D' U' R U' R' D U2 R2 U R'","U2 R U' R2 D' U' R U' R' U2 D R2 U R'","R' U R2 U2 D R' U' R D' U' R2 U' R","L R U2 R' U' L' U2 R' U L U' R2 U R' U L'"]],
+["as",4,["U2 R' U2 R L U2 R' U2 R U2 L' U R' U R","U R' U F' R U R' U' R' F R U2 R U2 R' U' R","U2 R2 U' R2 B R' U2 R U R' U R B' R2 U R2","U R' U R' D' R2 U R' U R U2 R2 D R U' R"]],
+["as",4,["U L' U' L U R U' L' U R' U R U' L U R'","U F R' F' R U R U' R2 F R U R' U' F' U R","U2 L' U R U' L U L' U R' U' L U R U' R'","U2 r R D R' U R U' D' L' U R' U' x'"]],
+["as",4,["U R U2 R' U2 L' U' L U' R U L' U R' U2 L","U F R2 U R2 U R2 U2 R' U2 R' U' R U' R' F'","U' F' U2 R' D R U' R' D' R f R' F R f'","U' R U2 R' U' F2 R U2 R' U2 R' F2 R2 U' R'"]],
+["as",4,["R' U2 L U' R U L' R' U R U' R' U2 R","U2 F U' R' U R U F' R' U R U' R' U2 R","R' U2 L U' R U L' R' U R U' R' U2 R","U2 R U R' U R U' R' U r' F R F' r U2 R'"]],
+["as",4,["U2 R U2 R' U' R U L' R' U R U' L U2 R'","U2 F R U' R' U R U2 R' U' F' R U R' U' R' F R F'","U2 R U2 R' U' R U R' r' F R F' r U2 R'","U2 R U2 R' U' R U R' L' U R U' L U2 R'"]],
+["as",4,["U' R U2 L' U R' U' L U' R U' R'","R U' R' F' R U R' U' R' F R2 U' R' U2 R U' R'","U' R U2 L' U R' U' L U' R U' R'","U' R U' R' U2 R U' R' U2 R' D' R U R' D R"]],
+["as",4,["U2 R U2 R2 U' R2 U' R' F U' R' U' R U F'","U2 R U2 R2 U' R2 U' R' F U' R' U' R U F'","U2 R U2 R2 U' R2 F' R U R' U' R' F U' R'","U2 R U2 R2 U' R2 U' R' U2 R' F' R U R' U' R' F R2"]],
+["as",4,["U R' U' R U' L U' R' U L' U2 R","U R' U' R U' L U' R' U L' U2 R","U' L' U' L U' R U' L' U R' U2 L","U2 R D R' U R D' R' U2 R' U' R U2 R' U' R"]],
+["as",4,["U F R U' R2 U' R U' R' U2 R2 U R' F'","U' R U R' F' R U2 R' U' R U' R' F R U' R'","U R' F R F' U2 R U' R' U' F R' F' R","U F R U' R2 U' R U' R' U2 R2 U R' F'"]],
+["as",5,["R U' R' U2 R U' R' U2 R U2 R' U R U R'","U R U R' U R' U' R U' R' U2 R U R U' R'","U' R' U' R U' R' U' R' U' R' U' R' U R U R2","R2 U' R U R U R' U2 R U R2 U R2"]],
+["as",5,["R2 U' R' U R U R' U2 R' U R2 U R2","U2 R' U' R U' R U R2 U R U' R U R' U' R U' R'","R U R' U' R U R2 U' R2 U' R' U R U' R' U R' U R","R2 U' R' U R U R' U2 R' U R2 U R2"]],
+["as",5,["U' R U2 R2 U2 R2 U R2 U R2 U' R'","U' R U2 R2 U2 R2 U R2 U R2 U' R'","U' R U2 R2 U' R U' R' U2 R U2 R U2 R'","U' R' U' R U' R' U2 R U' R U' R U R U R U' R' U' R2"]],
+["as",5,["U' R' U' R U' R' U2 R","U' R' U' R U' R' U2 R","U r' F' r U' r' F2 r","R U' R' U' R U R' U R U' R' U R U2 R' U2 R U' R'"]],
+["as",5,["R' U' R U R U2 R' U' R U' R' U R' U R","R' U' R U R U2 R' U' R U' R' U R' U R","R2 U R2 U R U2 R' U R U R U' R2","R U2 R' U' R U' R' U' R U' R U R U R U' R' U' R2"]],
+["as",5,["U' R' U' R U' R' U R U' R U R2 U R U' R U' R'","R2 U R2 U R' U2 R' U R U R' U' R2","U' R' U' R U' R' U R U' R U R2 U R U' R U' R'","U2 F R U R' U F' U' F U' R U R' U' F'"]],
+["as",5,["R U2 R' U' R U' R'","R U2 R' U' R U' R'","U2 L U2 L' U' L U' L'","U2 M' U2 R U2 M R' U' R U' R'"]],
+["as",5,["U' R' U' R2 U R2 U R2 U2 R2 U2 R","U' R' U' R2 U R2 U R2 U2 R2 U2 R","R U2 R' U' R U' R' U R U' R U R U R U' R' U' R2","U R U R2 U' R' U' R U R' U' R2 U2 R"]],
+["as",5,["R2 U R U R2 U' R' U' R2 U' R U' R'","R' U' R U R U2 R' U' R' U R U' R U' R'","U' R' U' R U' R U R' U' R' U2 R U R U' R'","R2 U R U R2 U' R' U' R2 U' R U' R'"]],
+["as",5,["R U R' U' R' U' R U R U' R' U' R' U R","R U R' U' R' U' R U R U' R' U' R' U R","R U2 R2 U' R' U' R' U R U R2 U' R'"]],
+["as",5,["R U2 R2 U' R2 U' R' U R' U R","U R U R' U R' U' R2 U' R2 U2 R","R U2 R2 U' R2 U' R' U R' U R","U r U R' U R' U' R2 U' r' R' U2 R"]],
+["as",5,["U2 R2 D' R2 U2 L F2 L' R' D R U' R U' R'","U2 R2 D' R U2 R' D R U R' F R U R U' R' F' R","U' R' F2 R D R' D' F2 U' R2 U R' U' R2","U' R2 U' S R2 S' R2 U R U' R U' R' U2 R"]]];
 const CASES = DATA.map(c=>({...c, state:c.state.split(''), alts:c.alts||[]}));
-CASES.forEach(c=>{ c.full = c.g==='PLL' ? c.name+' perm' : c.g==='2-look' ? c.name+' ('+(SET_SHORT[c.set]||c.set).toLowerCase()+')' : c.name; });
+// ZBLL: algs from SpeedCubeDB (collected in @moishy/algsets, MIT), sorted into sets by checking each case's corners.
+// Each case's position comes from its first alg. Cases go in groups of 12 that share a corner case (COLL); the H set ends with two groups of 8.
+{ const ZK = {t:'T',u:'U',l:'L',h:'H',pi:'Pi',s:'S',as:'AS'}, cnt = {}, HM = ['U','R','F','D','L','B'];
+  for (const [k, sub, algs] of ZB_DATA){ const n = cnt[k] = (cnt[k]||0)+1;
+    let st = Cube.apply(Cube.solved(), Cube.invert(algs[0])); const ro = Cube.reorient(st); if (ro && ro.s) st = ro.s;
+    const mp = {}; HM.forEach((f,i)=>{ mp[st[i*9+4]] = f; }); st = st.map(v=>mp[v]);
+    CASES.push({id:'ZB-'+ZK[k]+'-'+n, g:'ZBLL', set:'ZBLL '+ZK[k], name:ZK[k]+' '+n, nick:'', alg:algs[0], src:'SpeedCubeDB',
+      alts:algs.slice(1).map(a=>({alg:a, src:'SpeedCubeDB'})), goal:'full', state:st, sub}); } }
+CASES.forEach(c=>{ c.full = c.g==='ZBLL' ? 'ZBLL '+c.name : c.g==='PLL' ? c.name+' perm' : c.g==='2-look' ? c.name+' ('+(SET_SHORT[c.set]||c.set).toLowerCase()+')' : c.name; });
 const BYID = Object.fromEntries(CASES.map(c=>[c.id,c]));
 // geometry helpers: which cubie each sticker is on
 const CUBIE = Cube.ST.map(s=>s.p.map((v,i)=>(v-s.n[i]*1)/2).map(Math.round).join(','));
@@ -3484,7 +3969,9 @@ function f2lTip(s){ const ci = CF.findIndex(f=>f.map(i=>s[i]).sort().join('')===
   const es = ei===8 ? (s[EF[8][0]]==='F' ? 'edge in the slot, solved' : 'edge in the slot, flipped') : `edge on top (${ENAME_POS[ei].replace('top ','')})`;
   return cs+' · '+es; }
 function autoTip(c){ const s=c.state; if (c.g==='PLL' || c.set==='Permute edges') return pllTip(s); if (c.set==='Permute corners') return pllTip(s).replace(/Two-color block[^·]*·?\s?/,'').trim().replace(/·$/,'') || 'No headlights on any side';
-  if (c.g==='F2L') return f2lTip(s); return ollTip(s); }
+  if (c.g==='F2L') return f2lTip(s);
+  if (c.g==='ZBLL'){ const up = [0,2,6,8].filter(i=>s[i]==='U').length; return `${up} yellow corner${up===1?'':'s'} up · ` + pllTip(s); }
+  return ollTip(s); }
 CASES.forEach(c=>{ c.tip = (c.nick ? c.nick+'. ' : '') + autoTip(c); });
 // storage
 const K='cube-lab-333-v1';
@@ -3630,11 +4117,12 @@ const rect = (x,y,w,h,f) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" 
 const isEdgeIdx = k => k===1||k===3||k===5||k===7;
 function topColor(c, s, mode, cmap){ const C = v => COL(cmap ? cmap[v] : v);
   return i => { const v = s[i], f = Math.floor(i/9), k = i%9;
+    if (mode==='coll') return isEdgeIdx(k) && (f===0 || k===1) ? COL('X') : C(v);
     if (mode==='oll') return v==='U' ? C('U') : COL('X');
     if (mode==='eo') return isEdgeIdx(k) && v==='U' ? C('U') : COL('X');
     if (mode==='cp') return f===0 ? (v==='U'?C('U'):COL('X')) : (k===0||k===2 ? C(v) : COL('X'));
     return C(v); }; }
-const modeOf = c => c.g==='OLL' || c.set==='Orient corners' ? 'oll' : c.set==='Orient edges' ? 'eo' : c.set==='Permute corners' ? 'cp' : 'pll';
+const modeOf = c => c.g==='ZBLL' ? 'zb' : c.g==='OLL' || c.set==='Orient corners' ? 'oll' : c.set==='Orient edges' ? 'eo' : c.set==='Permute corners' ? 'cp' : 'pll';
 // arrows: where each top piece goes when the alg runs
 function arrowsOf(c, alg, s){ try {
   let lab = Cube.apply(Cube.ST.map((_,i)=>i), alg); let st = Cube.apply(s, alg);
@@ -3861,17 +4349,23 @@ $('#caseBody').addEventListener('click', e=>{ const c = BYID[caseId]; if (!c) re
   if (b.dataset.act==='savenote'){ const v=$('#cnote3').value.trim().slice(0,400); if(v) D.notes[c.id]=v; else delete D.notes[c.id]; save(); const m=$('#noteMsg'); m.className='msg ok'; m.textContent=v?'Saved.':'Notes cleared.'; }
 });
 // ---- learn ----
+// ZBLL sets are long, so each one is split into its corner groups, each headed by the corners alone
+function zbGrid(set){ const cs = CASES.filter(c=>c.set===set), subs = [...new Set(cs.map(c=>c.sub))];
+  return subs.map((sb,i)=>{ const g = cs.filter(c=>c.sub===sb), a = g.filter(c=>status(c.id)==='learned').length, b = g.filter(c=>status(c.id)==='learning').length;
+    return `<div class="zbsub"><div class="zbhead">${topSVG(g[0], g[0].state, {mode:'coll'})}<div><h3>${esc(SET_SHORT[set]||set)} · group ${i+1}</h3><p>${esc(g[0].name)} to ${esc(g[g.length-1].name)} · ${a}/${g.length} learned${b?` · ${b} learning`:''}</p></div></div>
+      <div class="grid">${g.map(caseCard).join('')}</div></div>`; }).join(''); }
 function renderLearn(){
   $('#learnGroup').innerHTML = GROUPS.map(g=>`<button aria-pressed="${g===learnGroup}" data-g="${g}">${g}</button>`).join('');
   const sets = GSETS[learnGroup];
-  if (!sets.includes(learnFilter)) learnFilter='All';
-  $('#learnFilter').innerHTML = ['All',...sets].map(s=>`<button class="chip" aria-pressed="${s===learnFilter}" data-set="${s}">${SET_SHORT[s]||s}</button>`).join('');
+  const zb = learnGroup==='ZBLL';
+  if (!sets.includes(learnFilter)) learnFilter = zb ? sets[0] : 'All';
+  $('#learnFilter').innerHTML = (zb ? sets : ['All',...sets]).map(s=>`<button class="chip" aria-pressed="${s===learnFilter}" data-set="${s}">${SET_SHORT[s]||s}</button>`).join('');
   const show = learnFilter==='All' ? sets : [learnFilter];
   const gi = GROUP_INFO[learnGroup];
   $('#learnSets').innerHTML = `<div class="spotbox"><span class="label">How to spot ${learnGroup==='2-look'?'2-look cases':learnGroup}</span><p>${gi.spot}</p><p class="rec">${gi.then}</p></div>` + show.map(set=>{
     const si = SET_INFO[set] || {spot:'',hold:''};
     return `<div class="setblock"><div class="sethead"><div><h2>${learnGroup==='2-look'?'2-look · ':learnGroup+' · '}${esc(setLabel(set))}</h2><p><b>Spot the set:</b> ${si.spot}</p><p><b>Hold:</b> ${si.hold}</p></div></div>
-      <div class="grid">${CASES.filter(c=>c.set===set).map(caseCard).join('')}</div></div>`;
+      ${learnGroup==='ZBLL' ? zbGrid(set) : `<div class="grid">${CASES.filter(c=>c.set===set).map(caseCard).join('')}</div>`}</div>`;
   }).join('');
   renderProgress();
 }
@@ -3902,7 +4396,7 @@ $('#bkRestore').addEventListener('click', ()=>{ const m=$('#bkMsg'), parts=CubeL
 // any diagram button opens the viewer
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3; if (BYID[id]) Viewer.open(BYID[id], null); });
 // ---- flashcards ----
-$('#cardGroup').innerHTML = [['all','All sets'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+$('#cardGroup').innerHTML = [['all','All but ZBLL'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
 function renderCardPool(){ const g=$('#cardGroup').value, cur=$('#cardPool').value || D.prefs.cardPool;
   const sets = g==='all' ? [] : GSETS[g];
   $('#cardPool').innerHTML = [['all','All cases'],['learning','Learning only'],['active','Learning + learned'],...sets.map(s=>['set:'+s,/only$/.test(SET_SHORT[s]||s) ? (SET_SHORT[s]||s) : (SET_SHORT[s]||s)+' only'])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
@@ -3921,7 +4415,7 @@ function cardTick(){ const el=$('#cardClock'); if(!el || cardShown) return; el.t
 function armCard(){ if(!cardCur || cardShown || cardArmed) return; cardArmed=true; renderCard(); }
 function revealCard(){ if(!cardCur || cardShown) return; if(cardMode==='timed' && !cardArmed) return armCard(); cancelAnimationFrame(cardRaf); cardRec = cardMode==='timed' ? +((performance.now()-cardT0)/1000).toFixed(2) : null; cardShown=true; CubeLab.flip($('#cardStage'), renderCard); }
 function poolCases(g, v){
-  let l = g==='all' ? CASES : CASES.filter(c=>c.g===g);
+  let l = g==='all' ? CASES.filter(c=>c.g!=='ZBLL') : CASES.filter(c=>c.g===g);
   if (v==='learning') return l.filter(c=>status(c.id)==='learning');
   if (v==='active') return l.filter(c=>status(c.id)!=='new');
   if (v.startsWith('set:')) return l.filter(c=>c.set===v.slice(4));
@@ -4298,7 +4792,7 @@ function rdNew(){ cancelAnimationFrame(rdRaf); const pool = rdPool();
   // answer choices: every PLL by name; otherwise six cases from the same set first, then the same group
   let opts;
   if (c.g==='PLL') opts = null;
-  else { const same = CASES.filter(x=>x!==c && x.set===c.set), grp = CASES.filter(x=>x!==c && x.g===c.g && x.set!==c.set);
+  else { const same = CASES.filter(x=>x!==c && x.set===c.set && x.sub===c.sub), grp = CASES.filter(x=>x!==c && x.g===c.g && x.set!==c.set);
     const sh = a => a.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
     opts = sh([c, ...sh(same).slice(0,5), ...sh(grp)].slice(0,6)); }
   rd = {c, st, cmap, opts, t0:0, armed:false, done:null}; renderRd(); }
@@ -4544,7 +5038,7 @@ const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), alg speed (Alg only), full case time, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
-    ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.']],
+    ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Learn it a group of 12 at a time.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
   cards:{t:'Flashcards', s:[
