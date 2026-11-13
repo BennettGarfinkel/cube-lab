@@ -1044,10 +1044,18 @@ const CubeLab = (() => {
   function ready(){ syncShared(); applyAnim(); watch(); const a = apps[cur]; if (a){ a.applyTheme(); a.show(); } }
   // one backup code and one csTimer file cover both puzzles
   const enc = o => btoa(unescape(encodeURIComponent(JSON.stringify(o)))), dec = t => JSON.parse(decodeURIComponent(escape(atob(t))));
-  function backupCode(){ const o = {v:1}; for (const [pz, a] of Object.entries(apps)) o['p' + pz] = a.exportData(); return 'CUBELAB1:' + enc(o); }
-  function parseBackup(raw){ raw = String(raw || '').replace(/\s+/g, '').replace(/^(cubelab1|2x2lab1|3x3lab1):/i, m => m.toUpperCase()); const ok = d => !!d && typeof d === 'object' && !!d.status && typeof d.status === 'object';
+  // CUBELAB2 codes are the same data compressed (deflate), in URL-safe base64: usually 4-5 times shorter than CUBELAB1
+  const b64u = u8 => { let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64u = t => { t = t.replace(/-/g, '+').replace(/_/g, '/'); while (t.length % 4) t += '='; const s = atob(t), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+  const squeeze = async (u8, T) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(T)).arrayBuffer());
+  async function backupCode(){ const o = {v:1}; for (const [pz, a] of Object.entries(apps)) o['p' + pz] = a.exportData();
+    try { return 'CUBELAB2:' + b64u(await squeeze(new TextEncoder().encode(JSON.stringify(o)), new CompressionStream('deflate-raw'))); }
+    catch (e) { return 'CUBELAB1:' + enc(o); } }   // a browser that can't compress still gets a working code
+  async function parseBackup(raw){ raw = String(raw || '').replace(/\s+/g, '').replace(/^(cubelab[12]|2x2lab1|3x3lab1):/i, m => m.toUpperCase()); const ok = d => !!d && typeof d === 'object' && !!d.status && typeof d.status === 'object';
+    const both = o => { const out = {}; for (const pz of ['2', '3']) if (o && ok(o['p' + pz])) out[pz] = o['p' + pz]; return Object.keys(out).length ? out : null; };
     try {
-      if (raw.startsWith('CUBELAB1:')){ const o = dec(raw.slice(9)), out = {}; for (const pz of ['2', '3']) if (o && ok(o['p' + pz])) out[pz] = o['p' + pz]; return Object.keys(out).length ? out : null; }
+      if (raw.startsWith('CUBELAB2:')) return both(JSON.parse(new TextDecoder().decode(await squeeze(unb64u(raw.slice(9)), new DecompressionStream('deflate-raw')))));
+      if (raw.startsWith('CUBELAB1:')) return both(dec(raw.slice(9)));
       if (raw.startsWith('2X2LAB1:')){ const d = dec(raw.slice(8)); return ok(d) ? {'2': d} : null; }
       if (raw.startsWith('3X3LAB1:')){ const d = dec(raw.slice(8)); return ok(d) ? {'3': d} : null; }
     } catch (e) {}
@@ -1777,6 +1785,7 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   if (!isObj(o.prefs)) o.prefs = {};
   if (!o.prefs.oneAvg){ for (const [id,a] of Object.entries(o.atimes)){ if (!a.length) continue; o.times[id] = (o.times[id]||[]).concat(a).slice(-50);
       const cs = o.cstat[id] || (o.cstat[id] = {n:0, d:0}); cs.n += a.length; } o.prefs.oneAvg = 1; }
+  o.atimes = {};
   for (const v of Object.values(o.cards)) counts(v, ['h','m']);
   for (const v of Object.values(o.crs)) counts(v, ['n','c']);
   for (const v of Object.values(o.algt)) for (const a of Object.keys(v)) v[a] = v[a].filter(num);
@@ -2020,7 +2029,7 @@ const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(algPair(c).alg)); };
 const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
-  for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
+  for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = tpsOf(c); if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
   const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
   NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
@@ -2155,21 +2164,22 @@ $('#learnSets').addEventListener('click', e=>{
 // redraw one card in place, keeping its details panel open
 function refreshCard(card, c, keepOpen){ if(!card) return; const t=document.createElement('div'); t.innerHTML=caseCard(c).trim(); const n=t.firstChild; if(keepOpen){ fillMore(n); } if(keepOpen && n.querySelector('details')) n.querySelector('details').open=true; card.replaceWith(n); }
 // backup
-const encD = () => CubeLab.backupCode();
-$('#backup').addEventListener('toggle', ()=>{ if($('#backup').open) $('#bkOut').value=encD(); });
-$('#bkCopy').addEventListener('click', ()=>{ const t=$('#bkOut'), m=$('#bkCopyMsg'); t.value=encD();
+const encD = () => { const t=$('#bkOut'); return CubeLab.backupCode().then(v=>{ t.value=v; return v; }); };
+$('#backup').addEventListener('toggle', ()=>{ if($('#backup').open){ $('#bkOut').value=''; encD(); } });
+$('#bkCopy').addEventListener('click', async ()=>{ const t=$('#bkOut'), m=$('#bkCopyMsg');
   const done=s=>{ m.className='msg ok'; m.textContent=s; }; const fb=()=>{ t.focus(); t.select(); done("Selected. Use your device's Copy to copy it."); };
-  try { navigator.clipboard.writeText(t.value).then(()=>done('Copied.'), fb); } catch(e){ fb(); } });
+  if(!t.value) await encD();
+  try { navigator.clipboard.writeText(t.value).then(()=>{ done('Copied.'); encD(); }, fb); } catch(e){ fb(); } });
 let bkArmed=false;
 const bkReset=()=>{ bkArmed=false; $('#bkRestore').textContent='Restore'; };
 $('#bkIn').addEventListener('input', ()=>{ bkReset(); $('#bkMsg').textContent=''; });
 function restoreFrom(obj){ const keepStamp = D.stamp; for (const k of Object.keys(D)) delete D[k];
   Object.assign(D, {v:2,status:{},times:{},cards:{},custom:{},cstat:{},recog:{},notes:{},atimes:{},daily:null,ol:{n:0,c:0},prefs:{},recent:[],sessions:[],cur:null}, JSON.parse(JSON.stringify(obj))); D.stamp = Object.assign({}, keepStamp||{}, obj.stamp||{}); sanitize(D); if(!D.stamp) D.stamp={}; save(); refreshAll(); }
-$('#bkRestore').addEventListener('click', ()=>{ const m=$('#bkMsg'), parts=CubeLab.parseBackup($('#bkIn').value);
-  if(!parts){ m.className='msg err'; m.textContent="That code isn't valid. Copy the whole code, starting with CUBELAB1:"; bkReset(); return; }
+$('#bkRestore').addEventListener('click', async ()=>{ const m=$('#bkMsg'), parts=await CubeLab.parseBackup($('#bkIn').value);
+  if(!parts){ m.className='msg err'; m.textContent="That code isn't valid. Copy the whole code, starting with CUBELAB"; bkReset(); return; }
   const what = Object.keys(parts).map(p=>p+'x'+p).join(' and ');
   if(!bkArmed){ bkArmed=true; $('#bkRestore').textContent='Tap again to replace'; m.className='msg err'; m.textContent=`This replaces all ${what} progress in this browser.`; return; }
-  CubeLab.restoreBackup(parts); bkReset(); $('#bkIn').value=''; $('#bkOut').value=encD(); m.className='msg ok'; m.textContent=`Restored your ${what} progress.`; });
+  CubeLab.restoreBackup(parts); bkReset(); $('#bkIn').value=''; encD(); m.className='msg ok'; m.textContent=`Restored your ${what} progress.`; });
 // any diagram button opens the viewer
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3;
   if (BYID[id]) Viewer.open(BYID[id], null); else if (ORT[id]) Viewer.openRaw(ORT[id]); });
@@ -2308,12 +2318,11 @@ let tMode = ['weak','deck','random','daily'].includes(D.prefs.tMode) ? D.prefs.t
 let tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr', tPair = null;
 let tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs', fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer', fsLast = null;
 const PRO_TPS = 13;
-function aavg(id){ const t=D.atimes[id]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
 // average with one alg (its last 12 times). A case with no per-alg times yet uses the case average.
 function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return avg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
-function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : aavg(id); }
+function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : avg(id); }
 const kAvg = id => avg(id);
-const kTimes = id => (tKind==='alg' ? D.atimes : D.times)[id];
+const kTimes = id => D.times[id];
 // the setup and the alg it pairs with, so the alg solves exactly what the setup builds
 function algPair(c){ const i=mineIdx(c), l=algList(c); if(i>=0 && l[i].setup) return {setup:l[i].setup, alg:l[i].alg, ak:algOf(c)}; const a=fitAlg(c.state, algOf(c)); return {setup:setupFor(c.state,a), alg:a, ak:algOf(c)}; }
 const moveCount = a => { try { return Cube.parse(a).filter(([m])=>!'xyz'.includes(m)).length; } catch(e){ return 0; } };
@@ -2321,7 +2330,7 @@ function renderTKind(){ $('#tKind').innerHTML = [['scr','Scramble'],['alg','Alg 
 $('#tKind').addEventListener('click', e=>{ const b=e.target.closest('[data-tk]'); if(!b || (tState!=='idle' && tState!=='stopped')) return; tKind=b.dataset.tk; D.prefs.tKind=tKind; save(); renderTKind(); renderTRes(); newScramble(); });
 // daily queue: 12 cases a day, half your slowest, half the ones you haven't touched in longest
 const todayKey = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-function buildDaily(){ const now=Date.now()/1000, started=c=>status(c.id)!=='new' || (D.times[c.id]||[]).length || (D.atimes[c.id]||[]).length;
+function buildDaily(){ const now=Date.now()/1000, started=c=>status(c.id)!=='new' || (D.times[c.id]||[]).length;
   let cand=CASES.filter(started);
   if(cand.length<12){ const more=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)&&!cand.includes(c)); cand=cand.concat(more); }
   if(cand.length<12){ const more=CASES.filter(c=>tG.has(c.g)&&!cand.includes(c)); cand=cand.concat(more); }
@@ -2487,8 +2496,8 @@ function stopTimer(){ if(tState!=='running') return false; cancelAnimationFrame(
   tSess.unshift({c, base:v, pen:'', cur:v, k, ak, mv: k && tPair ? moveCount(tPair.alg) : 0}); keepSess(); save(); renderTRes(); newScramble(); return true; }
 // Scramble and Alg only times go into the same list, so a case has one average. Alg only times also stay in atimes.
 function addT(id,v,k,ak){ const t=D.times[id]||(D.times[id]=[]); t.push(v); if(t.length>50) t.shift();
-  if(k){ const a=D.atimes[id]||(D.atimes[id]=[]); a.push(v); if(a.length>30) a.shift(); } addAlgT(id, ak, v); }
-function removeVal(id,v,k,ak){ for (const arr of k ? [D.times, D.atimes] : [D.times]){ const a=arr[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); } }
+  addAlgT(id, ak, v); }
+function removeVal(id,v,k,ak){ { const a=D.times[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); } }
   const b=ak&&D.algt[id]&&D.algt[id][ak]; if(b){ const j=b.lastIndexOf(v); if(j>=0) b.splice(j,1); if(!b.length){ delete D.algt[id][ak]; if(!Object.keys(D.algt[id]).length) delete D.algt[id]; } } }
 function addAlgT(id,ak,v){ if(!ak) return; const m=D.algt[id]||(D.algt[id]={}); (m[ak]=m[ak]||[]).push(v); if(m[ak].length>30) m[ak].shift(); }
 function setPen(e,p){ { const cs=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:1,d:0}); if(e.pen==='DNF' && p!=='DNF') cs.d=Math.max(0,cs.d-1); if(e.pen!=='DNF' && p==='DNF') cs.d++; }
@@ -4017,6 +4026,7 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   if (!isObj(o.prefs)) o.prefs = {};
   if (!o.prefs.oneAvg){ for (const [id,a] of Object.entries(o.atimes)){ if (!a.length) continue; o.times[id] = (o.times[id]||[]).concat(a).slice(-50);
       const cs = o.cstat[id] || (o.cstat[id] = {n:0, d:0}); cs.n += a.length; } o.prefs.oneAvg = 1; }
+  o.atimes = {};
   for (const v of Object.values(o.cards)) counts(v, ['h','m']);
   for (const v of Object.values(o.crs)) counts(v, ['n','c']);
   for (const v of Object.values(o.algt)) for (const a of Object.keys(v)) v[a] = v[a].filter(num);
@@ -4282,14 +4292,13 @@ const recAvg = id => { const r = D.recog[id]; if (!r || !r.length) return null; 
 // ---- how much each case needs work, from everything the app records ----
 const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)=>x-y), m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
 const moveCount = a => { try { return Cube.parse(a).filter(([m])=>!'xyz'.includes(m)).length; } catch(e){ return 0; } };
-function aavg(id){ const t=D.atimes[id]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
 // average with one alg (its last 12 times). A case with no per-alg times yet uses the case average.
 function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return avg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
-function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : aavg(id); }
+function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : avg(id); }
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(fitAlg(c, algOf(c)))); };
 const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
 function needBase(){ if (NEED) return NEED; const rec = [], tps = [], full = {};
-  for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = (D.atimes[c.id]||[]).length ? tpsOf(c) : null; if (t) tps.push(t);
+  for (const c of CASES){ const r = recAvg(c.id); if (r!==null) rec.push(r); const t = tpsOf(c); if (t) tps.push(t);
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
   const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
   NEED = {rec:median(rec), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
@@ -4404,21 +4413,22 @@ $('#learnSets').addEventListener('click', e=>{
 });
 function refreshCard(card, c){ if(!card) return; const t=document.createElement('div'); t.innerHTML=caseCard(c).trim(); card.replaceWith(t.firstChild); }
 // ---- backup ----
-const encD = () => CubeLab.backupCode();
-$('#backup').addEventListener('toggle', ()=>{ if($('#backup').open) $('#bkOut').value=encD(); });
-$('#bkCopy').addEventListener('click', ()=>{ const t=$('#bkOut'), m=$('#bkCopyMsg'); t.value=encD();
+const encD = () => { const t=$('#bkOut'); return CubeLab.backupCode().then(v=>{ t.value=v; return v; }); };
+$('#backup').addEventListener('toggle', ()=>{ if($('#backup').open){ $('#bkOut').value=''; encD(); } });
+$('#bkCopy').addEventListener('click', async ()=>{ const t=$('#bkOut'), m=$('#bkCopyMsg');
   const done=s=>{ m.className='msg ok'; m.textContent=s; }; const fb=()=>{ t.focus(); t.select(); done("Selected. Use your device's Copy to copy it."); };
-  try { navigator.clipboard.writeText(t.value).then(()=>done('Copied.'), fb); } catch(e){ fb(); } });
+  if(!t.value) await encD();
+  try { navigator.clipboard.writeText(t.value).then(()=>{ done('Copied.'); encD(); }, fb); } catch(e){ fb(); } });
 let bkArmed=false;
 const bkReset=()=>{ bkArmed=false; $('#bkRestore').textContent='Restore'; };
 $('#bkIn3').addEventListener('input', ()=>{ bkReset(); $('#bkMsg').textContent=''; });
 function restoreFrom(obj){ const keepStamp = D.stamp; for (const k of Object.keys(D)) delete D[k];
   Object.assign(D, {v:1,status:{},times:{},cards:{},custom:{},cstat:{},recog:{},notes:{},atimes:{},daily:null,rd:{n:0,c:0},prefs:{},recent:[],sessions:[],cur:null}, JSON.parse(JSON.stringify(obj))); D.stamp = Object.assign({}, keepStamp||{}, obj.stamp||{}); sanitize(D); if(!D.stamp) D.stamp={}; save(); refreshAll(); }
-$('#bkRestore').addEventListener('click', ()=>{ const m=$('#bkMsg'), parts=CubeLab.parseBackup($('#bkIn3').value);
-  if(!parts){ m.className='msg err'; m.textContent="That code isn't valid. Copy the whole code, starting with CUBELAB1:"; bkReset(); return; }
+$('#bkRestore').addEventListener('click', async ()=>{ const m=$('#bkMsg'), parts=await CubeLab.parseBackup($('#bkIn3').value);
+  if(!parts){ m.className='msg err'; m.textContent="That code isn't valid. Copy the whole code, starting with CUBELAB"; bkReset(); return; }
   const what = Object.keys(parts).map(p=>p+'x'+p).join(' and ');
   if(!bkArmed){ bkArmed=true; $('#bkRestore').textContent='Tap again to replace'; m.className='msg err'; m.textContent=`This replaces all ${what} progress in this browser.`; return; }
-  CubeLab.restoreBackup(parts); bkReset(); $('#bkIn3').value=''; $('#bkOut').value=encD(); m.className='msg ok'; m.textContent=`Restored your ${what} progress.`; });
+  CubeLab.restoreBackup(parts); bkReset(); $('#bkIn3').value=''; encD(); m.className='msg ok'; m.textContent=`Restored your ${what} progress.`; });
 // any diagram button opens the viewer
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3; if (BYID[id]) Viewer.open(BYID[id], null); });
 // ---- flashcards ----
@@ -4557,12 +4567,12 @@ $('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 const PRO_TPS = 12;
 const kAvg = id => avg(id);
-const kTimes = id => (tKind==='alg' ? D.atimes : D.times)[id];
+const kTimes = id => D.times[id];
 function algPair(c){ const a = fitAlg(c, algOf(c)); return {setup:Cube.simplify(Cube.invert(a)), alg:a, ak:algOf(c)}; }
 function renderTKind(){ $('#tKind').innerHTML = [['scr','Scramble'],['alg','Alg only'],['atk','Attack']].map(([v,l])=>`<button aria-pressed="${tKind===v}" data-tk="${v}">${l}</button>`).join(''); }
 $('#tKind').addEventListener('click', e=>{ const b=e.target.closest('[data-tk]'); if(!b || (tState!=='idle' && tState!=='stopped')) return; tKind=b.dataset.tk; D.prefs.tKind=tKind; save(); renderTKind(); renderTRes(); newScramble(); });
 const todayKey = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-function buildDaily(){ const now=Date.now()/1000, started=c=>status(c.id)!=='new' || (D.times[c.id]||[]).length || (D.atimes[c.id]||[]).length;
+function buildDaily(){ const now=Date.now()/1000, started=c=>status(c.id)!=='new' || (D.times[c.id]||[]).length;
   let cand=CASES.filter(started);
   if(cand.length<12){ const more=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)&&!cand.includes(c)); cand=cand.concat(more); }
   if(cand.length<12){ const more=CASES.filter(c=>tG.has(c.g)&&!cand.includes(c)); cand=cand.concat(more); }
@@ -4716,8 +4726,8 @@ function stopTimer(){ if(tState!=='running') return false; cancelAnimationFrame(
   tSess.unshift({c, base:v, pen:'', cur:v, k, ak, mv: k && tPair ? moveCount(tPair.alg) : 0}); keepSess(); save(); renderTRes(); newScramble(); return true; }
 // Scramble and Alg only times go into the same list, so a case has one average. Alg only times also stay in atimes.
 function addT(id,v,k,ak){ const t=D.times[id]||(D.times[id]=[]); t.push(v); if(t.length>50) t.shift();
-  if(k){ const a=D.atimes[id]||(D.atimes[id]=[]); a.push(v); if(a.length>30) a.shift(); } addAlgT(id, ak, v); }
-function removeVal(id,v,k,ak){ for (const arr of k ? [D.times, D.atimes] : [D.times]){ const a=arr[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); } }
+  addAlgT(id, ak, v); }
+function removeVal(id,v,k,ak){ { const a=D.times[id]; if(a){ const i=a.lastIndexOf(v); if(i>=0) a.splice(i,1); } }
   const b=ak&&D.algt[id]&&D.algt[id][ak]; if(b){ const j=b.lastIndexOf(v); if(j>=0) b.splice(j,1); if(!b.length){ delete D.algt[id][ak]; if(!Object.keys(D.algt[id]).length) delete D.algt[id]; } } }
 function addAlgT(id,ak,v){ if(!ak) return; const m=D.algt[id]||(D.algt[id]={}); (m[ak]=m[ak]||[]).push(v); if(m[ak].length>30) m[ak].shift(); }
 function setPen(e,p){ { const cs=D.cstat[e.c.id]||(D.cstat[e.c.id]={n:1,d:0}); if(e.pen==='DNF' && p!=='DNF') cs.d=Math.max(0,cs.d-1); if(e.pen!=='DNF' && p==='DNF') cs.d++; }
