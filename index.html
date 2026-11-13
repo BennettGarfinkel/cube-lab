@@ -19,17 +19,18 @@
   --f-display:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --f-body:"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
   --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%235E626B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0C0D10; --surface:#15171C; --ink:#EDEFF2; --muted:#8F95A0; --line:#24272E; --chip:#1F2228;
   --accent:#F2C21B; --accent-ink:#151821; --good:#4CC67F; --warn:#E2A23B; --bad:#EF6A62; --scrim:rgba(0,0,0,.65);
   --shadow:none;
-  --s-X:#5C6371; --s-edge:#05060A; color-scheme:dark}}
+  --s-X:#5C6371; --s-edge:#05060A; --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238F95A0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0C0D10; --surface:#15171C; --ink:#EDEFF2; --muted:#8F95A0; --line:#24272E; --chip:#1F2228;
   --accent:#F2C21B; --accent-ink:#151821; --good:#4CC67F; --warn:#E2A23B; --bad:#EF6A62; --scrim:rgba(0,0,0,.65);
   --shadow:none;
-  --s-X:#5C6371; --s-edge:#05060A; color-scheme:dark}
+  --s-X:#5C6371; --s-edge:#05060A; --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238F95A0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;-webkit-tap-highlight-color:transparent}
@@ -73,6 +74,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .gsum span{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 .prog{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .pset{display:flex;flex-direction:column;gap:5px;min-width:0}
+.psethead{grid-column:1/-1;margin-top:8px}
 .pset span{font-size:12px;font-weight:600;display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
 .pset span i{font-style:normal;color:var(--muted);font-weight:500}
 .bar{height:6px;border-radius:3px;background:var(--chip);overflow:hidden;display:flex}
@@ -123,7 +125,7 @@ details.more summary::before{content:"+ "}details.more[open] summary::before{con
 .card-stage .big{width:min(240px,70vw);display:flex;flex-direction:column;gap:6px}
 .card-stage .alg{font-size:16px;text-align:center;padding:10px 14px}
 .sep{display:inline-block;width:1px;height:.8em;background:currentColor;opacity:.32;margin:0 .55em;vertical-align:-.06em}
-.hidden-alg{font-family:var(--f-mono);color:var(--muted);font-size:14px;letter-spacing:.3em}
+.hidden-alg{display:block;width:min(260px,70%);height:30px;margin:2px auto;border-radius:9px;background:var(--chip);color:transparent;font-size:0;overflow:hidden;user-select:none}
 select{font:inherit;font-size:14px;padding:8px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .stats{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .scramble{font-family:var(--f-mono);font-size:19px;font-weight:600;text-align:center;line-height:1.5;word-spacing:4px;overflow-wrap:anywhere}
@@ -270,8 +272,18 @@ details.panel>summary{font-size:11px;letter-spacing:.08em;text-transform:upperca
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .seg{border-radius:10px;padding:3px}
 .seg button{padding:6px 12px;font-size:13.5px;font-weight:600}
-select{border-radius:9px;padding:7px 10px;font-size:13.5px;background:var(--surface)}
-input[type=checkbox]{accent-color:var(--ink);width:16px;height:16px;margin:0}
+/* dropdowns match the segmented buttons: tinted, no border, own chevron */
+select{-webkit-appearance:none;appearance:none;border:1px solid transparent;border-radius:10px;padding:8px 32px 8px 12px;font-size:13.5px;font-weight:600;background-color:var(--chip);background-image:var(--chev);background-repeat:no-repeat;background-position:right 11px center;background-size:12px;color:var(--ink);cursor:pointer;max-width:100%}
+select:hover{border-color:var(--line)}
+/* on/off settings are switches */
+input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;width:38px;height:22px;margin:0;border-radius:999px;position:relative;cursor:pointer;background:color-mix(in srgb, var(--muted) 38%, transparent);transition:background-color .18s}
+input[type=checkbox]::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .18s}
+input[type=checkbox]:checked{background:var(--good)}
+input[type=checkbox]:checked::after{transform:translateX(16px)}
+input[type=checkbox]:disabled{opacity:.45;cursor:default}
+@media (prefers-reduced-motion: reduce){input[type=checkbox],input[type=checkbox]::after{transition:none}}
+/* in Settings the switch sits at the right end of its row */
+.srow > .check{justify-content:space-between;flex-direction:row-reverse;gap:16px}
 .check{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink);cursor:pointer}
 /* settings drawer + help */
 details.drawer{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
@@ -519,6 +531,22 @@ body.focus .scrbox.keep{opacity:1}
 /* the keyboard hint only shows where there is a keyboard and mouse or trackpad */
 .kbhint{display:none}
 @media (hover:hover) and (pointer:fine){.kbhint{display:block}}
+@media (min-width:1100px){
+  .wrap{max-width:1000px}
+  body{font-size:16px}
+  .label,.glabel{font-size:12px}
+  .stats,.gsum span,.pset span,.lede,.rec,.sethead p,.spotbox p,.altt{font-size:14px}
+  .gsum strong{font-size:18px}
+  .spot,.ftleg{font-size:13.5px}
+  nav.tabs a{font-size:15px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+  .nxrow .alg{max-width:520px}
+  #caseBody{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+  #caseBody > *{grid-column:1/-1}
+  #caseBody > .cs-iso{grid-column:1;height:100%}
+  #caseBody > .cs-stats{grid-column:2;height:100%}
+  #caseBody:not(:has(> .cs-iso)) > .cs-stats{grid-column:1/-1}
+}
 </style>
 <script>
 // Cube Lab runs as a plain web page. Anything the page needs from the place it's hosted goes through here.
@@ -552,7 +580,7 @@ window.CubeLabHost = {
     <div class="hdr-r"><div class="seg sm pz" role="group" aria-label="Puzzle"><button data-pz="2" aria-pressed="false">2x2</button><button data-pz="3" aria-pressed="false">3x3</button></div><div class="overall" id="overall"></div><a href="#prefs" class="gear" id="gearBtn" aria-label="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a></div>
   </header>
   <nav class="tabs" aria-label="Sections">
-    <a href="#learn">Learn</a><a href="#cards">Flashcards</a><a href="#timer">Case timer</a><a href="#solve">Solve</a><a href="#onelook">One-look</a>
+    <a href="#learn">Learn</a><a href="#cards">Cards</a><a href="#timer">Drill</a><a href="#solve">Solve</a><a href="#onelook">One-look</a>
   </nav>
 
   <section class="view" id="v-learn">
@@ -595,7 +623,7 @@ window.CubeLabHost = {
     <div class="panel" id="tRecent"><div class="row" style="justify-content:space-between"><span class="label">Recent solves</span><span class="stats" id="tAvg"></span></div><div class="hist" id="tHist"></div></div>
     <div class="panel" id="csPanel">
       <div class="row" style="justify-content:space-between"><span class="label">Case stats</span><select id="csGroup" aria-label="Which set to show"></select></div>
-      <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards; TPS from your times with the alg you use.</p>
+      <p class="rec">Tap a column to sort, or a case to drill just that one.</p>
       <p class="stats" id="csTps" hidden></p>
       <div class="tblwrap"><table class="cst" id="csTable"></table></div>
       <label class="stats row" style="gap:6px"><input type="checkbox" id="csAll"> Show cases with no data yet</label>
@@ -760,7 +788,7 @@ window.CubeLabHost = {
     <div class="hdr-r"><div class="seg sm pz" role="group" aria-label="Puzzle"><button data-pz="2" aria-pressed="false">2x2</button><button data-pz="3" aria-pressed="false">3x3</button></div><div class="overall" id="overall"></div><a href="#prefs" class="gear" id="gearBtn" aria-label="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a></div>
   </header>
   <nav class="tabs" aria-label="Sections">
-    <a href="#learn">Learn</a><a href="#cards">Flashcards</a><a href="#timer">Case timer</a><a href="#solve">Solve</a><a href="#recog">Recognition</a>
+    <a href="#learn">Learn</a><a href="#cards">Cards</a><a href="#timer">Drill</a><a href="#solve">Solve</a><a href="#recog">Recog</a>
   </nav>
 
   <section class="view" id="v-learn">
@@ -804,7 +832,7 @@ window.CubeLabHost = {
     <div class="panel" id="tRecent"><div class="row" style="justify-content:space-between"><span class="label">Recent solves</span><span class="stats" id="tAvg"></span></div><div class="hist" id="tHist"></div></div>
     <div class="panel" id="csPanel">
       <div class="row" style="justify-content:space-between"><span class="label">Case stats</span><select id="csGroup" aria-label="Which set to show"></select></div>
-      <p class="rec">Tap a column to sort, or a case to drill just that one. Avg is your last 12 solves; Recog comes from timed flashcards and the recognition drill; TPS from your times with the alg you use.</p>
+      <p class="rec">Tap a column to sort, or a case to drill just that one.</p>
       <p class="stats" id="csTps" hidden></p>
       <div class="tblwrap"><table class="cst" id="csTable"></table></div>
       <label class="stats row" style="gap:6px"><input type="checkbox" id="csAll"> Show cases with no data yet</label>
@@ -1977,7 +2005,7 @@ function renderProgress(){
   renderNext();
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="gsum"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></div>`; }).join('');
-  $('#prog').innerHTML = SETS.filter(s=>CASES.some(c=>c.g===learnGroup&&c.set===s)).map(set=>{ const cs=CASES.filter(c=>c.g===learnGroup&&c.set===set), n=cs.length;
+  $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + SETS.filter(s=>CASES.some(c=>c.g===learnGroup&&c.set===s)).map(set=>{ const cs=CASES.filter(c=>c.g===learnGroup&&c.set===set), n=cs.length;
     const a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="pset"><span>${SET_NAME[set]||set}<i>${a}/${n}</i></span><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div></div>`; }).join('');
 }
@@ -3077,9 +3105,9 @@ const HELP = {
     ['Each attempt',['Hold the cube <b>yellow on top, green in front</b> and apply the scramble.','CLL leaves the white layer solved. EG leaves the white face with the bottom swap; for EG-1, turn the bottom so the bar is where the case says.','Hold the timer (or space) until it turns green, let go to start, tap anywhere or press any key to stop.']],
     ['Scramble or Alg only',['<b>Alg only</b> shows setup moves from solved, then times just the alg and shows your turns per second next to Pro speed (about 13).','Both count toward the same case average.']],
     ['Attack',['<b>Attack</b> lists every alg in the sets you picked. Start the clock, do them all back to back, then stop. It keeps your best time for that selection.']],
-    ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.','<b>Weak first</b> uses everything the app knows about a case: recognition, alg speed, full case time, DNFs and whether you\'re improving.']],
+    ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.','<b>Weak first</b> uses everything the app knows about a case: recognition, case time, alg length, DNFs, misses and whether you\'re improving.']],
     ['Comparing algs',['Times are also saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the card\'s details.']],
-    ['Case stats',['Tap a column to sort, or a case to drill just that one.']],
+    ['Case stats',['Tap a column to sort, or a case to drill just that one.','<b>Avg</b> is your last 12 solves. <b>Recog</b> comes from timed flashcards. <b>TPS</b> is your alg\'s moves over your average with it.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']]]},
   solve:{t:'Solve', s:[
     ['Each solve',['Hold <b>white on top, green in front</b>, then scramble. Scrambles are random-state, like WCA; the scramble type in Settings can build them for CLL or EG.','With inspection on (Settings), you get 15 seconds: +2 after 15, DNF after 17. Esc or <b>Cancel inspection</b> throws the attempt away.']],
@@ -4268,7 +4296,7 @@ function renderProgress(){
   renderNext();
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="gsum"><strong>${g}</strong><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></div>`; }).join('');
-  $('#prog').innerHTML = GSETS[learnGroup].map(set=>{ const cs=CASES.filter(c=>c.set===set), n=cs.length;
+  $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + GSETS[learnGroup].map(set=>{ const cs=CASES.filter(c=>c.set===set), n=cs.length;
     const a=cs.filter(c=>status(c.id)==='learned').length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="pset"><span>${SET_SHORT[set]||set}<i>${a}/${n}</i></span><div class="bar"><b style="width:${a/n*100}%"></b><em style="width:${b/n*100}%"></em></div></div>`; }).join('');
 }
@@ -4379,7 +4407,7 @@ let caseId = null, learnScroll = 0, caseFromLearn = false;
 function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = status(c.id), nd = need(c), a = avg(c.id), cd = D.cards[c.id], cs = D.cstat[c.id], at = D.algt[c.id]||{}, r = recAvg(c.id), tp = tpsOf(c);
   const algAvg = alg => { const t=at[alg]; return t && t.length ? `<span class="altt">Your avg: <b>${(t.slice(-12).reduce((x,y)=>x+y,0)/Math.min(12,t.length)).toFixed(2)}s</b> (${t.length} ${t.length===1?'try':'tries'})</span>` : ''; };
   const stat = (l, v) => `<div class="cstat"><span>${l}</span><b class="${v==='–'?'mut':''}">${v}</b></div>`;
-  const second = c.g==='F2L' ? '' : `<div class="setgroup"><span class="glabel">As you'll see it mid-solve</span><div class="row" style="justify-content:center"><div style="width:min(180px,48vw)">${isoSVG(c, c.state)}</div></div></div>`;
+  const second = c.g==='F2L' ? '' : `<div class="setgroup cs-iso"><span class="glabel">As you'll see it mid-solve</span><div class="row" style="justify-content:center"><div style="width:min(180px,48vw)">${isoSVG(c, c.state)}</div></div></div>`;
   $('#caseBody').innerHTML = `
     <div class="chero">${diagBtn(c)}
       <div class="chead"><div class="ctitle"><h2>${needDot(c)}${esc(c.full)}</h2><button class="status ${st}" data-act="status" aria-label="Status for ${esc(c.full)}: ${st}">${st}</button></div>
@@ -4389,7 +4417,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
         <p class="rec setup">Setup: <code>${esc(setupOf(c))}</code></p></div></div>
     ${spot(c)}
     ${second}
-    <div class="setgroup"><span class="glabel">Your stats</span>
+    <div class="setgroup cs-stats"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
       <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
@@ -5131,6 +5159,7 @@ const HELP = {
     ['Attack',['<b>Attack</b> lists every alg in the sets you picked. Start the clock, do them all back to back, then stop. It keeps your best time for that selection.']],
     ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.']],
     ['Comparing algs',['Times are also saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the case\'s details.']],
+    ['Case stats',['Tap a column to sort, or a case to drill just that one.','<b>Avg</b> is your last 12 solves. <b>Recog</b> comes from timed flashcards and the Recognition drill. <b>TPS</b> is your alg\'s moves over your average with it.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']]]},
   solve:{t:'Solve', s:[
     ['Each solve',['Hold <b>white on top, green in front</b>, then scramble. Scrambles are random-state, like WCA.','With inspection on (Settings), you get 15 seconds: +2 after 15, DNF after 17. With inspection calls on, it beeps once at 8 seconds and twice at 12. Esc or <b>Cancel inspection</b> throws the attempt away.']],
