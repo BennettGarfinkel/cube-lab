@@ -1130,6 +1130,9 @@ const CubeLab = (() => {
     const sr = history.scrollRestoration, de = document.documentElement; try { history.scrollRestoration = 'manual'; } catch(e){} de.style.overflowAnchor = 'none';
     const vt = document.startViewTransition(() => { named.forEach(el => { el.style.viewTransitionName = ''; }); named.length = 0; route(); y = scrollY; if (id) name(toCase ? heroPic() : cardPic()); });
     vt.finished.finally(() => { vtNow = false; named.forEach(el => { el.style.viewTransitionName = ''; }); try { history.scrollRestoration = sr; } catch(e){} de.style.overflowAnchor = ''; if (y !== null && Math.abs(scrollY - y) > 1) scrollTo(0, y); }); }
+  function focusMode(on, timerEl){ const was = document.body.classList.contains('focus'); document.body.classList.toggle('focus', !!on);
+    if (!on || was || !timerEl) return; const r = timerEl.getBoundingClientRect(), top = 70, bottom = innerHeight - 20;
+    if (r.top < top || r.bottom > bottom) window.scrollBy(0, r.top + r.height/2 - innerHeight/2); }
   // the tab underline glides to the active tab; the view fades up
   function tabs(nav, quiet){ if (!nav) return; nav.classList.add('ind'); let ind = nav.querySelector('.tabind'); if (!ind){ ind = document.createElement('i'); ind.className = 'tabind'; nav.appendChild(ind); }
     const a = nav.querySelector('a[aria-current="page"]'), root = nav.closest('#app2,#app3');
@@ -1209,7 +1212,7 @@ const CubeLab = (() => {
   window.addEventListener('pointerup', () => { if (eat) eat = Math.min(eat, Date.now() + 150); }, true);
   window.addEventListener('pointercancel', () => { if (eat) eat = Math.min(eat, Date.now() + 150); }, true);
   window.addEventListener('click', e => { if (eat && Date.now() < eat){ e.stopPropagation(); e.preventDefault(); } }, true);
-  return { scope, register, ready, syncShared, tabs, navigate, flip, applyAnim, backupCode, parseBackup, restoreBackup, cstFile, streak, eatClick, get current(){ return cur; } };
+  return { scope, register, ready, syncShared, tabs, navigate, focusMode, flip, applyAnim, backupCode, parseBackup, restoreBackup, cstFile, streak, eatClick, get current(){ return cur; } };
 })();
 
 // ---------- full solves: one timer, stats and sessions for both puzzles; each puzzle hands in what differs ----------
@@ -1334,7 +1337,7 @@ function makeSV(X){
   else $('#sPrev3d').addEventListener('click', ()=>{ if (!scr) return; X.Viewer.openRaw({title:'Scrambled cube', group:'Solve · white on top, green in front', state: Cube.apply(S0, scr).map(c=>WCA[c])}); });
   // timer state machine: idle → (armed → inspecting →) holding → ready → running → stopped → idle
   const HINT = { armed:'Let go to start inspection', inspecting:'Hold until green, then let go', holding:'Keep holding…', ready:'Let go to start', running:'Tap or press any key to stop', stopped:'Let go' };
-  function setS(s){ state = s; document.body.classList.toggle('focus', s==='running' || (inInsp && ['inspecting','holding','ready'].includes(s)));
+  function setS(s){ state = s; CubeLab.focusMode(s==='running' || (inInsp && ['inspecting','holding','ready'].includes(s)), $('#v-solve .stage .timer'));
     ['holding','ready','running'].forEach(k=>box.classList.toggle(k, s===k));
     box.classList.toggle('insp', inInsp && s!=='running');
     $('#sHint').textContent = s==='idle' ? (!scr ? 'Waiting for a scramble' : inspOn() ? 'Tap or press space to start inspection' : 'Hold, then let go to start') : (HINT[s]||'');
@@ -2659,7 +2662,7 @@ renderPrac();
 const fmtT = ms => (ms/1000).toFixed(2);
 const tBox = $('#tBox');
 const HINTS = {idle:'Hold, then let go to start', holding:'Keep holding…', ready:'Let go to start', running:'Tap or press any key to stop', stopped:'Let go'};
-function setTState(s){ tState=s; document.body.classList.toggle('focus', s==='running'); ['holding','ready','running'].forEach(k=>tBox.classList.toggle(k, s===k)); $('#tHint').textContent = s==='idle' && !tCase ? 'Nothing to time yet. Check Options.' : HINTS[s]; }
+function setTState(s){ tState=s; CubeLab.focusMode(s==='running', tBox); ['holding','ready','running'].forEach(k=>tBox.classList.toggle(k, s===k)); $('#tHint').textContent = s==='idle' && !tCase ? 'Nothing to time yet. Check Options.' : HINTS[s]; }
 function tick(){ $('#tTime').textContent=fmtT(performance.now()-tStart); tRaf=requestAnimationFrame(tick); }
 function holdStart(){ if(tState!=='idle'||!tCase) return; setTState('holding'); $('#tTime').textContent='0.00'; clearTimeout(tHoldT); tHoldT=setTimeout(()=>{ if(tState==='holding') setTState('ready'); }, 300); }
 function holdEnd(){ clearTimeout(tHoldT); if(tState==='ready'){ tStart=performance.now(); setTState('running'); $('#tResult').hidden=true; tick(); } else if(tState==='holding'||tState==='stopped') setTState('idle'); }
@@ -4937,7 +4940,7 @@ renderPrac();
 const fmtT = ms => (ms/1000).toFixed(2);
 const tBox = $('#tBox');
 const HINTS = {idle:'Hold, then let go to start', holding:'Keep holding…', ready:'Let go to start', running:'Tap or press any key to stop', stopped:'Let go'};
-function setTState(s){ tState=s; document.body.classList.toggle('focus', s==='running'); ['holding','ready','running'].forEach(k=>tBox.classList.toggle(k, s===k)); $('#tHint').textContent = s==='idle' && !tCase ? 'Nothing to time yet. Check Options.' : HINTS[s]; }
+function setTState(s){ tState=s; CubeLab.focusMode(s==='running', tBox); ['holding','ready','running'].forEach(k=>tBox.classList.toggle(k, s===k)); $('#tHint').textContent = s==='idle' && !tCase ? 'Nothing to time yet. Check Options.' : HINTS[s]; }
 function tick(){ $('#tTime').textContent=fmtT(performance.now()-tStart); tRaf=requestAnimationFrame(tick); }
 function holdStart(){ if(tState!=='idle'||!tCase||!tReady) return; setTState('holding'); $('#tTime').textContent='0.00'; clearTimeout(tHoldT); tHoldT=setTimeout(()=>{ if(tState==='holding') setTState('ready'); }, 300); }
 function holdEnd(){ clearTimeout(tHoldT); if(tState==='ready'){ tStart=performance.now(); setTState('running'); $('#tResult').hidden=true; tick(); } else if(tState==='holding'||tState==='stopped') setTState('idle'); }
