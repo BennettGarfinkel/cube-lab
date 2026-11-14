@@ -535,6 +535,7 @@ body.noanim *,body.noanim *::before,body.noanim *::after{animation:none!importan
 /* ---- additions: tap anywhere to stop, attack, splits, learn next, cross ---- */
 body.focus #app2,body.focus #app3{min-height:100vh;min-height:100dvh}
 body.focus .scrbox.keep{opacity:1;visibility:visible}
+body.focus{overscroll-behavior:none}
 .atklist{display:flex;flex-direction:column;gap:2px;text-align:left;max-height:min(38vh,300px);overflow-y:auto;border-top:1px solid var(--line);margin-top:4px}
 .atklist span{display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);min-width:0}
 .atklist span:last-child{border-bottom:0}
@@ -1132,7 +1133,13 @@ const CubeLab = (() => {
     const sr = history.scrollRestoration, de = document.documentElement; try { history.scrollRestoration = 'manual'; } catch(e){} de.style.overflowAnchor = 'none';
     const vt = document.startViewTransition(() => { named.forEach(el => { el.style.viewTransitionName = ''; }); named.length = 0; route(); y = scrollY; if (id) name(toCase ? heroPic() : cardPic()); });
     vt.finished.finally(() => { vtNow = false; named.forEach(el => { el.style.viewTransitionName = ''; }); try { history.scrollRestoration = sr; } catch(e){} de.style.overflowAnchor = ''; if (y !== null && Math.abs(scrollY - y) > 1) scrollTo(0, y); }); }
+  // while timing or inspecting, the page can't be scrolled (touch, trackpad, mouse wheel or keys)
+  const noScroll = e => { if (document.body.classList.contains('focus')) e.preventDefault(); };
+  const noScrollKey = e => { if (document.body.classList.contains('focus') && ['ArrowUp','ArrowDown','PageUp','PageDown','Home','End'].includes(e.key)) e.preventDefault(); };
+  function scrollLock(on){ const f = on ? addEventListener : removeEventListener;
+    f('wheel', noScroll, {passive:false}); f('touchmove', noScroll, {passive:false}); f('keydown', noScrollKey, true); }
   function focusMode(on, timerEl){ const was = document.body.classList.contains('focus'); document.body.classList.toggle('focus', !!on);
+    if (!!on !== was) scrollLock(!!on);
     if (!on || was || !timerEl) return; const r = timerEl.getBoundingClientRect(), top = 70, bottom = innerHeight - 20;
     if (r.top < top || r.bottom > bottom) window.scrollBy(0, r.top + r.height/2 - innerHeight/2); }
   // the tab underline glides to the active tab; the view fades up
@@ -5381,6 +5388,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14b</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
