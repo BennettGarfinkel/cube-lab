@@ -667,7 +667,14 @@ window.CubeLabHost = {
   </section>
 
   <section class="view" id="v-cards" hidden>
-    <div class="vhead"><div class="ttl"><h2>Flashcards</h2><button class="qbtn" data-help="cards" aria-label="How this tab works">?</button></div><div class="row"><select id="cardGroup" aria-label="Algorithm set"></select><select id="cardPool" aria-label="Which cases"></select></div></div>
+    <div class="vhead"><div class="ttl"><h2>Flashcards</h2><button class="qbtn" data-help="cards" aria-label="How this tab works">?</button></div></div>
+    <details class="drawer" id="cardSettings"><summary><span class="dlabel">Options</span><span class="dsum" id="cardSummary"></span></summary>
+      <div class="dbody">
+        <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="cardG" role="group" aria-label="Algorithm set" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Sets</span><div class="chips" id="cardSets" role="group" aria-label="Sets to include"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="cardSt" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+      </div>
+    </details>
     <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div><span class="stats" id="cardModeNote"></span></div>
     <div class="card card-stage" id="cardStage"></div>
     <p class="stats" id="cardStats"></p>
@@ -876,8 +883,16 @@ window.CubeLabHost = {
   </section>
 
   <section class="view" id="v-cards" hidden>
-    <div class="vhead"><div class="ttl"><h2>Flashcards</h2><button class="qbtn" data-help="cards" aria-label="How this tab works">?</button></div><div class="row"><select id="cardGroup" aria-label="Algorithm set"></select><select id="cardPool" aria-label="Which cases"></select></div></div>
-    <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div><div class="seg sm" id="cardView" role="group" aria-label="How the case is shown"></div></div>
+    <div class="vhead"><div class="ttl"><h2>Flashcards</h2><button class="qbtn" data-help="cards" aria-label="How this tab works">?</button></div></div>
+    <details class="drawer" id="cardSettings"><summary><span class="dlabel">Options</span><span class="dsum" id="cardSummary"></span></summary>
+      <div class="dbody">
+        <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="cardG" role="group" aria-label="Algorithm set" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Sets</span><div class="chips" id="cardSets" role="group" aria-label="Sets to include"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="cardSt" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">View</span><div class="seg sm" id="cardView" role="group" aria-label="How the case is shown" style="align-self:flex-start"></div></div>
+      </div>
+    </details>
+    <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div></div>
     <span class="stats" id="cardModeNote"></span>
     <div class="card card-stage" id="cardStage"></div>
     <p class="stats" id="cardStats"></p>
@@ -1287,8 +1302,19 @@ function makeSV(X){
     if (e && e.len===L) hAt = h;
     if (!e || e.len > L || hAt!==e.sig) e = {len:0, sig:0, best:null};
     if (e.len===L && mm[key]) return e.best;
-    let b = e.best; for (let i=Math.max(k-1, e.len); i<L; i++){ const a = aoAtWCA(src,i,n); if (a!==null && isFinite(a) && (b===null || a<b)) b = a; }
+    let b = e.best; const from = Math.max(k-1, e.len);
+    if (n==='mo3' || L-from < 8){ for (let i=from; i<L; i++){ const a = aoAtWCA(src,i,n); if (a!==null && isFinite(a) && (b===null || a<b)) b = a; } }
+    else b = slideBest(src, n, from, b);
     mm[key] = {len:L, sig:h, best:b}; return b; }
+  // the same averages as avgOf over each window, but the window is kept sorted and slid one solve at a time
+  // instead of re-sorting it for every solve (ao100 over a few thousand solves was the slow part of opening Solve)
+  function slideBest(src, n, from, b){ const t = Math.ceil(n*0.05), w = src.slice(from-n+1, from+1).map(val).sort((x,y)=>x-y);
+    const at = v => { let lo = 0, hi = w.length; while (lo < hi){ const m = (lo+hi)>>1; if (w[m] < v) lo = m+1; else hi = m; } return lo; };
+    for (let i=from; i<src.length; i++){
+      if (i > from){ const out = val(src[i-n]), j = at(out); w.splice(j, 1); const v = val(src[i]); w.splice(at(v), 0, v); }
+      if (!isFinite(w[n-t-1])) continue; let sum = 0; for (let j=t; j<n-t; j++) sum += w[j]; const a = sum/(n-2*t);
+      if (b===null || a<b) b = a; }
+    return b; }
   const okCount = so => isComp() ? so.length : so.filter(x=>x[1]!==2).length;
   const STATS = [['s','Single'],['mo3','mo3'],[5,'ao5'],[12,'ao12'],[50,'ao50'],[100,'ao100']];
   function bestSingle(so){ let b = null; for (const x of so){ const v = val(x); if (isFinite(v) && (b===null || v<b)) b = v; } return b; }
@@ -1909,7 +1935,18 @@ const VIEWS=[]; for(let a=0;a<4;a++)for(let b=0;b<4;b++)for(let c=0;c<4;c++){ co
 const H1=[]; for(let i=0;i<4;i++)for(let j=0;j<4;j++){ const q=('U '.repeat(i)+'D '.repeat(j)).trim(); H1.push(q?Cube.apply(ID,q):ID); }
 const COLOF = ID.map(i=>Cube.ST[i].f);
 const toLabels = s => { const {cp,co}=Cube.toCubies(s), L=new Array(24); Cube.SLOTS.forEach((sl,j)=>{ for(let k=0;k<3;k++) L[sl[(co[j]+k)%3]]=Cube.SLOTS[cp[j]][k]; }); return L; };
-const caseKey = s => { const Lg=toLabels(s); let best=null; for(const H of H1){ const L=Lg.map(x=>H[x]); for(const P of VIEWS){ const k=recolor(P.map(x=>COLOF[L[x]])).join(''); if(best===null||k<best) best=k; } } return best; };
+// the smallest recolor(view).join('') over every view (same key as before), but compared sticker by sticker on small numbers,
+// stopping as soon as a view is already worse; about 10x faster, and it's run for every case while the page warms up
+const caseKey = (() => { const F = Cube.FACES, FI = {}; F.forEach((f,i)=>{ FI[f]=i; });
+  const CI = COLOF.map(c=>FI[c]), OI = F.map(f=>FI[OPP[f]]), SL7 = Cube.SLOTS[7], T7 = SL7.map(i=>FI[Cube.ST[i].f]), CODE = F.map(f=>f.charCodeAt(0));
+  const N = COLOF.length, col = new Int8Array(N), map = new Int8Array(6), best = new Int8Array(N);
+  return s => { const Lg = toLabels(s); let have = false;
+    for (const H of H1) for (const P of VIEWS){
+      for (let i=0;i<N;i++) col[i] = CI[H[Lg[P[i]]]];
+      map.fill(-1); for (let k=0;k<3;k++) map[col[SL7[k]]] = T7[k]; for (let k=0;k<3;k++){ const c = col[SL7[k]]; map[OI[c]] = OI[map[c]]; }
+      if (!have){ for (let i=0;i<N;i++) best[i] = map[col[i]]; have = true; continue; }
+      for (let i=0;i<N;i++){ const a = CODE[map[col[i]]], b = CODE[best[i]]; if (a > b) break; if (a < b){ for (let j=i;j<N;j++) best[j] = map[col[j]]; break; } } }
+    let k = ''; for (let i=0;i<N;i++) k += F[best[i]]; return k; }; })();
 // cases
 const CASES = DATA.cases.map(([id,g,set,alg,st,src,alts])=>({id,g,set,alg,state:st.split(''),src:(g==='CLL'&&set==='O')?'Standard (J and Y perm style)':src,alts:alts.map(([a,s,sr])=>({alg:a,state:s.split(''),src:sr}))}));
 CASES.forEach((c,i)=>{ const su=(DATA.setups||[])[i]; if(su){ c.setup=su[0]; c.alts.forEach((a,j)=>{ a.setup=su[1][j]; }); } });
@@ -2427,58 +2464,80 @@ $('#bkRestore').addEventListener('click', async ()=>{ const m=$('#bkMsg'), parts
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3;
   if (BYID[id]) Viewer.open(BYID[id], null); else if (ORT[id]) Viewer.openRaw(ORT[id]); });
 // flashcards
-$('#cardGroup').innerHTML = [['all','All sets'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-function renderCardPool(){ const g=$('#cardGroup').value, cur=$('#cardPool').value || D.prefs.cardPool;
-  const sets = SETS.filter(s=>CASES.some(c=>(g==='all'||c.g===g) && c.set===s));
-  $('#cardPool').innerHTML = [['all','All cases'],['learning','Learning only'],['active','Learning + learned'],...sets.map(s=>['set:'+s,(SET_NAME[s]||s)+' only'])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  $('#cardPool').value = cur; if (!$('#cardPool').value) $('#cardPool').value = 'all'; }
-renderCardPool();
-for (const k of ['cardGroup','cardPool']) if (D.prefs[k]) { const el=$('#'+k); el.value=D.prefs[k]; if(!el.value) el.selectedIndex=0; if(k==='cardGroup') renderCardPool(); }
+// pick which cases come up: a set (or all), any mix of its subsets, and a status filter; tucked in a drawer so the page stays clean
+const CARD_ST = [['all','All'],['learning','Learning'],['learned','Learned'],['active','Learning + Learned']];
+const cardSetsOf = g => SETS.filter(s=>CASES.some(c=>c.g===g && c.set===s)), cardSetLabel = s => SET_NAME[s]||s, cardAllLabel = () => 'All';
+let cardG = 'all', cardSt = 'all'; const cardSel = new Set();
+const cardFix = () => { if (cardG!=='all' && !GROUPS.includes(cardG)) cardG = 'all'; if (cardG!=='all' && !cardSetsOf(cardG).some(s=>cardSel.has(s))) cardSetsOf(cardG).forEach(s=>cardSel.add(s)); };
+function cardLoad(){ const p = D.prefs, old = p.cardPool || '';
+  cardG = p.cardGroup==='all' || GROUPS.includes(p.cardGroup) ? p.cardGroup : 'all';
+  cardSel.clear(); (p.cardSets || (old.startsWith('set:') ? [old.slice(4)] : [])).forEach(s=>{ if (SETS.includes(s)) cardSel.add(s); });
+  cardSt = CARD_ST.some(([v])=>v===p.cardStatus) ? p.cardStatus : old==='learning' ? 'learning' : old==='active' ? 'active' : 'all'; cardFix(); }
+cardLoad();
+function cardSummary(){ const sets = cardG==='all' ? [] : cardSetsOf(cardG), on = sets.filter(s=>cardSel.has(s));
+  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : CARD_ST.find(([v])=>v===cardSt)[1]].filter(Boolean).join(' · '); }
+function renderCardOpts(){ cardFix(); cardSummary();
+  $('#cardG').innerHTML = [['all', cardAllLabel()], ...GROUPS.map(g=>[g,g])].map(([v,l])=>`<button aria-pressed="${cardG===v}" data-cgp="${v}">${l}</button>`).join('');
+  const sets = cardG==='all' ? [] : cardSetsOf(cardG); $('#cardSets').closest('.dgroup').hidden = sets.length < 2;
+  $('#cardSets').innerHTML = sets.length < 2 ? '' : `<button class="chip" aria-pressed="${sets.every(s=>cardSel.has(s))}" data-csall>All</button>` + sets.map(s=>`<button class="chip" aria-pressed="${cardSel.has(s)}" data-cset="${esc(s)}">${esc(cardSetLabel(s))}</button>`).join('');
+  $('#cardSt').innerHTML = CARD_ST.map(([v,l])=>`<button aria-pressed="${cardSt===v}" data-cst="${v}">${l}</button>`).join(''); }
+const fillCardGroup = renderCardOpts;
+function poolCases(){ let l = cardG==='all' ? CASES : CASES.filter(c=>c.g===cardG && cardSel.has(c.set));
+  if (cardSt==='learning' || cardSt==='learned') return l.filter(c=>status(c.id)===cardSt);
+  if (cardSt==='active') return l.filter(c=>status(c.id)!=='new');
+  return l; }
+const saveCardPrefs = () => { D.prefs.cardGroup = cardG; D.prefs.cardSets = [...cardSel]; D.prefs.cardStatus = cardSt; delete D.prefs.cardPool; save(); renderCardOpts(); nextCard(); };
+$('#cardG').addEventListener('click', e=>{ const b=e.target.closest('[data-cgp]'); if(!b) return; cardG=b.dataset.cgp; saveCardPrefs(); });
+$('#cardSets').addEventListener('click', e=>{ const sets = cardSetsOf(cardG);
+  if (e.target.closest('[data-csall]')){ sets.forEach(s=>cardSel.add(s)); saveCardPrefs(); return; }
+  const b=e.target.closest('[data-cset]'); if(!b) return; const s=b.dataset.cset;
+  if (cardSel.has(s) && sets.filter(x=>cardSel.has(x)).length>1) cardSel.delete(s); else cardSel.add(s); saveCardPrefs(); });
+$('#cardSt').addEventListener('click', e=>{ const b=e.target.closest('[data-cst]'); if(!b) return; cardSt=b.dataset.cst; saveCardPrefs(); });
 let cardCur=null, cardShown=false, cardView=null, cardT0=0, cardRec=null, cardRaf=0, cardArmed=false; const sess={h:0,m:0};
 // recent timed cards this session; ✕ deletes the time and takes back the Got it / Missed it
 const cardRecent = [];
 const cardSessText = () => sess.h+sess.m ? `This session: ${sess.h} right, ${sess.m} missed` : '';
 function renderCardRecent(){ const box=$('#cardRecent'); box.hidden = cardMode!=='timed' || !cardRecent.length; if (box.hidden) return;
   box.innerHTML = `<span class="label">Recent cards</span>` + cardRecent.map((e,i)=>{ const c=BYID[e.id]; return `<div class="crow"><span>${esc(c?c.name:e.id)}</span><span class="ct">${e.t.toFixed(2)}s</span><span class="cres" style="color:var(--${e.g==='h'?'good':'bad'})">${e.g==='h'?'Got it':'Missed'}</span><button class="cdel" data-cdel="${i}" aria-label="Delete this card">✕</button></div>`; }).join(''); }
-$('#cardRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-cdel]'); if(!b) return; const i=+b.dataset.cdel, e=cardRecent[i]; if(!e) return;
-  const s=D.cards[e.id]; if(s){ s[e.g]=Math.max(0,(s[e.g]||0)-1); if(!cardRecent.slice(0,i).some(x=>x.id===e.id)){ s.s=e.prev.s; s.t=e.prev.t; s.l=e.prev.l; for (const k of ['s','t','l']) if (s[k]===undefined) delete s[k]; } if(!s.h && !s.m && !s.t) delete D.cards[e.id]; }
+// take back one answer: the tally, the saved time, and (if nothing newer touched this case) its review schedule
+function revertCard(e, restore){ const s=D.cards[e.id]; if(s){ s[e.g]=Math.max(0,(s[e.g]||0)-1); if(restore){ s.s=e.prev.s; s.t=e.prev.t; s.l=e.prev.l; for (const k of ['s','t','l']) if (s[k]===undefined) delete s[k]; } if(!s.h && !s.m && !s.t) delete D.cards[e.id]; }
   if(e.kept){ const r=D.recog[e.id]; if(r){ const j=r.lastIndexOf(e.t); if(j>=0) r.splice(j,1); if(!r.length) delete D.recog[e.id]; } }
-  sess[e.g]=Math.max(0,sess[e.g]-1); cardRecent.splice(i,1); save(); $('#cardStats').textContent=cardSessText(); renderCardRecent(); });
+  sess[e.g]=Math.max(0,sess[e.g]-1); }
+$('#cardRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-cdel]'); if(!b) return; const i=+b.dataset.cdel, e=cardRecent[i]; if(!e) return;
+  revertCard(e, !e.stale && !cardRecent.slice(0,i).some(x=>x.id===e.id)); cardRecent.splice(i,1); save(); renderCardStats(); renderCardRecent(); });
+// Self-check: Undo next to the session count takes back the last tap and shows that card again
+let cardUndo = null;
+function renderCardStats(){ const t = cardSessText(); $('#cardStats').innerHTML = t + (cardUndo && cardMode==='self' ? `${t?' · ':''}<button class="linkbtn" data-cundo>Undo</button>` : ''); }
+$('#cardStats').addEventListener('click', ev=>{ if(!ev.target.closest('[data-cundo]') || !cardUndo) return; const e=cardUndo; cardUndo=null;
+  revertCard(e, true); save(); cancelAnimationFrame(cardRaf); cardCur=BYID[e.id]; cardShown=true; cardArmed=false; cardRec=null; cardView=e.state; renderCard(); renderCardStats(); });
 let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self';
 function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed recognition']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
   $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case' : ''; if (typeof cardRecent!=='undefined') renderCardRecent(); }
-$('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; save(); renderCardMode(); nextCard(); });
-renderCardMode();
+$('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; cardUndo=null; save(); renderCardMode(); renderCardStats(); nextCard(); });
+renderCardMode(); renderCardOpts();
 function cardTick(){ const el=$('#cardClock'); if(!el || cardShown) return; el.textContent=((performance.now()-cardT0)/1000).toFixed(2); cardRaf=requestAnimationFrame(cardTick); }
 function armCard(){ if(!cardCur || cardShown || cardArmed) return; cardArmed=true; renderCard(); }
 function revealCard(){ if(!cardCur || cardShown) return; if(cardMode==='timed' && !cardArmed) return armCard(); cancelAnimationFrame(cardRaf); cardRec = cardMode==='timed' ? +((performance.now()-cardT0)/1000).toFixed(2) : null; cardShown=true; CubeLab.flip($('#cardStage'), renderCard); }
-function poolCases(g, v){
-  let l = g==='all' ? CASES : CASES.filter(c=>c.g===g);
-  if (v==='learning') return l.filter(c=>status(c.id)==='learning');
-  if (v==='active') return l.filter(c=>status(c.id)!=='new');
-  if (v.startsWith('set:')) return l.filter(c=>c.set===v.slice(4));
-  return l;
-}
 const SR_DAYS = [.01, 1, 2, 4, 8, 16, 32];
 function pickWeighted(list, avoid){
   const now=Date.now()/1000;
-  const w = list.map(c=>{ const s=D.cards[c.id]||{h:0,m:0}; let x=1+1.5*Math.min(s.m,4)/(1+2*(s.s||0))-Math.min(s.h,6)*0.12;   // misses count less as your right-in-a-row streak grows if(status(c.id)==='learning') x*=1.6;
+  const w = list.map(c=>{ const s=D.cards[c.id]||{h:0,m:0}; let x=1+1.5*Math.min(s.m,4)/(1+2*(s.s||0))-Math.min(s.h,6)*0.12; if(status(c.id)==='learning') x*=1.6;   // misses count less as your right-in-a-row streak grows
     // spaced repetition: each right answer in a row doubles the wait before a card is due again (1, 2, 4… days); misses reset it
     if(s.t){ const due=(now-s.t)/86400/SR_DAYS[Math.min(s.s||0, SR_DAYS.length-1)]; x *= due<1 ? .2+.8*due : Math.min(3, 1+.5*Math.log2(due)); }
     if(cardMode==='timed'){ const ra=recAvg(c.id); x *= ra===null ? 1.5 : Math.min(2.5, Math.max(.6, ra/1.5)); } return Math.max(.25,x)*(c===avoid&&list.length>1?0:1); });
   let r=Math.random()*w.reduce((a,b)=>a+b,0); for(let i=0;i<list.length;i++){ r-=w[i]; if(r<=0) return list[i]; } return list[list.length-1];
 }
 function nextCard(){
-  const list=poolCases($('#cardGroup').value,$('#cardPool').value);
-  if(!list.length){ cardCur=null; $('#cardStage').innerHTML='<p class="lede" style="text-align:center">No cases in this pool yet. Mark some as Learning in the Learn tab, or pick another pool.</p>'; return; }
+  const list=poolCases();
+  if(!list.length){ cardCur=null; $('#cardStage').innerHTML='<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Options.</p>'; return; }
   cancelAnimationFrame(cardRaf); cardRec=null; cardCur=pickWeighted(list,cardCur); cardShown=false; cardArmed=false; cardView=Cube.apply(cardCur.state, ['U','U2',"U'",'U U U U'][rnd(4)]); renderCard();
 }
 function renderCard(){
   const c=cardCur, s=cardShown?c.state:cardView;
   const ra = recAvg(c.id);
   if (!cardShown && cardMode==='timed' && !cardArmed){ cancelAnimationFrame(cardRaf);
-    $('#cardStage').innerHTML = `<div class="big blank" aria-hidden="true">${diagOf(c, Array(24).fill('X'), $('#cardGroup').value==='all')}</div><p class="lede" style="text-align:center">The case appears when you tap Start, and the clock starts with it.</p><button class="btn yellow" data-g="arm">Start</button>`; return; }
-  $('#cardStage').innerHTML = `${cardShown || cardMode!=='timed' ? `<span class="gbadge">${c.g==='Ortega'?'Ortega '+c.set:c.g}</span>` : ''}<div class="big">${diagOf(c, s, $('#cardGroup').value==='all')}</div>
+    $('#cardStage').innerHTML = `<div class="big blank" aria-hidden="true">${diagOf(c, Array(24).fill('X'), cardG==='all')}</div><p class="lede" style="text-align:center">The case appears when you tap Start, and the clock starts with it.</p><button class="btn yellow" data-g="arm">Start</button>`; return; }
+  $('#cardStage').innerHTML = `${cardShown || cardMode!=='timed' ? `<span class="gbadge">${c.g==='Ortega'?'Ortega '+c.set:c.g}</span>` : ''}<div class="big">${diagOf(c, s, cardG==='all')}</div>
     ${cardShown ? `${cardRec!==null?`<p class="stats" style="text-align:center">Recognized in <b style="color:var(--ink)">${cardRec.toFixed(2)}s</b>${ra?` · your average ${ra.toFixed(2)}s`:''}. Tap Got it only if you named it right.</p>`:''}<h2>${c.name}</h2><div class="alg">${esc(algOf(c))}</div>${spot(c,true)}${noteHTML(c)}<p class="rec setup" style="text-align:center">Setup from solved: <code>${esc(setupOf(c))}</code></p><p class="rec" style="text-align:center">Shown in this set's standard hold.</p>
       <div class="row"><button class="btn alt" data-v3="${c.id}">Turn in 3D</button><button class="btn bad" data-g="m">Missed it</button><button class="btn good" data-g="h">Got it</button></div>${statusSeg(c)}`
     : cardMode==='timed'
@@ -2494,10 +2553,9 @@ $('#cardStage').addEventListener('click', e=>{ const b=e.target.closest('[data-g
   s.s = b.dataset.g==='h' ? (gap >= SR_DAYS[Math.min(s.s||0, SR_DAYS.length-1)]*.5 ? (s.s||0)+1 : (s.s||0)) : 0; s.t=nowS;
   const kept = b.dataset.g==='h' && cardRec!==null && cardRec<20; if(kept){ const r=D.recog[cardCur.id]||(D.recog[cardCur.id]=[]); r.push(cardRec); if(r.length>20) r.shift(); }
   if(cardRec!==null){ cardRecent.unshift({id:cardCur.id, g:b.dataset.g, t:cardRec, kept, prev}); if(cardRecent.length>8) cardRecent.pop(); renderCardRecent(); }
+  cardUndo = cardRec===null ? {id:cardCur.id, g:b.dataset.g, kept:false, prev, state:cardView} : null; if (cardUndo) cardRecent.forEach(x=>{ if (x.id===cardCur.id) x.stale=true; });
   save();
-  touchDay(); save(); $('#cardStats').textContent=cardSessText(); nextCard(); });
-const saveCardPrefs=()=>{ renderCardPool(); D.prefs.cardGroup=$('#cardGroup').value; D.prefs.cardPool=$('#cardPool').value; save(); nextCard(); };
-$('#cardPool').addEventListener('change', saveCardPrefs); $('#cardGroup').addEventListener('change', saveCardPrefs);
+  touchDay(); save(); renderCardStats(); nextCard(); });
 // solver: build the distance table in a worker so the page never freezes
 let prunReady=false, building=false; const waiters=[];
 // solver tables are kept in the browser after the first build so later visits start instantly
@@ -3299,8 +3357,8 @@ const HELP = {
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
     ['Make it yours',['Open a card\'s details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes.']]]},
   cards:{t:'Flashcards', s:[
-    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.']],
-    ['What comes up',['Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
+    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it. Tapped the wrong one? Undo next to the session count takes it back.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.']],
+    ['What comes up',['Pick the set, any mix of its subsets, and which cases (by Learning status) under <b>Options</b>.','Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
     ['Keyboard',['Space reveals · 1 Missed it · 2 Got it.']]]},
   timer:{t:'Case timer', s:[
     ['Algs or First side',['<b>Algs</b> times the cases in your sets. <b>First side</b> times the first step of a solve on a random scramble.','Pick <b>Face</b> (one color, for EG and Ortega) or <b>Layer</b> (a face with matching sides, for CLL). Plan it, then time it.','After you stop you see the shortest one and can tap whether yours was that short. With <b>color neutral</b> on, it looks across all six colors; otherwise it uses white.']],
@@ -3341,9 +3399,9 @@ function refreshAll(){
   tSel.clear(); (D.prefs.tSel||['Sune','Anti-Sune']).forEach(s=>{ if(SETS.includes(s)) tSel.add(s); }); if(!tSel.size) tSel.add('Sune');
   tStatus=tStatusOf(); renderTStatus();
   olG.clear(); (D.prefs.olG||['CLL']).forEach(g=>{ if(LL_GROUPS.includes(g)) olG.add(g); }); if(!olG.size) olG.add('CLL');
-  for (const k of ['cardGroup','cardPool']){ const el=$('#'+k); el.value=D.prefs[k]||el.options[0].value; if(!el.value) el.selectedIndex=0; if(k==='cardGroup') renderCardPool(); }
+  cardLoad();
   if(['easy','medium','hard','mixed','full'].includes(D.prefs.olDiff)) olDiff=D.prefs.olDiff;
-  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs'; fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; renderCardMode();
+  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs'; fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; renderCardMode(); renderCardOpts();
   applyTheme(); if(!$('#v-prefs').hidden) renderSettings(); if(!$('#v-case').hidden) renderCasePage();
   loadSess(); renderTSets(); renderTMode(); renderTKind(); renderOlGroups(); renderOlDiff(); syncCN(); renderTRes(); $('#tResult').hidden=true;
   if(!$('#v-onelook').hidden) olStats(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); if(!$('#v-timer').hidden && !tCase) newScramble(); if(!$('#v-solve').hidden) SV.render();
@@ -4761,41 +4819,63 @@ $('#bkRestore').addEventListener('click', async ()=>{ const m=$('#bkMsg'), parts
 // any diagram button opens the viewer
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3; if (BYID[id]) Viewer.open(BYID[id], null); });
 // ---- flashcards ----
-const fillCardGroup = () => { $('#cardGroup').innerHTML = [['all', GROUPS.includes('ZBLL') ? 'All but ZBLL' : 'All sets'],...GROUPS.map(g=>[g,g])].map(([v,l])=>`<option value="${v}">${l}</option>`).join(''); };
-fillCardGroup();
-function renderCardPool(){ const g=$('#cardGroup').value, cur=$('#cardPool').value || D.prefs.cardPool;
-  const sets = g==='all' ? [] : GSETS[g];
-  $('#cardPool').innerHTML = [['all','All cases'],['learning','Learning only'],['active','Learning + learned'],...sets.map(s=>['set:'+s,/only$/.test(SET_SHORT[s]||s) ? (SET_SHORT[s]||s) : (SET_SHORT[s]||s)+' only'])].map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  $('#cardPool').value = cur; if (!$('#cardPool').value) $('#cardPool').value = 'all'; }
-if (D.prefs.cardGroup){ $('#cardGroup').value = D.prefs.cardGroup; if (!$('#cardGroup').value) $('#cardGroup').value = 'PLL'; } else $('#cardGroup').value = 'PLL';
-renderCardPool(); if (D.prefs.cardPool){ $('#cardPool').value = D.prefs.cardPool; if (!$('#cardPool').value) $('#cardPool').value='all'; }
+// pick which cases come up: a set (or all), any mix of its subsets, and a status filter; tucked in a drawer so the page stays clean
+const CARD_ST = [['all','All'],['learning','Learning'],['learned','Learned'],['active','Learning + Learned']];
+const cardSetsOf = g => GSETS[g]||[], cardSetLabel = s => SET_SHORT[s]||s, cardAllLabel = () => GROUPS.includes('ZBLL') ? 'All but ZBLL' : 'All';
+let cardG = 'PLL', cardSt = 'all'; const cardSel = new Set();
+const cardFix = () => { if (cardG!=='all' && !GROUPS.includes(cardG)) cardG = 'PLL'; if (cardG!=='all' && !cardSetsOf(cardG).some(s=>cardSel.has(s))) cardSetsOf(cardG).forEach(s=>cardSel.add(s)); };
+function cardLoad(){ const p = D.prefs, old = p.cardPool || '';
+  cardG = p.cardGroup==='all' || GROUPS.includes(p.cardGroup) ? p.cardGroup : 'PLL';
+  cardSel.clear(); (p.cardSets || (old.startsWith('set:') ? [old.slice(4)] : [])).forEach(s=>{ if (SETS.includes(s)) cardSel.add(s); });
+  cardSt = CARD_ST.some(([v])=>v===p.cardStatus) ? p.cardStatus : old==='learning' ? 'learning' : old==='active' ? 'active' : 'all'; cardFix(); }
+cardLoad();
+function cardSummary(){ const sets = cardG==='all' ? [] : cardSetsOf(cardG), on = sets.filter(s=>cardSel.has(s));
+  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : CARD_ST.find(([v])=>v===cardSt)[1], cardG==='F2L' ? '' : (cardView==='iso' ? 'Two sides' : 'Top')].filter(Boolean).join(' · '); }
+function renderCardOpts(){ cardFix(); cardSummary();
+  $('#cardG').innerHTML = [['all', cardAllLabel()], ...GROUPS.map(g=>[g,g])].map(([v,l])=>`<button aria-pressed="${cardG===v}" data-cgp="${v}">${l}</button>`).join('');
+  const sets = cardG==='all' ? [] : cardSetsOf(cardG); $('#cardSets').closest('.dgroup').hidden = sets.length < 2;
+  $('#cardSets').innerHTML = sets.length < 2 ? '' : `<button class="chip" aria-pressed="${sets.every(s=>cardSel.has(s))}" data-csall>All</button>` + sets.map(s=>`<button class="chip" aria-pressed="${cardSel.has(s)}" data-cset="${esc(s)}">${esc(cardSetLabel(s))}</button>`).join('');
+  $('#cardSt').innerHTML = CARD_ST.map(([v,l])=>`<button aria-pressed="${cardSt===v}" data-cst="${v}">${l}</button>`).join('');
+  $('#cardView').closest('.dgroup').hidden = cardG==='F2L'; }
+const fillCardGroup = renderCardOpts;
+function poolCases(){ let l = cardG==='all' ? CASES.filter(c=>c.g!=='ZBLL') : CASES.filter(c=>c.g===cardG && cardSel.has(c.set));
+  if (cardSt==='learning' || cardSt==='learned') return l.filter(c=>status(c.id)===cardSt);
+  if (cardSt==='active') return l.filter(c=>status(c.id)!=='new');
+  return l; }
+const saveCardPrefs = () => { D.prefs.cardGroup = cardG; D.prefs.cardSets = [...cardSel]; D.prefs.cardStatus = cardSt; delete D.prefs.cardPool; save(); renderCardOpts(); nextCard(); };
+$('#cardG').addEventListener('click', e=>{ const b=e.target.closest('[data-cgp]'); if(!b) return; cardG=b.dataset.cgp; saveCardPrefs(); });
+$('#cardSets').addEventListener('click', e=>{ const sets = cardSetsOf(cardG);
+  if (e.target.closest('[data-csall]')){ sets.forEach(s=>cardSel.add(s)); saveCardPrefs(); return; }
+  const b=e.target.closest('[data-cset]'); if(!b) return; const s=b.dataset.cset;
+  if (cardSel.has(s) && sets.filter(x=>cardSel.has(x)).length>1) cardSel.delete(s); else cardSel.add(s); saveCardPrefs(); });
+$('#cardSt').addEventListener('click', e=>{ const b=e.target.closest('[data-cst]'); if(!b) return; cardSt=b.dataset.cst; saveCardPrefs(); });
 let cardMap=null, cardCur=null, cardShown=false, cardState=null, cardT0=0, cardRec=null, cardRaf=0, cardArmed=false; const sess={h:0,m:0};
 // recent timed cards this session; ✕ deletes the time and takes back the Got it / Missed it
 const cardRecent = [];
 const cardSessText = () => sess.h+sess.m ? `This session: ${sess.h} right, ${sess.m} missed` : '';
 function renderCardRecent(){ const box=$('#cardRecent'); box.hidden = cardMode!=='timed' || !cardRecent.length; if (box.hidden) return;
   box.innerHTML = `<span class="label">Recent cards</span>` + cardRecent.map((e,i)=>{ const c=BYID[e.id]; return `<div class="crow"><span>${esc(c?c.full:e.id)}</span><span class="ct">${e.t.toFixed(2)}s</span><span class="cres" style="color:var(--${e.g==='h'?'good':'bad'})">${e.g==='h'?'Got it':'Missed'}</span><button class="cdel" data-cdel="${i}" aria-label="Delete this card">✕</button></div>`; }).join(''); }
-$('#cardRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-cdel]'); if(!b) return; const i=+b.dataset.cdel, e=cardRecent[i]; if(!e) return;
-  const s=D.cards[e.id]; if(s){ s[e.g]=Math.max(0,(s[e.g]||0)-1); if(!cardRecent.slice(0,i).some(x=>x.id===e.id)){ s.s=e.prev.s; s.t=e.prev.t; s.l=e.prev.l; for (const k of ['s','t','l']) if (s[k]===undefined) delete s[k]; } if(!s.h && !s.m && !s.t) delete D.cards[e.id]; }
+// take back one answer: the tally, the saved time, and (if nothing newer touched this case) its review schedule
+function revertCard(e, restore){ const s=D.cards[e.id]; if(s){ s[e.g]=Math.max(0,(s[e.g]||0)-1); if(restore){ s.s=e.prev.s; s.t=e.prev.t; s.l=e.prev.l; for (const k of ['s','t','l']) if (s[k]===undefined) delete s[k]; } if(!s.h && !s.m && !s.t) delete D.cards[e.id]; }
   if(e.kept){ const r=D.recog[e.id]; if(r){ const j=r.lastIndexOf(e.t); if(j>=0) r.splice(j,1); if(!r.length) delete D.recog[e.id]; } }
-  sess[e.g]=Math.max(0,sess[e.g]-1); cardRecent.splice(i,1); save(); $('#cardStats').textContent=cardSessText(); renderCardRecent(); });
+  sess[e.g]=Math.max(0,sess[e.g]-1); }
+$('#cardRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-cdel]'); if(!b) return; const i=+b.dataset.cdel, e=cardRecent[i]; if(!e) return;
+  revertCard(e, !e.stale && !cardRecent.slice(0,i).some(x=>x.id===e.id)); cardRecent.splice(i,1); save(); renderCardStats(); renderCardRecent(); });
+// Self-check: Undo next to the session count takes back the last tap and shows that card again
+let cardUndo = null;
+function renderCardStats(){ const t = cardSessText(); $('#cardStats').innerHTML = t + (cardUndo && cardMode==='self' ? `${t?' · ':''}<button class="linkbtn" data-cundo>Undo</button>` : ''); }
+$('#cardStats').addEventListener('click', ev=>{ if(!ev.target.closest('[data-cundo]') || !cardUndo) return; const e=cardUndo; cardUndo=null;
+  revertCard(e, true); save(); cancelAnimationFrame(cardRaf); cardCur=BYID[e.id]; cardShown=true; cardArmed=false; cardRec=null; cardState=e.state; cardMap=e.map; renderCard(); renderCardStats(); });
 let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self', cardView = D.prefs.cardView==='iso' ? 'iso' : 'top';
 function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed recognition']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
   $('#cardView').innerHTML = [['top','Top'],['iso','Two sides']].map(([v,l])=>`<button aria-pressed="${cardView===v}" data-cv="${v}">${l}</button>`).join('');
   $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case.' : ''; $('#cardModeNote').hidden = cardMode!=='timed'; if (typeof cardRecent!=='undefined') renderCardRecent(); }
-$('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; save(); renderCardMode(); nextCard(); });
-$('#cardView').addEventListener('click', e=>{ const b=e.target.closest('[data-cv]'); if(!b) return; cardView=b.dataset.cv; D.prefs.cardView=cardView; save(); renderCardMode(); if (cardCur) renderCard(); });
-renderCardMode();
+$('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; cardUndo=null; save(); renderCardMode(); renderCardStats(); nextCard(); });
+$('#cardView').addEventListener('click', e=>{ const b=e.target.closest('[data-cv]'); if(!b) return; cardView=b.dataset.cv; D.prefs.cardView=cardView; save(); renderCardMode(); cardSummary(); if (cardCur) renderCard(); });
+renderCardMode(); renderCardOpts();
 function cardTick(){ const el=$('#cardClock'); if(!el || cardShown) return; el.textContent=((performance.now()-cardT0)/1000).toFixed(2); cardRaf=requestAnimationFrame(cardTick); }
 function armCard(){ if(!cardCur || cardShown || cardArmed) return; cardArmed=true; renderCard(); }
 function revealCard(){ if(!cardCur || cardShown) return; if(cardMode==='timed' && !cardArmed) return armCard(); cancelAnimationFrame(cardRaf); cardRec = cardMode==='timed' ? +((performance.now()-cardT0)/1000).toFixed(2) : null; cardShown=true; CubeLab.flip($('#cardStage'), renderCard); }
-function poolCases(g, v){
-  let l = g==='all' ? CASES.filter(c=>c.g!=='ZBLL') : CASES.filter(c=>c.g===g);
-  if (v==='learning') return l.filter(c=>status(c.id)==='learning');
-  if (v==='active') return l.filter(c=>status(c.id)!=='new');
-  if (v.startsWith('set:')) return l.filter(c=>c.set===v.slice(4));
-  return l;
-}
 const SR_DAYS = [.01, 1, 2, 4, 8, 16, 32];
 function pickWeighted(list, avoid){
   const now=Date.now()/1000;
@@ -4805,8 +4885,8 @@ function pickWeighted(list, avoid){
   let r=Math.random()*w.reduce((a,b)=>a+b,0); for(let i=0;i<list.length;i++){ r-=w[i]; if(r<=0) return list[i]; } return list[list.length-1];
 }
 function nextCard(){
-  const list=poolCases($('#cardGroup').value,$('#cardPool').value);
-  if(!list.length){ cardCur=null; $('#cardStage').innerHTML='<p class="lede" style="text-align:center">No cases in this pool yet. Mark some as Learning in the Learn tab, or pick another pool.</p>'; return; }
+  const list=poolCases();
+  if(!list.length){ cardCur=null; $('#cardStage').innerHTML='<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Options.</p>'; return; }
   cancelAnimationFrame(cardRaf); cardRec=null; cardCur=pickWeighted(list,cardCur); cardShown=false; cardArmed=false; cardState=Cube.apply(cardCur.state, pickOne(AUF)); cardMap = cnOn() ? pickOne(CN_MAPS) : null; renderCard();
 }
 const blankState = () => Array(54).fill('X');
@@ -4831,10 +4911,9 @@ $('#cardStage').addEventListener('click', e=>{ const b=e.target.closest('[data-g
   s.s = b.dataset.g==='h' ? (gap >= SR_DAYS[Math.min(s.s||0, SR_DAYS.length-1)]*.5 ? (s.s||0)+1 : (s.s||0)) : 0; s.t=nowS;
   const kept = b.dataset.g==='h' && cardRec!==null && cardRec<20; if(kept){ const r=D.recog[cardCur.id]||(D.recog[cardCur.id]=[]); r.push(cardRec); if(r.length>20) r.shift(); }
   if(cardRec!==null){ cardRecent.unshift({id:cardCur.id, g:b.dataset.g, t:cardRec, kept, prev}); if(cardRecent.length>8) cardRecent.pop(); renderCardRecent(); }
+  cardUndo = cardRec===null ? {id:cardCur.id, g:b.dataset.g, kept:false, prev, state:cardState, map:cardMap} : null; if (cardUndo) cardRecent.forEach(x=>{ if (x.id===cardCur.id) x.stale=true; });
   save();
-  touchDay(); save(); $('#cardStats').textContent=cardSessText(); nextCard(); });
-const saveCardPrefs=()=>{ renderCardPool(); D.prefs.cardGroup=$('#cardGroup').value; D.prefs.cardPool=$('#cardPool').value; save(); nextCard(); };
-$('#cardPool').addEventListener('change', saveCardPrefs); $('#cardGroup').addEventListener('change', saveCardPrefs);
+  touchDay(); save(); renderCardStats(); nextCard(); });
 
 // ---- scrambles: the two-phase solver runs in a worker so the page never freezes ----
 const Scr = (() => {
@@ -5444,8 +5523,8 @@ const HELP = {
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
   cards:{t:'Flashcards', s:[
-    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.','<b>Top</b> or <b>Two sides</b> sets how the case is shown. F2L always shows two sides.']],
-    ['What comes up',['Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
+    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it. Tapped the wrong one? Undo next to the session count takes it back.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.','<b>Top</b> or <b>Two sides</b> sets how the case is shown. F2L always shows two sides.']],
+    ['What comes up',['Pick the set, any mix of its subsets, and which cases (by Learning status) under <b>Options</b>.','Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
     ['Keyboard',['Space reveals · 1 Missed it · 2 Got it.']]]},
   timer:{t:'Case timer', s:[
     ['Algs, Cross or F2L',['<b>Algs</b> times the cases in your sets. <b>Cross</b> and <b>F2L</b> time one step of a solve.','For both, scramble with white on top and green in front, then turn the cube over (x2) so white is on the bottom.','With <b>color neutral</b> on (in Settings), Cross shows the shortest cross on any color, and F2L starts with a cross on a random color already solved.','<b>Cross</b>: pick how many moves the best cross takes, plan it, then time it. After you stop you see the best cross and can tap whether yours was that short.','<b>F2L</b>: the white cross is already solved, so time all four pairs. <b>Compare with the auto solver</b> shows another way through.']],
@@ -5489,8 +5568,8 @@ function refreshAll(){
   tStatus=tStatusOf(); renderTStatus();
   rdGroup = GROUPS.includes(D.prefs.rdGroup) ? D.prefs.rdGroup : 'PLL'; rdSel.clear(); (D.prefs.rdSel||[]).forEach(s=>{ if(SETS.includes(s)) rdSel.add(s); }); rdFix();
   rdStatus = ['all','learning','learned','active'].includes(D.prefs.rdStatus) ? D.prefs.rdStatus : 'all'; rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
-  for (const k of ['cardGroup','cardPool']){ const el=$('#'+k); el.value=D.prefs[k]||(k==='cardGroup'?'PLL':'all'); if(!el.value) el.selectedIndex=0; if(k==='cardGroup') renderCardPool(); }
-  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = ['cross','f2l'].includes(D.prefs.tPrac) ? D.prefs.tPrac : 'algs'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; cardView = D.prefs.cardView==='iso' ? 'iso' : 'top'; renderCardMode();
+  cardLoad();
+  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = ['cross','f2l'].includes(D.prefs.tPrac) ? D.prefs.tPrac : 'algs'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; cardView = D.prefs.cardView==='iso' ? 'iso' : 'top'; renderCardMode(); renderCardOpts();
   applyTheme(); if(!$('#v-prefs').hidden) renderSettings(); if(!$('#v-case').hidden) renderCasePage();
   loadSess(); renderTSets(); renderTMode(); renderTKind(); renderTRes(); $('#tResult').hidden=true;
   if(!$('#v-recog').hidden){ renderRdOpts(); rdStats(); } if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); if(!$('#v-timer').hidden && !tCase) newScramble(); if(!$('#v-solve').hidden) SV.render();
@@ -5506,7 +5585,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14f</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14g</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
