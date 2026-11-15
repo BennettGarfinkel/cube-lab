@@ -173,6 +173,12 @@ details.panel>summary::after{content:" +"}details.panel[open]>summary::after{con
 .verdict.ok{color:var(--good)}.verdict.no{color:var(--bad)}
 #olDiff button{padding:7px 10px}
 .olscrbox{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 4px;background:var(--bg);border-radius:12px}
+.crecent .crow{display:grid;grid-template-columns:1fr auto auto auto;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.crecent .crow:first-of-type{border-top:0}
+.crecent .ct{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.crecent .cres{font-size:12.5px;font-weight:600}
+.crecent .cdel{-webkit-appearance:none;appearance:none;border:0;background:var(--chip);color:var(--muted);width:28px;height:28px;border-radius:8px;font:inherit;font-size:14px;line-height:1;cursor:pointer}
+.crecent .cdel:hover{color:var(--bad)}
 .olist{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .oitem{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;gap:10px;align-items:center;min-width:0}
 .oitem .dbtn{width:64px;flex:none}
@@ -665,6 +671,7 @@ window.CubeLabHost = {
     <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div><span class="stats" id="cardModeNote"></span></div>
     <div class="card card-stage" id="cardStage"></div>
     <p class="stats" id="cardStats"></p>
+    <div class="panel crecent" id="cardRecent" hidden></div>
   </section>
 
   <section class="view" id="v-timer" hidden>
@@ -874,6 +881,7 @@ window.CubeLabHost = {
     <span class="stats" id="cardModeNote"></span>
     <div class="card card-stage" id="cardStage"></div>
     <p class="stats" id="cardStats"></p>
+    <div class="panel crecent" id="cardRecent" hidden></div>
   </section>
 
   <section class="view" id="v-timer" hidden>
@@ -2415,9 +2423,18 @@ function renderCardPool(){ const g=$('#cardGroup').value, cur=$('#cardPool').val
 renderCardPool();
 for (const k of ['cardGroup','cardPool']) if (D.prefs[k]) { const el=$('#'+k); el.value=D.prefs[k]; if(!el.value) el.selectedIndex=0; if(k==='cardGroup') renderCardPool(); }
 let cardCur=null, cardShown=false, cardView=null, cardT0=0, cardRec=null, cardRaf=0, cardArmed=false; const sess={h:0,m:0};
+// recent timed cards this session; ✕ deletes the time and takes back the Got it / Missed it
+const cardRecent = [];
+const cardSessText = () => sess.h+sess.m ? `This session: ${sess.h} right, ${sess.m} missed` : '';
+function renderCardRecent(){ const box=$('#cardRecent'); box.hidden = cardMode!=='timed' || !cardRecent.length; if (box.hidden) return;
+  box.innerHTML = `<span class="label">Recent cards</span>` + cardRecent.map((e,i)=>{ const c=BYID[e.id]; return `<div class="crow"><span>${esc(c?c.name:e.id)}</span><span class="ct">${e.t.toFixed(2)}s</span><span class="cres" style="color:var(--${e.g==='h'?'good':'bad'})">${e.g==='h'?'Got it':'Missed'}</span><button class="cdel" data-cdel="${i}" aria-label="Delete this card">✕</button></div>`; }).join(''); }
+$('#cardRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-cdel]'); if(!b) return; const i=+b.dataset.cdel, e=cardRecent[i]; if(!e) return;
+  const s=D.cards[e.id]; if(s){ s[e.g]=Math.max(0,(s[e.g]||0)-1); if(!cardRecent.slice(0,i).some(x=>x.id===e.id)){ s.s=e.prev.s; s.t=e.prev.t; s.l=e.prev.l; for (const k of ['s','t','l']) if (s[k]===undefined) delete s[k]; } if(!s.h && !s.m && !s.t) delete D.cards[e.id]; }
+  if(e.kept){ const r=D.recog[e.id]; if(r){ const j=r.lastIndexOf(e.t); if(j>=0) r.splice(j,1); if(!r.length) delete D.recog[e.id]; } }
+  sess[e.g]=Math.max(0,sess[e.g]-1); cardRecent.splice(i,1); save(); $('#cardStats').textContent=cardSessText(); renderCardRecent(); });
 let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self';
 function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed recognition']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
-  $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case' : ''; }
+  $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case' : ''; if (typeof cardRecent!=='undefined') renderCardRecent(); }
 $('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; save(); renderCardMode(); nextCard(); });
 renderCardMode();
 function cardTick(){ const el=$('#cardClock'); if(!el || cardShown) return; el.textContent=((performance.now()-cardT0)/1000).toFixed(2); cardRaf=requestAnimationFrame(cardTick); }
@@ -2460,12 +2477,13 @@ function renderCard(){
 $('#cardStage').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return;
   if(b.dataset.g==='arm'){ armCard(); return; }
   if(b.dataset.g==='show'){ revealCard(); return; }
-  const s=D.cards[cardCur.id]||(D.cards[cardCur.id]={h:0,m:0}); s[b.dataset.g]++; sess[b.dataset.g]++; s.l=((s.l||'')+b.dataset.g).slice(-10); const nowS=Math.round(Date.now()/1000), gap=s.t ? (nowS-s.t)/86400 : 99;
+  const s=D.cards[cardCur.id]||(D.cards[cardCur.id]={h:0,m:0}); const prev={s:s.s,t:s.t,l:s.l}; s[b.dataset.g]++; sess[b.dataset.g]++; s.l=((s.l||'')+b.dataset.g).slice(-10); const nowS=Math.round(Date.now()/1000), gap=s.t ? (nowS-s.t)/86400 : 99;
   // a right answer only stretches the interval if the card was close to due, so drilling it 5 times in one sitting doesn't push it a month out
   s.s = b.dataset.g==='h' ? (gap >= SR_DAYS[Math.min(s.s||0, SR_DAYS.length-1)]*.5 ? (s.s||0)+1 : (s.s||0)) : 0; s.t=nowS;
-  if(b.dataset.g==='h' && cardRec!==null && cardRec<20){ const r=D.recog[cardCur.id]||(D.recog[cardCur.id]=[]); r.push(cardRec); if(r.length>20) r.shift(); }
+  const kept = b.dataset.g==='h' && cardRec!==null && cardRec<20; if(kept){ const r=D.recog[cardCur.id]||(D.recog[cardCur.id]=[]); r.push(cardRec); if(r.length>20) r.shift(); }
+  if(cardRec!==null){ cardRecent.unshift({id:cardCur.id, g:b.dataset.g, t:cardRec, kept, prev}); if(cardRecent.length>8) cardRecent.pop(); renderCardRecent(); }
   save();
-  touchDay(); save(); $('#cardStats').textContent=`This session: ${sess.h} right, ${sess.m} missed`; nextCard(); });
+  touchDay(); save(); $('#cardStats').textContent=cardSessText(); nextCard(); });
 const saveCardPrefs=()=>{ renderCardPool(); D.prefs.cardGroup=$('#cardGroup').value; D.prefs.cardPool=$('#cardPool').value; save(); nextCard(); };
 $('#cardPool').addEventListener('change', saveCardPrefs); $('#cardGroup').addEventListener('change', saveCardPrefs);
 // solver: build the distance table in a worker so the page never freezes
@@ -3269,7 +3287,7 @@ const HELP = {
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
     ['Make it yours',['Open a card\'s details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes.']]]},
   cards:{t:'Flashcards', s:[
-    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.']],
+    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.']],
     ['What comes up',['Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
     ['Keyboard',['Space reveals · 1 Missed it · 2 Got it.']]]},
   timer:{t:'Case timer', s:[
@@ -4729,10 +4747,19 @@ function renderCardPool(){ const g=$('#cardGroup').value, cur=$('#cardPool').val
 if (D.prefs.cardGroup){ $('#cardGroup').value = D.prefs.cardGroup; if (!$('#cardGroup').value) $('#cardGroup').value = 'PLL'; } else $('#cardGroup').value = 'PLL';
 renderCardPool(); if (D.prefs.cardPool){ $('#cardPool').value = D.prefs.cardPool; if (!$('#cardPool').value) $('#cardPool').value='all'; }
 let cardMap=null, cardCur=null, cardShown=false, cardState=null, cardT0=0, cardRec=null, cardRaf=0, cardArmed=false; const sess={h:0,m:0};
+// recent timed cards this session; ✕ deletes the time and takes back the Got it / Missed it
+const cardRecent = [];
+const cardSessText = () => sess.h+sess.m ? `This session: ${sess.h} right, ${sess.m} missed` : '';
+function renderCardRecent(){ const box=$('#cardRecent'); box.hidden = cardMode!=='timed' || !cardRecent.length; if (box.hidden) return;
+  box.innerHTML = `<span class="label">Recent cards</span>` + cardRecent.map((e,i)=>{ const c=BYID[e.id]; return `<div class="crow"><span>${esc(c?c.full:e.id)}</span><span class="ct">${e.t.toFixed(2)}s</span><span class="cres" style="color:var(--${e.g==='h'?'good':'bad'})">${e.g==='h'?'Got it':'Missed'}</span><button class="cdel" data-cdel="${i}" aria-label="Delete this card">✕</button></div>`; }).join(''); }
+$('#cardRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-cdel]'); if(!b) return; const i=+b.dataset.cdel, e=cardRecent[i]; if(!e) return;
+  const s=D.cards[e.id]; if(s){ s[e.g]=Math.max(0,(s[e.g]||0)-1); if(!cardRecent.slice(0,i).some(x=>x.id===e.id)){ s.s=e.prev.s; s.t=e.prev.t; s.l=e.prev.l; for (const k of ['s','t','l']) if (s[k]===undefined) delete s[k]; } if(!s.h && !s.m && !s.t) delete D.cards[e.id]; }
+  if(e.kept){ const r=D.recog[e.id]; if(r){ const j=r.lastIndexOf(e.t); if(j>=0) r.splice(j,1); if(!r.length) delete D.recog[e.id]; } }
+  sess[e.g]=Math.max(0,sess[e.g]-1); cardRecent.splice(i,1); save(); $('#cardStats').textContent=cardSessText(); renderCardRecent(); });
 let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self', cardView = D.prefs.cardView==='iso' ? 'iso' : 'top';
 function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed recognition']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
   $('#cardView').innerHTML = [['top','Top'],['iso','Two sides']].map(([v,l])=>`<button aria-pressed="${cardView===v}" data-cv="${v}">${l}</button>`).join('');
-  $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case.' : ''; $('#cardModeNote').hidden = cardMode!=='timed'; }
+  $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case.' : ''; $('#cardModeNote').hidden = cardMode!=='timed'; if (typeof cardRecent!=='undefined') renderCardRecent(); }
 $('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; save(); renderCardMode(); nextCard(); });
 $('#cardView').addEventListener('click', e=>{ const b=e.target.closest('[data-cv]'); if(!b) return; cardView=b.dataset.cv; D.prefs.cardView=cardView; save(); renderCardMode(); if (cardCur) renderCard(); });
 renderCardMode();
@@ -4777,11 +4804,12 @@ function renderCard(){
 $('#cardStage').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return;
   if(b.dataset.g==='arm'){ armCard(); return; }
   if(b.dataset.g==='show'){ revealCard(); return; }
-  const s=D.cards[cardCur.id]||(D.cards[cardCur.id]={h:0,m:0}); s[b.dataset.g]++; sess[b.dataset.g]++; s.l=((s.l||'')+b.dataset.g).slice(-10); const nowS=Math.round(Date.now()/1000), gap=s.t ? (nowS-s.t)/86400 : 99;
+  const s=D.cards[cardCur.id]||(D.cards[cardCur.id]={h:0,m:0}); const prev={s:s.s,t:s.t,l:s.l}; s[b.dataset.g]++; sess[b.dataset.g]++; s.l=((s.l||'')+b.dataset.g).slice(-10); const nowS=Math.round(Date.now()/1000), gap=s.t ? (nowS-s.t)/86400 : 99;
   s.s = b.dataset.g==='h' ? (gap >= SR_DAYS[Math.min(s.s||0, SR_DAYS.length-1)]*.5 ? (s.s||0)+1 : (s.s||0)) : 0; s.t=nowS;
-  if(b.dataset.g==='h' && cardRec!==null && cardRec<20){ const r=D.recog[cardCur.id]||(D.recog[cardCur.id]=[]); r.push(cardRec); if(r.length>20) r.shift(); }
+  const kept = b.dataset.g==='h' && cardRec!==null && cardRec<20; if(kept){ const r=D.recog[cardCur.id]||(D.recog[cardCur.id]=[]); r.push(cardRec); if(r.length>20) r.shift(); }
+  if(cardRec!==null){ cardRecent.unshift({id:cardCur.id, g:b.dataset.g, t:cardRec, kept, prev}); if(cardRecent.length>8) cardRecent.pop(); renderCardRecent(); }
   save();
-  touchDay(); save(); $('#cardStats').textContent=`This session: ${sess.h} right, ${sess.m} missed`; nextCard(); });
+  touchDay(); save(); $('#cardStats').textContent=cardSessText(); nextCard(); });
 const saveCardPrefs=()=>{ renderCardPool(); D.prefs.cardGroup=$('#cardGroup').value; D.prefs.cardPool=$('#cardPool').value; save(); nextCard(); };
 $('#cardPool').addEventListener('change', saveCardPrefs); $('#cardGroup').addEventListener('change', saveCardPrefs);
 
@@ -5377,7 +5405,7 @@ const HELP = {
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
   cards:{t:'Flashcards', s:[
-    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','<b>Top</b> or <b>Two sides</b> sets how the case is shown. F2L always shows two sides.']],
+    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.','<b>Top</b> or <b>Two sides</b> sets how the case is shown. F2L always shows two sides.']],
     ['What comes up',['Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
     ['Keyboard',['Space reveals · 1 Missed it · 2 Got it.']]]},
   timer:{t:'Case timer', s:[
@@ -5439,7 +5467,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14d</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14e</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
