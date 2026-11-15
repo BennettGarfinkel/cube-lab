@@ -443,6 +443,17 @@ a.morelink:hover{color:var(--ink)}
 .cstat span{font-size:11px;color:var(--muted)}
 .cstat b{font-family:var(--f-mono);font-size:17px;font-weight:600;color:var(--ink)}
 .cstat b.mut{color:var(--muted)}
+.ctimes{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.ctimes>summary{display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;font-size:13.5px;font-weight:600;color:var(--ink);min-height:32px;-webkit-tap-highlight-color:transparent}
+.ctimes>summary::-webkit-details-marker{display:none}
+.ctimes>summary .stats{font-weight:400}
+.ctimes>summary::after{content:'';margin-left:auto;flex:none;width:12px;height:12px;background:var(--chev) center/12px no-repeat;transition:transform .18s}
+.ctimes[open]>summary::after{transform:rotate(180deg)}
+.ctlist{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.ctime{display:inline-flex;align-items:center;gap:2px;background:var(--chip);border-radius:999px;padding:2px 2px 2px 10px;font-family:var(--f-mono);font-size:13px;color:var(--ink)}
+.ctime .x.sm{width:24px;height:24px;font-size:14px;background:transparent;color:var(--muted)}
+.ctime .x.sm:hover{color:var(--ink)}
+@media (prefers-reduced-motion: reduce){.ctimes>summary::after{transition:none}}
 .cpage .altitem:first-child{border-top:0;padding-top:0}
 .cpage .textin{width:100%}
 .cpage .textin.mono{font-family:var(--f-mono)}
@@ -2296,7 +2307,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${spot(c)}
     <div class="setgroup"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
+      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div>${ctimesHTML(c)}</div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus">Your own algorithm</label>
@@ -2307,11 +2318,29 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     <div class="setgroup"><label class="glabel" for="cnote">Your notes</label>
       <textarea id="cnote" class="textin" rows="3" maxlength="400" placeholder="Fingertricks, regrips, what to look for…">${esc(D.notes[c.id]||'')}</textarea>
       <div class="row"><button class="btn alt sm" data-act="savenote">Save notes</button><span class="msg" id="noteMsg" aria-live="polite"></span></div></div>`; }
+let ctOpen = false;
+function ctimesHTML(c){ const t = D.times[c.id]||[]; if (!t.length) return '';
+  return `<details class="ctimes"${ctOpen?' open':''}><summary>Your times <span class="stats">${t.length}</span></summary>
+    <div class="ctlist">${t.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-tdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
+    <p class="stats">Newest first. DNFs aren't listed. Case avg uses your last 12.</p></details>`; }
+function delCaseTime(c, i){ const t = D.times[c.id]; if (!t || i<0 || i>=t.length) return; const v = t[i]; t.splice(i,1); if (!t.length) delete D.times[c.id];
+  const si = tSess.findIndex(e=>e.c.id===c.id && e.pen!=='DNF' && e.cur===v), se = si>=0 ? tSess.splice(si,1)[0] : null; if (se) keepSess();
+  let ak = null, j = -1; const m = D.algt[c.id], pref = (se && se.ak) || algOf(c);
+  if (m){ const keys = Object.keys(m).sort((a,b)=>(b===pref)-(a===pref)); for (const k of keys){ const x = m[k].lastIndexOf(v); if (x>=0){ ak = k; j = x; break; } }
+    if (ak){ m[ak].splice(j,1); if (!m[ak].length) delete m[ak]; if (!Object.keys(m).length) delete D.algt[c.id]; } }
+  const cs = D.cstat[c.id]; if (cs) cs.n = Math.max(0, cs.n-1);
+  save(); renderCasePage();
+  Toast.show(`Deleted ${v.toFixed(2)}s`, ()=>{ const a = D.times[c.id]||(D.times[c.id]=[]); a.splice(Math.min(i,a.length),0,v);
+    if (ak){ const mm = D.algt[c.id]||(D.algt[c.id]={}), b = mm[ak]||(mm[ak]=[]); b.splice(Math.min(j,b.length),0,v); }
+    if (cs) cs.n++; if (se){ tSess.splice(Math.min(si,tSess.length),0,se); keepSess(); }
+    save(); if (caseId===c.id) renderCasePage(); }); }
 function openCase(id){ if (!$('#v-learn').hidden){ learnScroll = window.scrollY; caseFromLearn = true; } location.hash = '#case-' + id; }
 $('#caseBack').addEventListener('click', ()=>{ if (caseFromLearn){ caseFromLearn = false; history.back(); } else location.hash = '#learn'; });
+$('#caseBody').addEventListener('toggle', e=>{ if (e.target.classList && e.target.classList.contains('ctimes')) ctOpen = e.target.open; }, true);
 $('#caseBody').addEventListener('click', e=>{ const c = BYID[caseId]; if (!c) return;
   const al=e.target.closest('[data-alt]'); if(al){ Viewer.open(c, +al.dataset.alt); return; }
   const mn=e.target.closest('[data-mine]'); if(mn){ setMine(c, +mn.dataset.mine); renderCasePage(); return; }
+  const td=e.target.closest('[data-tdel]'); if(td){ delCaseTime(c, +td.dataset.tdel); const nb=$(`#caseBody [data-tdel="${Math.max(0,+td.dataset.tdel-1)}"]`)||$('#caseBody .ctimes summary'); if(nb) nb.focus({preventScroll:true}); return; }
   const b=e.target.closest('[data-act]'); if(!b) return;
   if (b.dataset.act==='status'){ const nx={new:'learning',learning:'learned',learned:'new'}[status(c.id)]; D.status[c.id]=nx; save(); b.className='status '+nx; b.textContent=nx; }
   if (b.dataset.act==='savealg'){ const v=$('#cus').value.trim(), m=$('#cusMsg');
@@ -4597,7 +4626,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${second}
     <div class="setgroup cs-stats"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div></div>
+      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div>${ctimesHTML(c)}</div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus3">Your own algorithm</label>
@@ -4608,11 +4637,29 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     <div class="setgroup"><label class="glabel" for="cnote3">Your notes</label>
       <textarea id="cnote3" class="textin" rows="3" maxlength="400" placeholder="Fingertricks, regrips, what to look for…">${esc(D.notes[c.id]||'')}</textarea>
       <div class="row"><button class="btn alt sm" data-act="savenote">Save notes</button><span class="msg" id="noteMsg" aria-live="polite"></span></div></div>`; }
+let ctOpen = false;
+function ctimesHTML(c){ const t = D.times[c.id]||[]; if (!t.length) return '';
+  return `<details class="ctimes"${ctOpen?' open':''}><summary>Your times <span class="stats">${t.length}</span></summary>
+    <div class="ctlist">${t.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-tdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
+    <p class="stats">Newest first. DNFs aren't listed. Case avg uses your last 12.</p></details>`; }
+function delCaseTime(c, i){ const t = D.times[c.id]; if (!t || i<0 || i>=t.length) return; const v = t[i]; t.splice(i,1); if (!t.length) delete D.times[c.id];
+  const si = tSess.findIndex(e=>e.c.id===c.id && e.pen!=='DNF' && e.cur===v), se = si>=0 ? tSess.splice(si,1)[0] : null; if (se) keepSess();
+  let ak = null, j = -1; const m = D.algt[c.id], pref = (se && se.ak) || algOf(c);
+  if (m){ const keys = Object.keys(m).sort((a,b)=>(b===pref)-(a===pref)); for (const k of keys){ const x = m[k].lastIndexOf(v); if (x>=0){ ak = k; j = x; break; } }
+    if (ak){ m[ak].splice(j,1); if (!m[ak].length) delete m[ak]; if (!Object.keys(m).length) delete D.algt[c.id]; } }
+  const cs = D.cstat[c.id]; if (cs) cs.n = Math.max(0, cs.n-1);
+  save(); renderCasePage();
+  Toast.show(`Deleted ${v.toFixed(2)}s`, ()=>{ const a = D.times[c.id]||(D.times[c.id]=[]); a.splice(Math.min(i,a.length),0,v);
+    if (ak){ const mm = D.algt[c.id]||(D.algt[c.id]={}), b = mm[ak]||(mm[ak]=[]); b.splice(Math.min(j,b.length),0,v); }
+    if (cs) cs.n++; if (se){ tSess.splice(Math.min(si,tSess.length),0,se); keepSess(); }
+    save(); if (caseId===c.id) renderCasePage(); }); }
 function openCase(id){ if (!$('#v-learn').hidden){ learnScroll = window.scrollY; caseFromLearn = true; } location.hash = '#case-' + id; }
 $('#caseBack').addEventListener('click', ()=>{ if (caseFromLearn){ caseFromLearn = false; history.back(); } else location.hash = '#learn'; });
+$('#caseBody').addEventListener('toggle', e=>{ if (e.target.classList && e.target.classList.contains('ctimes')) ctOpen = e.target.open; }, true);
 $('#caseBody').addEventListener('click', e=>{ const c = BYID[caseId]; if (!c) return;
   const al=e.target.closest('[data-alt]'); if(al){ Viewer.open(c, +al.dataset.alt); return; }
   const mn=e.target.closest('[data-mine]'); if(mn){ setMine(c, +mn.dataset.mine); renderCasePage(); return; }
+  const td=e.target.closest('[data-tdel]'); if(td){ delCaseTime(c, +td.dataset.tdel); const nb=$(`#caseBody [data-tdel="${Math.max(0,+td.dataset.tdel-1)}"]`)||$('#caseBody .ctimes summary'); if(nb) nb.focus({preventScroll:true}); return; }
   const b=e.target.closest('[data-act]'); if(!b) return;
   if (b.dataset.act==='status'){ const nx={new:'learning',learning:'learned',learned:'new'}[status(c.id)]; D.status[c.id]=nx; save(); b.className='status '+nx; b.textContent=nx; renderProgress(); }
   if (b.dataset.act==='savealg'){ const v=$('#cus3').value.trim(), m=$('#cusMsg');
@@ -5392,7 +5439,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14c</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14d</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
