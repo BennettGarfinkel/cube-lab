@@ -660,6 +660,7 @@ window.CubeLabHost = {
       <div class="groups" id="groups"></div>
       <div class="prog" id="prog"></div>
       <div class="nextup" id="nextUp" hidden></div>
+      <button class="linkbtn" data-help="improve" style="align-self:flex-start;margin-top:4px">How to get faster</button>
     </div>
     <div class="row" style="justify-content:space-between"><div class="seg" id="learnGroup" role="group" aria-label="Algorithm set"></div></div>
     <div class="chips" id="learnFilter" role="group" aria-label="Show orientation set"></div>
@@ -876,6 +877,7 @@ window.CubeLabHost = {
       <div class="groups" id="groups"></div>
       <div class="prog" id="prog"></div>
       <div class="nextup" id="nextUp" hidden></div>
+      <button class="linkbtn" data-help="improve" style="align-self:flex-start;margin-top:4px">How to get faster</button>
     </div>
     <div class="row" style="justify-content:space-between"><div class="seg" id="learnGroup" role="group" aria-label="Algorithm set"></div></div>
     <div class="chips" id="learnFilter" role="group" aria-label="Show one set"></div>
@@ -3382,6 +3384,11 @@ const HELP = {
   onelook:{t:'One-look drill', s:[
     ['The idea',['The cube is a few moves from a solved first side: 1–2 on Easy, 3 on Medium, 4–5 on Hard. Easy to Hard use the sets you pick under <b>Cases from</b>. <b>Full</b> starts from a real random scramble instead, like inspection in a real solve, so any CLL or EG case can come up.','Before time runs out (10, 15 or 20 seconds), plan your first side, predict the last-layer case it leaves, then pick it.']],
     ['Setting up',['Show the cube as a scramble to do on your own cube, a net or a 3D view.','With <b>Color neutral</b> on (gear → Settings), the bottom color is random.']]]},
+  improve:{t:"How to get faster", s:[
+    ["Memorizing algs",["Learn one set at a time (say, all the Sune cases) before moving on. Mark them <b>Learning</b> in Learn so the drills focus on them.","Break each alg into chunks you already know, like R U R' U' or R U2 R'. Then you remember 2 or 3 chunks, not 9 moves.","Do short reviews often. A few minutes of <b>Cards</b> every day beats one long session a week.","Get every alg right slowly first, then speed it up with <b>Drill \u2192 Alg only</b>. Speed comes from doing it the same way every time."]],
+    ["Turning speed",["Use finger tricks: right index pushes U, left index pushes U'. Most 2x2 algs never need you to let go of the cube.","Cut regrips. If an alg makes you shift your hands, look for another alg for that case under Learn (tap the diagram).","Go smooth, not fast. Pauses cost more than slow turns, so turn at a speed where you never stop.","Drill one alg 5 times in a row with the same fingering until your hands just do it."]],
+    ["Recognition and lookahead",["Use all of inspection to plan the <b>whole</b> first layer, not just the first few moves.","For CLL, first check which top pattern it is (Sune, Pi, H\u2026), then use the side stickers (headlights, bars) to pick the exact case.","Once your first layer feels easy, try to predict the CLL case before you start. The <b>One-look</b> drill trains exactly that.","While you do the last moves of the first layer, keep your eyes on the top so you already know the case."]],
+    ["Practice plan (about 25 min)",["<b>5 min Cards</b> on the cases you are learning.","<b>5 min Drill</b> on Weak mode, which gives you your slowest cases.","<b>5 min Drill \u2192 First side</b>: plan, then check if yours was close to the shortest.","<b>10 min Solve</b>: an average of 12. Write down which step felt slowest and work on that next time."]]]},
 };
 const Help = (() => { const sh = $('#helpSheet');
   function open(k){ const h = HELP[k]; if (!h) return; $('#hTitle').textContent = h.t;
@@ -5571,6 +5578,11 @@ const HELP = {
     ['The idea',['A case appears the way you\'d see it mid-solve: the top plus the two sides facing you. Any side can be in front, and the top may be turned.','Pick the case as fast as you can. PLL shows all 21 names; other sets show six options.']],
     ['What it tracks',['Right answers feed your recognition time, which the colored dots and Weak first use.','Cases you mix up come up more, and show under <b>Mixed up most</b>.','Your last few answers show under the drill. Tap ✕ on one to delete its time and take back the right or wrong. Older times can be deleted from a case\'s details.']],
     ['Keyboard',['Space starts, and moves to the next case after you answer.']]]},
+  improve:{t:"How to get faster", s:[
+    ["Memorizing algs",["Start with 2-look OLL and PLL so you can solve with few algs, then learn full PLL (21) before full OLL (57).","Learn one set at a time and mark it <b>Learning</b> in Learn so the drills focus on it.","Break algs into triggers you already know, like R U R' U' (sexy) or R' F R F' (sledgehammer).","Do a few minutes of <b>Cards</b> every day, and get each alg right slowly before using <b>Drill \u2192 Alg only</b> for speed."]],
+    ["Turning speed",["Use finger tricks for U, U' and F so your grip stays the same through the alg.","Cut rotations and regrips. In F2L, try to insert pairs into the back slots without turning the whole cube.","Go smooth, not fast. Pauses cost more than slow turns.","Drill one alg 5 times in a row with the same fingering until it is automatic."]],
+    ["Recognition and lookahead",["Plan the full cross in inspection and solve it on the bottom, so you can see F2L pieces while you do it.","In F2L, slow down so you can look for the next pair while you insert the current one. Slow with no pauses beats fast with stops.","For PLL, read two sides: headlights and bars tell you most cases. The <b>Recog</b> drill trains this.","Once OLL is solid, start noticing which PLL each OLL leaves you with."]],
+    ["Practice plan (about 25 min)",["<b>5 min Cards</b> on the algs you are learning.","<b>5 min Drill</b> on Cross or F2L to train planning and lookahead.","<b>5 min Recog</b> on PLL or OLL.","<b>10 min Solve</b> with <b>Splits</b> on, to see which stage is slowest. Work on that one next."]]]},
 };
 const Help = (() => { const sh = $('#helpSheet');
   function open(k){ const h = HELP[k]; if (!h) return; $('#hTitle3').textContent = h.t;
