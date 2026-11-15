@@ -3609,7 +3609,8 @@ const Solver = (() => {
 })();
 if (typeof module !== 'undefined') module.exports = Solver;
 
-// CFOP auto solver: cross (searched), four F2L pairs (the app's pair algs), OLL and PLL (the person's own algs).
+// CFOP auto solver: cross (searched), four F2L pairs (the app's pair algs), OLL and PLL (the person's own algs),
+// or one ZBLL instead of OLL + PLL when ZBLL is turned on, the edges happen to be oriented and it's fewer moves.
 // cases(): [{g, alg, algs:[...]}]  — every alg the app knows for each F2L, OLL and PLL case, the person's own first.
 function makeAutoSolve(Cube, cases){
   const MOVES = []; ['U','R','F','D','L','B'].forEach(f=>[f, f+'2', f+"'"].forEach(m=>MOVES.push(m)));
@@ -3651,6 +3652,34 @@ function makeAutoSolve(Cube, cases){
   const AUF = ['','U','U2',"U'"];
   const NAMES = {U:'yellow', D:'white', F:'green', B:'blue', R:'orange', L:'red'};
   const pairName = s => `${NAMES[s[22]]}-${NAMES[s[13]]}`;
+  // last layer the CFOP way: OLL, then PLL (each with the person's own alg)
+  const topDone = t => t.slice(0,9).every(x=>x===t[4]);
+  function ollPll(s, opts){ const steps = [];
+    if (!topDone(s)){ let pk = null;
+      for (const c of cases().filter(c=>c.g==='OLL')) for (const a of AUF) for (const alg of c.algs.slice(0,1)){ const t = Cube.apply(s, (a+' '+alg).trim()); const ro = restore(t, s); if (!ro) continue; const u = ro.s;
+          if (topDone(u) && SLOTS.every(k=>slotOK(u,k)) && crossOK(u)){ pk = {mv:(a+' '+alg).trim(), name:c.name, t:u, rot:ro.rot}; break; } if (pk) break; }
+      if (!pk) { if (opts.debug) console.log("OLL fail"); return null; } steps.push({label:pk.name, moves:pk.mv + (pk.rot ? ' ' + pk.rot : ''), kind:'oll'}); s = pk.t; }
+    else steps.push({label:'OLL skip', moves:'', kind:'oll'});
+    // PLL
+    const solvedUp = t => Cube.isSolved(t);
+    let fin = null; for (const a of AUF){ if (solvedUp(a ? Cube.apply(s,a) : s)){ fin = a; break; } }
+    if (fin===null){ let pk = null;
+      for (const c of cases().filter(c=>c.g==='PLL')){ for (const a of AUF){ const t0 = Cube.apply(s, (a+' '+c.algs[0]).trim()); const ro = restore(t0, s); if (!ro) continue; const t = ro.s;
+          for (const b of AUF){ const u = b ? Cube.apply(t,b) : t; if (Cube.isSolved(u)){ pk = {mv:(a+' '+c.algs[0]).trim(), name:c.name+' perm', post:b, rot:ro.rot, t:u}; break; } } if (pk) break; } if (pk) break; }
+      if (!pk) { if (opts.debug) console.log("OLL fail"); return null; } steps.push({label:pk.name, moves:pk.mv + (pk.rot ? ' ' + pk.rot : ''), kind:'pll'}); if (pk.post) steps.push({label:'Last U turn', moves:pk.post, kind:'auf'}); s = pk.t; }
+    else { steps.push({label:'PLL skip', moves:'', kind:'pll'}); if (fin) steps.push({label:'Last U turn', moves:fin, kind:'auf'}); s = fin ? Cube.apply(s, fin) : s; }
+    return {steps, s}; }
+  const stepMoves = st => st.reduce((n,x)=>n + (x.moves ? Cube.parse(Cube.simplify(x.moves)).filter(([m])=>!'xyz'.includes(m)).length : 0), 0);
+  // ZBLL: one alg for the whole last layer, possible only when all four top edges are oriented after F2L
+  function zbll(s){ const Z = cases().filter(c=>c.g==='ZBLL'); if (!Z.length || topDone(s) || ![1,3,5,7].every(i=>s[i]===s[4])) return null;
+    let pk = null;
+    for (const c of Z) for (const a of AUF){ let mv, t0; try { mv = Cube.simplify((a+' '+c.algs[0]).trim()); } catch(e){ continue; } try { t0 = Cube.apply(s, mv); } catch(e){ continue; }
+      const ro = restore(t0, s); if (!ro) continue;
+      for (const b of AUF){ const u = b ? Cube.apply(ro.s, b) : ro.s; if (!Cube.isSolved(u)) continue;
+        const n = stepMoves([{moves:mv}, {moves:b}]); if (!pk || n < pk.n) pk = {n, mv, name:c.name, post:b, rot:ro.rot, t:u}; break; } }
+    if (!pk) return null;
+    const steps = [{label:pk.name, moves:pk.mv + (pk.rot ? ' ' + pk.rot : ''), kind:'zbll'}]; if (pk.post) steps.push({label:'Last U turn', moves:pk.post, kind:'auf'});
+    return {steps, s:pk.t, n:pk.n}; }
   function solve(start, opts){
     opts = opts || {};
     const steps = [];
@@ -3690,21 +3719,10 @@ function makeAutoSolve(Cube, cases){
       steps.push({label:'Take a piece out of a slot', moves:mv, kind:'free'}); s = Cube.apply(s, mv);
     }
     if (!SLOTS.every(k=>slotOK(s,k)) || !crossOK(s)) { if (opts.debug) console.log("F2L stuck", steps.map(x=>x.label+": "+x.moves)); return null; }
-    // OLL
-    const topDone = t => t.slice(0,9).every(x=>x===t[4]);
-    if (!topDone(s)){ let pk = null;
-      for (const c of cases().filter(c=>c.g==='OLL')) for (const a of AUF) for (const alg of c.algs.slice(0,1)){ const t = Cube.apply(s, (a+' '+alg).trim()); const ro = restore(t, s); if (!ro) continue; const u = ro.s;
-          if (topDone(u) && SLOTS.every(k=>slotOK(u,k)) && crossOK(u)){ pk = {mv:(a+' '+alg).trim(), name:c.name, t:u, rot:ro.rot}; break; } if (pk) break; }
-      if (!pk) { if (opts.debug) console.log("OLL fail"); return null; } steps.push({label:pk.name, moves:pk.mv + (pk.rot ? ' ' + pk.rot : ''), kind:'oll'}); s = pk.t; }
-    else steps.push({label:'OLL skip', moves:'', kind:'oll'});
-    // PLL
-    const solvedUp = t => Cube.isSolved(t);
-    let fin = null; for (const a of AUF){ if (solvedUp(a ? Cube.apply(s,a) : s)){ fin = a; break; } }
-    if (fin===null){ let pk = null;
-      for (const c of cases().filter(c=>c.g==='PLL')){ for (const a of AUF){ const t0 = Cube.apply(s, (a+' '+c.algs[0]).trim()); const ro = restore(t0, s); if (!ro) continue; const t = ro.s;
-          for (const b of AUF){ const u = b ? Cube.apply(t,b) : t; if (Cube.isSolved(u)){ pk = {mv:(a+' '+c.algs[0]).trim(), name:c.name+' perm', post:b, rot:ro.rot, t:u}; break; } } if (pk) break; } if (pk) break; }
-      if (!pk) { if (opts.debug) console.log("OLL fail"); return null; } steps.push({label:pk.name, moves:pk.mv + (pk.rot ? ' ' + pk.rot : ''), kind:'pll'}); if (pk.post) steps.push({label:'Last U turn', moves:pk.post, kind:'auf'}); s = pk.t; }
-    else { steps.push({label:'PLL skip', moves:'', kind:'pll'}); if (fin) steps.push({label:'Last U turn', moves:fin, kind:'auf'}); s = fin ? Cube.apply(s, fin) : s; }
+    // last layer: ZBLL when the top edges are already oriented and it's fewer moves than OLL + PLL (only if ZBLL is turned on)
+    const op = ollPll(s, opts), zb = zbll(s);
+    const ll = zb && (!op || zb.n <= stepMoves(op.steps)) ? zb : op;
+    if (!ll) return null; steps.push(...ll.steps); s = ll.s;
     if (!Cube.isSolved(s)) return null;
     const total = steps.reduce((n,x)=>n + (x.moves ? Cube.parse(x.moves).filter(([m])=>!'xyz'.includes(m)).length : 0), 0);
     return {steps, total};
@@ -5464,7 +5482,7 @@ const Viewer = (() => {
 // ---------- auto solve: CFOP steps on the 3D cube ----------
 const AutoSolve = (() => {
   const algsFor = c => { const out = [], add = a => { if (a && !out.includes(a)) out.push(a); }; add(D.custom[c.id]); add(c.alg); c.alts.forEach(x=>add(x.alg)); return out; };
-  const engine = makeAutoSolve(Cube, () => CASES.filter(c=>c.g==='F2L'||c.g==='OLL'||c.g==='PLL').map(c=>({g:c.g, name:c.g==='PLL'?c.name:c.name, algs: c.g==='F2L' ? algsFor(c) : [D.custom[c.id] || c.alg]})));
+  const engine = makeAutoSolve(Cube, () => CASES.filter(c=>c.g==='F2L'||c.g==='OLL'||c.g==='PLL'||c.g==='ZBLL').map(c=>({g:c.g, name:c.g==='ZBLL'?c.full:c.name, algs: c.g==='F2L' ? algsFor(c) : [D.custom[c.id] || c.alg]})));
   function run(state, title, btn){
     const was = btn ? btn.textContent : ''; if (btn){ btn.disabled = true; btn.textContent = 'Solving…'; }
     setTimeout(()=>{ let r = null; try { r = engine.solve(state, {any: cnOn()}); } catch(e){ r = null; }
@@ -5538,7 +5556,7 @@ const HELP = {
   solve:{t:'Solve', s:[
     ['Each solve',['Hold <b>white on top, green in front</b>, then scramble. Scrambles are random-state, like WCA.','With inspection on (Settings), you get 15 seconds: +2 after 15, DNF after 17. With inspection calls on, it beeps once at 8 seconds and twice at 12. Esc or <b>Cancel inspection</b> throws the attempt away.']],
     ['Practice vs competition',['<b>Practice</b> sessions leave DNFs out: ao5 is your last 5 non-DNF solves, best and worst dropped.','<b>Competition</b> sessions follow WCA rules: DNFs count, inspection is always on, and solves come in rounds of 5 with results. Records are kept separately.','Switch type, rename or start a session from the <b>Session</b> panel.']],
-    ['Auto solve',['<b>Auto solve</b> shows the scramble solved CFOP style: cross, four pairs, OLL and PLL, using the algs you\'ve picked as yours. Each step is listed under the 3D cube.','With color neutral on, it picks the cross color with the shortest cross.']],
+    ['Auto solve',['<b>Auto solve</b> shows the scramble solved CFOP style: cross, four pairs, OLL and PLL, using the algs you\'ve picked as yours. Each step is listed under the 3D cube.','With color neutral on, it picks the cross color with the shortest cross.','With ZBLL on, it uses one ZBLL instead of OLL and PLL when the top edges are already oriented after F2L and the ZBLL is fewer moves.']],
     ['Your solves',['Tap any solve to see its scramble and date, change its penalty, redo it, copy it or auto solve it.','A new best single or average is called out right after the solve.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']],
     ['Splits',['Pick <b>Splits</b> next to Timer. While the clock runs, tap (or press a key) as you finish the cross, F2L and OLL, then once more when the cube is solved.','<b>Where your time goes</b> then shows your average for each step.']],
@@ -5585,7 +5603,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14g</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-15a</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
