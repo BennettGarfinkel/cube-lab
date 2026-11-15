@@ -964,6 +964,7 @@ window.CubeLabHost = {
     </details>
     <div class="card card-stage" id="rdStage"></div>
     <p class="stats" id="rdStats"></p>
+    <div class="panel crecent" id="rdRecent" hidden></div>
     <div class="panel" id="rdMissed" hidden></div>
   </section>
 
@@ -2315,7 +2316,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${spot(c)}
     <div class="setgroup"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div>${ctimesHTML(c)}</div>
+      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div>${ctimesHTML(c)}${rtimesHTML(c)}</div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus">Your own algorithm</label>
@@ -2326,7 +2327,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     <div class="setgroup"><label class="glabel" for="cnote">Your notes</label>
       <textarea id="cnote" class="textin" rows="3" maxlength="400" placeholder="Fingertricks, regrips, what to look for…">${esc(D.notes[c.id]||'')}</textarea>
       <div class="row"><button class="btn alt sm" data-act="savenote">Save notes</button><span class="msg" id="noteMsg" aria-live="polite"></span></div></div>`; }
-let ctOpen = false;
+let ctOpen = false, rtOpen = false;
 function ctimesHTML(c){ const t = D.times[c.id]||[]; if (!t.length) return '';
   return `<details class="ctimes"${ctOpen?' open':''}><summary>Your times <span class="stats">${t.length}</span></summary>
     <div class="ctlist">${t.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-tdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
@@ -2342,12 +2343,23 @@ function delCaseTime(c, i){ const t = D.times[c.id]; if (!t || i<0 || i>=t.lengt
     if (ak){ const mm = D.algt[c.id]||(D.algt[c.id]={}), b = mm[ak]||(mm[ak]=[]); b.splice(Math.min(j,b.length),0,v); }
     if (cs) cs.n++; if (se){ tSess.splice(Math.min(si,tSess.length),0,se); keepSess(); }
     save(); if (caseId===c.id) renderCasePage(); }); }
+function rtimesHTML(c){ const r = D.recog[c.id]||[]; if (!r.length) return '';
+  return `<details class="ctimes rtimes"${rtOpen?' open':''}><summary>Recognition times <span class="stats">${r.length}</span></summary>
+    <div class="ctlist">${r.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-rdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
+    <p class="stats">Newest first. From timed flashcards. Recognition uses your last 10.</p></details>`; }
+// deleting here also stops the session's recent-cards list from removing the same time again
+const unkeep = (list, id, v) => { const e = list.find(x=>x.id===id && x.kept && +x.t.toFixed(2)===v); if (e) e.kept = false; return e; };
+function delRecog(c, i){ const r = D.recog[c.id]; if (!r || i<0 || i>=r.length) return; const v = r[i]; r.splice(i,1); if (!r.length) delete D.recog[c.id];
+  const e = unkeep(cardRecent, c.id, v);
+  save(); renderCasePage();
+  Toast.show(`Deleted ${v.toFixed(2)}s`, ()=>{ const a = D.recog[c.id]||(D.recog[c.id]=[]); a.splice(Math.min(i,a.length),0,v); if (e) e.kept = true; save(); if (caseId===c.id) renderCasePage(); }); }
 function openCase(id){ if (!$('#v-learn').hidden){ learnScroll = window.scrollY; caseFromLearn = true; } location.hash = '#case-' + id; }
 $('#caseBack').addEventListener('click', ()=>{ if (caseFromLearn){ caseFromLearn = false; history.back(); } else location.hash = '#learn'; });
-$('#caseBody').addEventListener('toggle', e=>{ if (e.target.classList && e.target.classList.contains('ctimes')) ctOpen = e.target.open; }, true);
+$('#caseBody').addEventListener('toggle', e=>{ if (e.target.classList && e.target.classList.contains('ctimes')){ if (e.target.classList.contains('rtimes')) rtOpen = e.target.open; else ctOpen = e.target.open; } }, true);
 $('#caseBody').addEventListener('click', e=>{ const c = BYID[caseId]; if (!c) return;
   const al=e.target.closest('[data-alt]'); if(al){ Viewer.open(c, +al.dataset.alt); return; }
   const mn=e.target.closest('[data-mine]'); if(mn){ setMine(c, +mn.dataset.mine); renderCasePage(); return; }
+  const rdl=e.target.closest('[data-rdel]'); if(rdl){ delRecog(c, +rdl.dataset.rdel); const nb=$(`#caseBody [data-rdel="${Math.max(0,+rdl.dataset.rdel-1)}"]`)||$('#caseBody .rtimes summary'); if(nb) nb.focus({preventScroll:true}); return; }
   const td=e.target.closest('[data-tdel]'); if(td){ delCaseTime(c, +td.dataset.tdel); const nb=$(`#caseBody [data-tdel="${Math.max(0,+td.dataset.tdel-1)}"]`)||$('#caseBody .ctimes summary'); if(nb) nb.focus({preventScroll:true}); return; }
   const b=e.target.closest('[data-act]'); if(!b) return;
   if (b.dataset.act==='status'){ const nx={new:'learning',learning:'learned',learned:'new'}[status(c.id)]; D.status[c.id]=nx; save(); b.className='status '+nx; b.textContent=nx; }
@@ -4644,7 +4656,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     ${second}
     <div class="setgroup cs-stats"><span class="glabel">Your stats</span>
       ${nd.tier?`<span class="needline"><i class="nd ${nd.tier}"></i><b>${TIER_NAME[nd.tier]}</b>${nd.why?' · '+esc(nd.why):''}${esc(shortHint(c, nd))}</span>`:''}
-      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div>${ctimesHTML(c)}</div>
+      <div class="cstats">${stat('Case avg', a?a.toFixed(2)+'s':'–')}${stat('Solves', cs&&cs.n ? cs.n : (D.times[c.id]||[]).length || '–')}${stat('DNF', cs&&cs.n ? Math.round(100*cs.d/cs.n)+'%' : '–')}${stat('Recognition', r!==null ? r.toFixed(2)+'s' : '–')}${stat('Alg TPS', tp ? tp.toFixed(1) : '–')}${stat('Flashcards', cd&&(cd.h+cd.m) ? cd.h+' / '+(cd.h+cd.m) : '–')}</div>${ctimesHTML(c)}${rtimesHTML(c)}</div>
     <div class="setgroup"><span class="glabel">Algorithms</span><span class="stats">Tap Mine on the alg you use. It replaces the default everywhere.</span>
       <div>${algList(c).map((x,i)=>{ const me=mineIdx(c)===i; return `<div class="altitem"><div class="althead"><b>Alg ${x.n}</b><span class="altsrc">${x.n===1?'Default · ':''}${esc(x.src)}</span><button data-alt="${i}" aria-label="Alg ${x.n} in 3D">3D</button><button data-mine="${i}" class="${me?'mine':''}" aria-pressed="${me}">${me?'✓ Mine':'Mine'}</button></div><code>${esc(x.alg)}</code>${algAvg(x.alg)}</div>`; }).join('')}</div>
       <div class="srow"><label class="slabel" for="cus3">Your own algorithm</label>
@@ -4655,7 +4667,7 @@ function renderCasePage(){ const c = BYID[caseId]; if (!c) return; const st = st
     <div class="setgroup"><label class="glabel" for="cnote3">Your notes</label>
       <textarea id="cnote3" class="textin" rows="3" maxlength="400" placeholder="Fingertricks, regrips, what to look for…">${esc(D.notes[c.id]||'')}</textarea>
       <div class="row"><button class="btn alt sm" data-act="savenote">Save notes</button><span class="msg" id="noteMsg" aria-live="polite"></span></div></div>`; }
-let ctOpen = false;
+let ctOpen = false, rtOpen = false;
 function ctimesHTML(c){ const t = D.times[c.id]||[]; if (!t.length) return '';
   return `<details class="ctimes"${ctOpen?' open':''}><summary>Your times <span class="stats">${t.length}</span></summary>
     <div class="ctlist">${t.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-tdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
@@ -4671,12 +4683,23 @@ function delCaseTime(c, i){ const t = D.times[c.id]; if (!t || i<0 || i>=t.lengt
     if (ak){ const mm = D.algt[c.id]||(D.algt[c.id]={}), b = mm[ak]||(mm[ak]=[]); b.splice(Math.min(j,b.length),0,v); }
     if (cs) cs.n++; if (se){ tSess.splice(Math.min(si,tSess.length),0,se); keepSess(); }
     save(); if (caseId===c.id) renderCasePage(); }); }
+function rtimesHTML(c){ const r = D.recog[c.id]||[]; if (!r.length) return '';
+  return `<details class="ctimes rtimes"${rtOpen?' open':''}><summary>Recognition times <span class="stats">${r.length}</span></summary>
+    <div class="ctlist">${r.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-rdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
+    <p class="stats">Newest first. From timed flashcards and the Recognition drill. Recognition uses your last 10.</p></details>`; }
+// deleting here also stops the session's recent-cards list from removing the same time again
+const unkeep = (list, id, v) => { const e = list.find(x=>x.id===id && x.kept && +x.t.toFixed(2)===v); if (e) e.kept = false; return e; };
+function delRecog(c, i){ const r = D.recog[c.id]; if (!r || i<0 || i>=r.length) return; const v = r[i]; r.splice(i,1); if (!r.length) delete D.recog[c.id];
+  const e = unkeep(cardRecent, c.id, v) || unkeep(rdRecent, c.id, v);
+  save(); renderCasePage();
+  Toast.show(`Deleted ${v.toFixed(2)}s`, ()=>{ const a = D.recog[c.id]||(D.recog[c.id]=[]); a.splice(Math.min(i,a.length),0,v); if (e) e.kept = true; save(); if (caseId===c.id) renderCasePage(); }); }
 function openCase(id){ if (!$('#v-learn').hidden){ learnScroll = window.scrollY; caseFromLearn = true; } location.hash = '#case-' + id; }
 $('#caseBack').addEventListener('click', ()=>{ if (caseFromLearn){ caseFromLearn = false; history.back(); } else location.hash = '#learn'; });
-$('#caseBody').addEventListener('toggle', e=>{ if (e.target.classList && e.target.classList.contains('ctimes')) ctOpen = e.target.open; }, true);
+$('#caseBody').addEventListener('toggle', e=>{ if (e.target.classList && e.target.classList.contains('ctimes')){ if (e.target.classList.contains('rtimes')) rtOpen = e.target.open; else ctOpen = e.target.open; } }, true);
 $('#caseBody').addEventListener('click', e=>{ const c = BYID[caseId]; if (!c) return;
   const al=e.target.closest('[data-alt]'); if(al){ Viewer.open(c, +al.dataset.alt); return; }
   const mn=e.target.closest('[data-mine]'); if(mn){ setMine(c, +mn.dataset.mine); renderCasePage(); return; }
+  const rdl=e.target.closest('[data-rdel]'); if(rdl){ delRecog(c, +rdl.dataset.rdel); const nb=$(`#caseBody [data-rdel="${Math.max(0,+rdl.dataset.rdel-1)}"]`)||$('#caseBody .rtimes summary'); if(nb) nb.focus({preventScroll:true}); return; }
   const td=e.target.closest('[data-tdel]'); if(td){ delCaseTime(c, +td.dataset.tdel); const nb=$(`#caseBody [data-tdel="${Math.max(0,+td.dataset.tdel-1)}"]`)||$('#caseBody .ctimes summary'); if(nb) nb.focus({preventScroll:true}); return; }
   const b=e.target.closest('[data-act]'); if(!b) return;
   if (b.dataset.act==='status'){ const nx={new:'learning',learning:'learned',learned:'new'}[status(c.id)]; D.status[c.id]=nx; save(); b.className='status '+nx; b.textContent=nx; renderProgress(); }
@@ -5130,6 +5153,20 @@ const rdFix = () => { if (!GSETS[rdGroup].some(s=>rdSel.has(s))) GSETS[rdGroup].
 let rdStatus = ['all','learning','learned','active'].includes(D.prefs.rdStatus) ? D.prefs.rdStatus : 'all';
 let rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
 let rd = null, rdRaf = 0; const rdSess = {n:0, c:0, t:[]};
+// recent drill answers this session; ✕ deletes the time and takes back the right / wrong
+const rdRecent = [];
+function renderRdRecent(){ const box=$('#rdRecent'); box.hidden = !rdRecent.length; if (box.hidden) return;
+  box.innerHTML = `<span class="label">Recent cases</span>` + rdRecent.map((e,i)=>{ const c=BYID[e.id]; return `<div class="crow"><span>${esc(c?c.full:e.id)}</span><span class="ct">${e.t.toFixed(2)}s</span><span class="cres" style="color:var(--${e.ok?'good':'bad'})">${e.ok?'Right':'Wrong'}</span><button class="cdel" data-rddel="${i}" aria-label="Delete this answer">✕</button></div>`; }).join(''); }
+$('#rdRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-rddel]'); if(!b) return; const i=+b.dataset.rddel, e=rdRecent[i]; if(!e) return;
+  const newest = !rdRecent.slice(0,i).some(x=>x.id===e.id);
+  D.rd.n = Math.max(0,(D.rd.n||0)-1); if (e.ok) D.rd.c = Math.max(0,(D.rd.c||0)-1);
+  rdSess.n = Math.max(0,rdSess.n-1); if (e.ok){ rdSess.c = Math.max(0,rdSess.c-1); const j = rdSess.t.lastIndexOf(e.t); if (j>=0) rdSess.t.splice(j,1); }
+  const miss = D.rd.miss || (D.rd.miss = {});
+  if (newest){ if (e.prevMiss) miss[e.id] = e.prevMiss; else delete miss[e.id]; }
+  else if (e.ok) miss[e.id] = (miss[e.id]||0)+1; else { miss[e.id] = (miss[e.id]||0)-1; if (miss[e.id]<=0) delete miss[e.id]; }
+  const s = D.cards[e.id]; if (s && newest){ if (e.prevL) s.l = e.prevL; else delete s.l; if (!s.h && !s.m && !s.t && !s.l) delete D.cards[e.id]; }
+  if (e.kept){ const r = D.recog[e.id]; if (r){ const j = r.lastIndexOf(+e.t.toFixed(2)); if (j>=0) r.splice(j,1); if (!r.length) delete D.recog[e.id]; } }
+  rdRecent.splice(i,1); save(); rdStats(); renderRdRecent(); });
 function rdPool(){ let l = CASES.filter(c=>c.g===rdGroup && rdSel.has(c.set));
   if (rdStatus==='learning'||rdStatus==='learned') l = l.filter(c=>status(c.id)===rdStatus); else if (rdStatus==='active') l = l.filter(c=>status(c.id)!=='new'); return l; }
 function rdSummary(){ const sets = GSETS[rdGroup].filter(s=>rdSel.has(s)); $('#rdSummary').textContent = [rdGroup, sets.length===GSETS[rdGroup].length ? 'All sets' : sets.map(s=>SET_SHORT[s]||s).join(', '), {learning:'Learning only',learned:'Learned only',active:'Learning + Learned'}[rdStatus]||'', rdGroup==='F2L' ? '' : (rdView==='iso'?'Two sides':'Top')].filter(Boolean).join(' · '); }
@@ -5173,9 +5210,11 @@ $('#rdStage').addEventListener('click', e=>{ const b = e.target.closest('[data-r
   if (b.dataset.rd==='arm'){ rd.armed = true; renderRd(); return; }
   if (b.dataset.rd==='next'){ rdNew(); rd.armed = true; renderRd(); return; }
   if (b.dataset.ans && !rd.done){ cancelAnimationFrame(rdRaf); const t = (performance.now()-rd.t0)/1000, pick = BYID[b.dataset.ans], ok = pick===rd.c;
+    const prevMiss = (D.rd.miss||{})[rd.c.id]||0, prevL = (D.cards[rd.c.id]||{}).l;
     rd.done = {ok, t, pick}; touchDay(); D.rd.n = (D.rd.n||0)+1; if (ok) D.rd.c = (D.rd.c||0)+1; rdSess.n++; if (ok){ rdSess.c++; rdSess.t.push(t); }
     const miss = D.rd.miss || (D.rd.miss = {}); if (ok){ if (miss[rd.c.id]) { miss[rd.c.id]--; if (!miss[rd.c.id]) delete miss[rd.c.id]; } } else miss[rd.c.id] = (miss[rd.c.id]||0)+1;
-    if (ok && t < 20){ const r = D.recog[rd.c.id] || (D.recog[rd.c.id] = []); r.push(+t.toFixed(2)); if (r.length>20) r.shift(); }
+    const kept = ok && t < 20; if (kept){ const r = D.recog[rd.c.id] || (D.recog[rd.c.id] = []); r.push(+t.toFixed(2)); if (r.length>20) r.shift(); }
+    rdRecent.unshift({id:rd.c.id, ok, t, kept, prevMiss, prevL}); if (rdRecent.length>8) rdRecent.pop(); renderRdRecent();
     { const s = D.cards[rd.c.id] || (D.cards[rd.c.id] = {h:0, m:0}); s.l = ((s.l||'') + (ok ? 'h' : 'm')).slice(-10); }
     save(); renderRd(); rdStats(); } });
 function rdStats(){ const m = rdSess.t.length ? rdSess.t.reduce((a,b)=>a+b,0)/rdSess.t.length : null;
@@ -5427,7 +5466,7 @@ const HELP = {
     ['Targets and trends',['Set a <b>target time</b> in the Session panel to draw it on the chart and count how many recent solves beat it.','<b>Progress over time</b> shows one point per day you practiced, and each time your best single fell.']]]},
   recog:{t:'Recognition drill', s:[
     ['The idea',['A case appears the way you\'d see it mid-solve: the top plus the two sides facing you. Any side can be in front, and the top may be turned.','Pick the case as fast as you can. PLL shows all 21 names; other sets show six options.']],
-    ['What it tracks',['Right answers feed your recognition time, which the colored dots and Weak first use.','Cases you mix up come up more, and show under <b>Mixed up most</b>.']],
+    ['What it tracks',['Right answers feed your recognition time, which the colored dots and Weak first use.','Cases you mix up come up more, and show under <b>Mixed up most</b>.','Your last few answers show under the drill. Tap ✕ on one to delete its time and take back the right or wrong. Older times can be deleted from a case\'s details.']],
     ['Keyboard',['Space starts, and moves to the next case after you answer.']]]},
 };
 const Help = (() => { const sh = $('#helpSheet');
@@ -5467,7 +5506,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14e</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14f</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
