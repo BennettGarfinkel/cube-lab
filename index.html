@@ -332,7 +332,9 @@ details.help[open]>summary .hlink{display:none}
 /* focus mode: only the time while a solve runs */
 /* everything else fades out, then is hidden outright: some browsers (Safari's engine, which Chrome on iPad uses too) can leave
    faded text showing, and hidden can't show through. Coming back it's visible at once and fades in. */
-header.top,nav.tabs,section.view>*,.scrbox{transition:opacity .2s,visibility 0s}
+header.top,nav.tabs,section.view>*,.scrbox{transition:opacity .2s,visibility 0s;will-change:opacity}
+/* Safari's engine can leave stale pixels where a faded part didn't change; once hidden, outline nudges a repaint of that area */
+body.focus.focusdone header.top,body.focus.focusdone nav.tabs,body.focus.focusdone section.view>:not(.stage),body.focus.focusdone .scrbox:not(.keep){outline:1px solid transparent}
 body.focus header.top,body.focus nav.tabs,body.focus section.view>:not(.stage),body.focus .scrbox{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,visibility 0s linear .2s}
 body.focus .stage{border-color:transparent;box-shadow:none;background:transparent}
 body.focus .stage .timer{border-top-color:transparent}
@@ -1140,6 +1142,8 @@ const CubeLab = (() => {
     f('wheel', noScroll, {passive:false}); f('touchmove', noScroll, {passive:false}); f('keydown', noScrollKey, true); }
   function focusMode(on, timerEl){ const was = document.body.classList.contains('focus'); document.body.classList.toggle('focus', !!on);
     if (!!on !== was) scrollLock(!!on);
+    clearTimeout(focusMode.t); document.body.classList.remove('focusdone');
+    if (on) focusMode.t = setTimeout(()=>{ if (document.body.classList.contains('focus')) document.body.classList.add('focusdone'); }, 260);
     if (!on || was || !timerEl) return; const r = timerEl.getBoundingClientRect(), top = 70, bottom = innerHeight - 20;
     if (r.top < top || r.bottom > bottom) window.scrollBy(0, r.top + r.height/2 - innerHeight/2); }
   // the tab underline glides to the active tab; the view fades up
@@ -5388,7 +5392,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14b</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-14c</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
