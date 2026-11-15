@@ -2629,6 +2629,9 @@ let tMode = ['weak','deck','random','daily'].includes(D.prefs.tMode) ? D.prefs.t
 let tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr', tPair = null;
 let tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs', fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer', fsLast = null;
 const PRO_TPS = 13;
+// TPS bar color: red at 2 or slower, yellow at 6, green from 11 up, blended in between (follows light/dark theme)
+const tpsColor = t => { const mix = (a, b, f) => `color-mix(in oklab, var(${b}) ${Math.round(f*100)}%, var(${a}))`;
+  return t <= 2 ? 'var(--bad)' : t < 6 ? mix('--bad', '--accent', (t-2)/4) : t < 11 ? mix('--accent', '--good', (t-6)/5) : 'var(--good)'; };
 // average with one alg (its last 12 times). A case with no per-alg times yet uses the case average.
 function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return avg(id); const t=ak&&m[ak]; if(!t||!t.length) return null; const r=t.slice(-12); return r.reduce((a,b)=>a+b,0)/r.length; }
 function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : avg(id); }
@@ -2824,7 +2827,7 @@ function renderTRes(){
   if(!e) $('#tResult').hidden=true;
   else { const c=e.c, a=avg(c.id); $('#tResult').hidden=false;
     const tps = e.k && e.mv && e.pen!=='DNF' && e.cur>0 ? e.mv/e.cur : null;
-    const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%"></i></div>`;
+    const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%;background:${tpsColor(tps)}"></i></div>`;
     const st=status(c.id);
     $('#tResult').innerHTML=`<div class="result">${diagBtn(c,{tag:false})}<div>
         <div class="rhead"><h3>${c.full}</h3><button class="status ${st}" data-rst="${c.id}" aria-label="Status for ${c.full}: ${st}. Tap to change">${st}</button></div>
@@ -5002,6 +5005,9 @@ $('#tSets').addEventListener('click', e=>{ if(e.target.closest('[data-allsets]')
 $('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=b.dataset.ts; renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 const PRO_TPS = 12;
+// TPS bar color: red at 2 or slower, yellow at 6, green from 11 up, blended in between (follows light/dark theme)
+const tpsColor = t => { const mix = (a, b, f) => `color-mix(in oklab, var(${b}) ${Math.round(f*100)}%, var(${a}))`;
+  return t <= 2 ? 'var(--bad)' : t < 6 ? mix('--bad', '--accent', (t-2)/4) : t < 11 ? mix('--accent', '--good', (t-6)/5) : 'var(--good)'; };
 const kAvg = id => avg(id);
 const kTimes = id => D.times[id];
 function algPair(c){ const a = fitAlg(c, algOf(c)); return {setup:Cube.simplify(Cube.invert(a)), alg:a, ak:algOf(c)}; }
@@ -5179,7 +5185,7 @@ function renderTRes(){
   if(!e) $('#tResult').hidden=true;
   else { const c=e.c, a=avg(c.id); $('#tResult').hidden=false;
     const tps = e.k && e.mv && e.pen!=='DNF' && e.cur>0 ? e.mv/e.cur : null;
-    const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%"></i></div>`;
+    const tpsHTML = tps===null ? '' : `<div class="tpsrow"><span><b style="color:var(--ink);font-size:15px">${tps.toFixed(1)} TPS</b> · ${e.mv} moves</span><span>Pro ≈ ${PRO_TPS}</span></div><div class="tpsbar" aria-hidden="true"><i style="width:${Math.min(100,tps/PRO_TPS*100).toFixed(0)}%;background:${tpsColor(tps)}"></i></div>`;
     const st=status(c.id);
     $('#tResult').innerHTML=`<div class="result">${diagBtn(c,{tag:false})}<div>
         <div class="rhead"><h3>${esc(c.full)}</h3><button class="status ${st}" data-rst="${c.id}" aria-label="Status for ${esc(c.full)}: ${st}. Tap to change">${st}</button></div>
@@ -5603,7 +5609,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-15a</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-15b</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
