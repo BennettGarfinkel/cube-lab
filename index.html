@@ -355,7 +355,7 @@ body.focus .stage .timer{border-top-color:transparent}
 /* learn */
 .groups{gap:14px}.gsum strong{font-size:16px}
 .bar{height:5px}
-.gsum:nth-child(1) .bar b{background:var(--s-F)}.gsum:nth-child(2) .bar b{background:var(--s-B)}.gsum:nth-child(3) .bar b{background:var(--s-R)}.gsum:nth-child(5) .bar b{background:var(--s-L)}
+
 
 .zbsub{display:flex;flex-direction:column;gap:10px}.zbhead{display:flex;gap:12px;align-items:center;padding-top:6px}.zbhead .diag{width:56px;flex:none}.zbhead p{font-size:13.5px;color:var(--muted)}
 .sethead{background:none;border:0;border-radius:0;padding:0}
@@ -1710,7 +1710,7 @@ function makeSV(X){
   let shareBlob = null;
   function drawCard(){
     const cs = getComputedStyle(document.documentElement), v = n => cs.getPropertyValue(n).trim();
-    const C = {bg:v('--bg'), surf:v('--surface'), ink:v('--ink'), mut:v('--muted'), line:v('--line'), chip:v('--chip'), F:v('--s-F'), B:v('--s-B'), R:v('--s-R'), L:v('--s-L'), U:v('--s-U')};
+    const C = {bg:v('--bg'), surf:v('--surface'), ink:v('--ink'), mut:v('--muted'), line:v('--line'), chip:v('--chip'), good:v('--good'), F:v('--s-F'), B:v('--s-B'), R:v('--s-R'), L:v('--s-L'), U:v('--s-U')};
     const W = 1080, H = 1350, P = 72, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
     const DISP = '"Familjen Grotesk", "Helvetica Neue", Arial, sans-serif', MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
     const rr = (x,y,w,h,r) => { g.beginPath(); if (g.roundRect) g.roundRect(x,y,w,h,r); else g.rect(x,y,w,h); };
@@ -1746,7 +1746,7 @@ function makeSV(X){
     text(`${so.length} solve${so.length===1?'':'s'}${mean!==null?' · mean '+fmt(mean):''}`, P, cy+24+ch+42, `500 24px ${DISP}`, C.mut);
     // cases learned
     const py = 1188; text('Cases learned', P, py, `700 34px ${DISP}`, C.ink);
-    const cols = [C.F, C.B, C.R, C.L], gw = (W-2*P-3*24)/4;
+    const cols = [C.good, C.good, C.good, C.good], gw = (W-2*P-3*24)/4;
     X.GROUPS.forEach((gr,i)=>{ const all = X.CASES.filter(c=>c.g===gr), n = all.length, a = all.filter(c=>['learned','mastered'].includes(X.status(c.id))).length, x = P+i*(gw+24);
       text(gr, x, py+56, `700 24px ${DISP}`, C.ink); text(`${a}/${n}`, x+gw, py+56, `500 26px ${MONO}`, C.mut, 'right');
       g.fillStyle = C.chip; rr(x, py+76, gw, 14, 7); g.fill(); if (a){ g.fillStyle = cols[i]; rr(x, py+76, Math.max(14, gw*a/n), 14, 7); g.fill(); } });
