@@ -2158,15 +2158,18 @@ let nxNew = false;
 function nextPick(){ const cs = CASES.filter(c=>c.g===learnGroup), st = c => status(c.id);
   // a "set" for finishing what you started; ZBLL goes one corner group of 12 at a time
   const unit = c => c.g==='ZBLL' ? c.set+'#'+c.sub : c.set, unitName = c => c.g==='ZBLL' ? `${SET_SHORT[c.set]||c.set} group ${c.sub+1}` : `${SET_NAME[c.set]||c.set} set`;
-  const learning = cs.filter(c=>st(c)==='learning'), started = new Set(cs.filter(c=>st(c)!=='new').map(unit));
-  // CLL and EG: Sune and Anti-Sune, then T, U, L, Pi, H (shortest alg first within a set); F2L: shortest first; the rest: their usual order
-  const SO = ['Sune','Anti-Sune','T','U','L','Pi','H','Oriented'], so = c => { const i = SO.indexOf(c.set); return i < 0 ? 99 : i; };
+  const learning = cs.filter(c=>st(c)==='learning');
+  // CLL and EG: sets in the order Learn lists them (Sune, Anti-Sune, Pi, H, U, T, L, Oriented), cases in number order; F2L: shortest first; the rest: their usual order
+  const SO = ['Sune','Anti-Sune','Pi','H','U','T','L','O'], so = c => { const i = SO.indexOf(c.set); return i < 0 ? 99 : i; };
   const byLen = learnGroup==='F2L', bySet = ['CLL','EG-1','EG-2'].includes(learnGroup);
-  const order = c => bySet ? [so(c), moveCount(algOf(c))] : byLen ? [moveCount(algOf(c)), learnRank(c)] : [learnRank(c), 0];
-  const fresh = cs.filter(c=>st(c)==='new').map(c=>({c, k:[started.has(unit(c))?0:1, ...order(c)]}))
+  const order = c => bySet ? [so(c), CASES.indexOf(c)] : byLen ? [moveCount(algOf(c)), learnRank(c)] : [learnRank(c), 0];
+  // keep going in the set you touched last (the latest status change), not any set with one stray case marked
+  const when = c => (D.stamp && D.stamp['status:'+c.id]) || 0;
+  let cur = null, curT = 0; for (const c of cs) if (st(c)!=='new' && when(c) > curT){ curT = when(c); cur = unit(c); }
+  const fresh = cs.filter(c=>st(c)==='new').map(c=>({c, k:[unit(c)===cur?0:1, ...order(c)]}))
     .sort((x,y)=>x.k[0]-y.k[0] || x.k[1]-y.k[1] || x.k[2]-y.k[2]);
   const f0 = fresh[0];
-  const learn = f0 ? {c:f0.c, why: f0.k[0]===0 ? `Finishes the ${unitName(f0.c)} you started` : byLen ? `Short alg, ${moveCount(algOf(f0.c))} moves` : 'Next in the suggested order'} : null;
+  const learn = f0 ? {c:f0.c, why: f0.k[0]===0 ? `Next in the ${unitName(f0.c)} you're working on` : byLen ? `Short alg, ${moveCount(algOf(f0.c))} moves` : 'Next in the suggested order'} : null;
   const tries = c => (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length;
   const prac = learning.map(c=>({c, nd:need(c), n:tries(c)})).sort((x,y)=>(x.n<5?0:1)-(y.n<5?0:1) || (y.nd.score||0)-(x.nd.score||0))[0];
   const practice = prac && learning.length >= 4 && (prac.n < 5 || prac.nd.tier !== 'strong')
@@ -2189,7 +2192,7 @@ $('#nextUp').addEventListener('click', e=>{
   if (e.target.closest('[data-nxprac]')){ nxNew = false; renderNext(); return; }
   const d = e.target.closest('[data-nxdrill]'); if (d){ drillCase(d.dataset.nxdrill); location.hash = '#timer'; return; }
   const b=e.target.closest('[data-nxstart]'); if(!b) return; D.status[b.dataset.nxstart]='learning'; nxNew=false; save(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); });
-const LEARN_SETS=['Sune','Anti-Sune','T','U','L','Pi','H','O','OLL','PBL'], learnRank=c=>LEARN_SETS.indexOf(c.set)*1000+CASES.indexOf(c);
+const LEARN_SETS=['Sune','Anti-Sune','Pi','H','U','T','L','O','OLL','PBL'], learnRank=c=>LEARN_SETS.indexOf(c.set)*1000+CASES.indexOf(c);
 // days you practiced, for the streak (kept for about a year)
 const dayKeyOf = t => { const d=new Date(t); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 function touchDay(){ const k=dayKeyOf(Date.now()); D.act[k]=(D.act[k]||0)+1; const ks=Object.keys(D.act); if(ks.length>400) for(const x of ks.sort().slice(0, ks.length-400)) delete D.act[x]; }
@@ -3355,10 +3358,10 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.']],
-    ['What to work on next',['<b>Learn next</b> picks a case to start: it finishes sets you\'ve started, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
+    ['What to work on next',['<b>Learn next</b> picks a case to start: it keeps going in the set you changed most recently, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), your case time from the Case timer, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
     ['Ortega',['New to 2x2 speed methods? Start with <b>Ortega</b>: solve the bottom face, orient the top (7 OLLs), then fix both layers (5 PBLs). Its cases work like every other case here, including the Case timer.']],
-    ['Suggested order',['CLL first, then EG-1 (adjacent swap on the bottom), then EG-2 (diagonal swap).','Within each: Sune and Anti-Sune, then T, U, L, Pi, H.']],
+    ['Suggested order',['CLL first, then EG-1 (adjacent swap on the bottom), then EG-2 (diagonal swap).','Within each: the sets in the order listed here (Sune, Anti-Sune, Pi, H, U, T, L, Oriented), case 1 first.']],
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
     ['Make it yours',['Open a card\'s details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes.']]]},
   cards:{t:'Flashcards', s:[
@@ -4573,15 +4576,18 @@ let nxNew = false;
 function nextPick(){ const cs = CASES.filter(c=>c.g===learnGroup), st = c => status(c.id);
   // a "set" for finishing what you started; ZBLL goes one corner group of 12 at a time
   const unit = c => c.g==='ZBLL' ? c.set+'#'+c.sub : c.set, unitName = c => c.g==='ZBLL' ? `${SET_SHORT[c.set]||c.set} group ${c.sub+1}` : `${SET_NAME[c.set]||c.set} set`;
-  const learning = cs.filter(c=>st(c)==='learning'), started = new Set(cs.filter(c=>st(c)!=='new').map(unit));
-  // CLL and EG: Sune and Anti-Sune, then T, U, L, Pi, H (shortest alg first within a set); F2L: shortest first; the rest: their usual order
-  const SO = ['Sune','Anti-Sune','T','U','L','Pi','H','Oriented'], so = c => { const i = SO.indexOf(c.set); return i < 0 ? 99 : i; };
+  const learning = cs.filter(c=>st(c)==='learning');
+  // CLL and EG: sets in the order Learn lists them (Sune, Anti-Sune, Pi, H, U, T, L, Oriented), cases in number order; F2L: shortest first; the rest: their usual order
+  const SO = ['Sune','Anti-Sune','Pi','H','U','T','L','O'], so = c => { const i = SO.indexOf(c.set); return i < 0 ? 99 : i; };
   const byLen = learnGroup==='F2L', bySet = ['CLL','EG-1','EG-2'].includes(learnGroup);
-  const order = c => bySet ? [so(c), moveCount(algOf(c))] : byLen ? [moveCount(algOf(c)), learnRank(c)] : [learnRank(c), 0];
-  const fresh = cs.filter(c=>st(c)==='new').map(c=>({c, k:[started.has(unit(c))?0:1, ...order(c)]}))
+  const order = c => bySet ? [so(c), CASES.indexOf(c)] : byLen ? [moveCount(algOf(c)), learnRank(c)] : [learnRank(c), 0];
+  // keep going in the set you touched last (the latest status change), not any set with one stray case marked
+  const when = c => (D.stamp && D.stamp['status:'+c.id]) || 0;
+  let cur = null, curT = 0; for (const c of cs) if (st(c)!=='new' && when(c) > curT){ curT = when(c); cur = unit(c); }
+  const fresh = cs.filter(c=>st(c)==='new').map(c=>({c, k:[unit(c)===cur?0:1, ...order(c)]}))
     .sort((x,y)=>x.k[0]-y.k[0] || x.k[1]-y.k[1] || x.k[2]-y.k[2]);
   const f0 = fresh[0];
-  const learn = f0 ? {c:f0.c, why: f0.k[0]===0 ? `Finishes the ${unitName(f0.c)} you started` : byLen ? `Short alg, ${moveCount(algOf(f0.c))} moves` : 'Next in the suggested order'} : null;
+  const learn = f0 ? {c:f0.c, why: f0.k[0]===0 ? `Next in the ${unitName(f0.c)} you're working on` : byLen ? `Short alg, ${moveCount(algOf(f0.c))} moves` : 'Next in the suggested order'} : null;
   const tries = c => (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length;
   const prac = learning.map(c=>({c, nd:need(c), n:tries(c)})).sort((x,y)=>(x.n<5?0:1)-(y.n<5?0:1) || (y.nd.score||0)-(x.nd.score||0))[0];
   const practice = prac && learning.length >= 4 && (prac.n < 5 || prac.nd.tier !== 'strong')
@@ -5548,7 +5554,7 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 const HELP = {
   learn:{t:'Learn', s:[
     ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
-    ['What to work on next',['<b>Learn next</b> picks a case to start: it finishes sets you\'ve started, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
+    ['What to work on next',['<b>Learn next</b> picks a case to start: it keeps going in the set you changed most recently, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), your case time from the Case timer, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
     ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Turn it on in Settings, then learn it a group of 12 at a time.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
