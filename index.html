@@ -115,13 +115,14 @@ button.gsum[aria-pressed="false"] strong{color:var(--muted)}
 .dbtn svg.diag{width:100%;max-width:150px}
 .dbtn svg.sides{width:100%;max-width:150px}
 .dbtn .tag3d{position:absolute;top:0;right:0;font-size:10px;font-weight:700;letter-spacing:.05em;background:var(--ink);color:var(--bg);border-radius:5px;padding:2px 5px}
-.case .meta{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.case .meta{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px}
 .alg{font-family:var(--f-mono);font-size:12.5px;line-height:1.5;background:var(--chip);border-radius:7px;padding:6px 8px;word-spacing:2px;overflow-wrap:anywhere}
 .rec{font-size:12px;color:var(--muted)}
 .status{border:0;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:4px 8px;border-radius:999px;background:var(--chip);color:var(--muted);flex:none}
 .status.learning{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
 .status.learned{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good)}
-.status.mastered{background:var(--mast);color:#fff;letter-spacing:.01em;padding:4px 7px 4px 6px}.status.mastered::before{content:'★';margin-right:2px;font-size:10px}
+.status.mastered{background:var(--mast);color:#fff;letter-spacing:0;padding:4px 7px 4px 6px}.status.mastered::before{content:'★';margin-right:2px;font-size:9.5px}
+.case .status.mastered{font-size:10.5px;padding:4px 6px 4px 5px}
 .spill{align-self:flex-start;justify-self:start;border:0;border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;background:var(--chip);color:var(--ink);cursor:pointer;white-space:nowrap}
 .spill.down{color:var(--warn)}
 .sugg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--chip);font-size:13px}
@@ -2156,7 +2157,7 @@ const meanLast = (id, n) => { const t = D.times[id]||[]; if (t.length < n) retur
 // your usual speed in a group: the mean case average over its learned + mastered cases (cached for one tick)
 let GB = null;
 function groupBase(g){ if (!GB){ GB = {}; setTimeout(()=>{ GB = null; }); }
-  if (!(g in GB)){ const v = CASES.filter(c=>c.g===g && isOn(status(c.id))).map(c=>avg(c.id)).filter(x=>x!==null); GB[g] = v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+  if (!(g in GB)){ const v = CASES.filter(c=>c.g===g && isOn(status(c.id))).map(c=>avg(c.id)).filter(x=>x!==null); GB[g] = v.length >= 3 ? v.reduce((a,b)=>a+b,0)/v.length : null; }   // needs 3 timed cases to mean anything
   return GB[g]; }
 function suggest(c){ const s = status(c.id), cs = D.cstat[c.id]; if (!cs || !cs.rn) return null;
   if (typeof cs.sx==='number' && cs.n - cs.sx < 10) return null;   // "Not yet" waits 10 more solves
@@ -3421,7 +3422,8 @@ $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 
 // ---------- per-tab help ----------
 const HELP = {
   learn:{t:'Learn', s:[
-    ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned → Mastered</b>. After trainer solves, Cube Lab suggests a change when your times back it up.','Tap any diagram to watch the alg on a 3D cube.']],
+    ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned → Mastered</b>.','Tap any diagram to watch the alg on a 3D cube.']],
+    ['Status suggestions',['After solves in the Case timer, Cube Lab offers to move a case up: to <b>Learned</b> after 5 clean solves in a row, and to <b>Mastered</b> after 10 clean in a row that average at or under your usual for the learned cases in that group (it needs 3 timed ones to compare).','A mastered case that starts slipping (2 DNFs in its last 10, or clearly slower times) gets an offer to move back. <b>Not yet</b> hides the offer for 10 more solves.']],
     ['What to work on next',['<b>Learn next</b> picks a case to start: it keeps going in the set you changed most recently, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), your case time from the Case timer, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
     ['Ortega',['New to 2x2 speed methods? Start with <b>Ortega</b>: solve the bottom face, orient the top (7 OLLs), then fix both layers (5 PBLs). Its cases work like every other case here, including the Case timer.']],
@@ -4585,7 +4587,7 @@ const meanLast = (id, n) => { const t = D.times[id]||[]; if (t.length < n) retur
 // your usual speed in a group: the mean case average over its learned + mastered cases (cached for one tick)
 let GB = null;
 function groupBase(g){ if (!GB){ GB = {}; setTimeout(()=>{ GB = null; }); }
-  if (!(g in GB)){ const v = CASES.filter(c=>c.g===g && isOn(status(c.id))).map(c=>avg(c.id)).filter(x=>x!==null); GB[g] = v.length ? v.reduce((a,b)=>a+b,0)/v.length : null; }
+  if (!(g in GB)){ const v = CASES.filter(c=>c.g===g && isOn(status(c.id))).map(c=>avg(c.id)).filter(x=>x!==null); GB[g] = v.length >= 3 ? v.reduce((a,b)=>a+b,0)/v.length : null; }   // needs 3 timed cases to mean anything
   return GB[g]; }
 function suggest(c){ const s = status(c.id), cs = D.cstat[c.id]; if (!cs || !cs.rn) return null;
   if (typeof cs.sx==='number' && cs.n - cs.sx < 10) return null;   // "Not yet" waits 10 more solves
@@ -5672,7 +5674,8 @@ $('#gZB').addEventListener('change', ()=>{ D.prefs.zbll=$('#gZB').checked; save(
 $('#setDone').addEventListener('click', ()=>{ location.hash = '#' + (lastTab || 'learn'); });
 const HELP = {
   learn:{t:'Learn', s:[
-    ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned → Mastered</b>. After trainer solves, Cube Lab suggests a change when your times back it up.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
+    ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned → Mastered</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
+    ['Status suggestions',['After solves in the Case timer, Cube Lab offers to move a case up: to <b>Learned</b> after 5 clean solves in a row, and to <b>Mastered</b> after 10 clean in a row that average at or under your usual for the learned cases in that group (it needs 3 timed ones to compare).','A mastered case that starts slipping (2 DNFs in its last 10, or clearly slower times) gets an offer to move back. <b>Not yet</b> hides the offer for 10 more solves.']],
     ['What to work on next',['<b>Learn next</b> picks a case to start: it keeps going in the set you changed most recently, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
     ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), your case time from the Case timer, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
     ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Turn it on in Settings, then learn it a group of 12 at a time.']],
@@ -5746,7 +5749,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-15b</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-16c</p>'));</script>
 <script>CubeLab.ready();</script>
 </body>
 </html>
