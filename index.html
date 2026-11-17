@@ -682,7 +682,7 @@ window.CubeLabHost = {
       <div class="dbody">
         <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="cardG" role="group" aria-label="Algorithm set" style="align-self:flex-start;flex-wrap:wrap"></div></div>
         <div class="dgroup"><span class="label">Sets</span><div class="chips" id="cardSets" role="group" aria-label="Sets to include"></div></div>
-        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="cardSt" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="cardSt" role="group" aria-label="Which cases to include by status"></div></div>
       </div>
     </details>
     <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div><span class="stats" id="cardModeNote"></span></div>
@@ -700,7 +700,7 @@ window.CubeLabHost = {
         <div class="dgroup"><span class="label">Algorithm sets</span><div class="chips" id="tGroups" role="group" aria-label="Algorithm sets to train"></div></div>
         <div class="dgroup"><span class="label">Orientation sets</span><div class="chips" id="tSets" role="group" aria-label="Orientation sets to train"></div></div>
         <div class="dgroup"><span class="label">How cases are picked</span><div class="seg" id="tMode" role="group" aria-label="How cases are picked" style="align-self:flex-start"></div><span class="stats" id="tModeNote" aria-live="polite"></span></div>
-        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="tStatus" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="tStatus" role="group" aria-label="Which cases to include by status"></div></div>
       </div>
     </details>
     <div class="row" id="tFocusRow" hidden><span class="chip" aria-pressed="true" id="tFocusChip"></span><button class="linkbtn" id="tFocusOff">Back to your picked sets</button></div>
@@ -899,7 +899,7 @@ window.CubeLabHost = {
       <div class="dbody">
         <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="cardG" role="group" aria-label="Algorithm set" style="align-self:flex-start;flex-wrap:wrap"></div></div>
         <div class="dgroup"><span class="label">Sets</span><div class="chips" id="cardSets" role="group" aria-label="Sets to include"></div></div>
-        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="cardSt" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="cardSt" role="group" aria-label="Which cases to include by status"></div></div>
         <div class="dgroup"><span class="label">View</span><div class="seg sm" id="cardView" role="group" aria-label="How the case is shown" style="align-self:flex-start"></div></div>
       </div>
     </details>
@@ -919,7 +919,7 @@ window.CubeLabHost = {
         <div class="dgroup"><span class="label">Algorithm sets</span><div class="chips" id="tGroups" role="group" aria-label="Algorithm sets to train"></div></div>
         <div class="dgroup"><span class="label">Sets</span><div class="chips" id="tSets" role="group" aria-label="Sets to train"></div></div>
         <div class="dgroup"><span class="label">How cases are picked</span><div class="seg" id="tMode" role="group" aria-label="How cases are picked" style="align-self:flex-start"></div><span class="stats" id="tModeNote" aria-live="polite"></span></div>
-        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="tStatus" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="tStatus" role="group" aria-label="Which cases to include by status"></div></div>
       </div>
     </details>
     <div class="row" id="tFocusRow" hidden><span class="chip" aria-pressed="true" id="tFocusChip"></span><button class="linkbtn" id="tFocusOff">Back to your picked sets</button></div>
@@ -984,7 +984,7 @@ window.CubeLabHost = {
       <div class="dbody">
         <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="rdGroup" role="group" aria-label="Algorithm set to drill" style="align-self:flex-start;flex-wrap:wrap"></div></div>
         <div class="dgroup"><span class="label">Sets</span><div class="chips" id="rdSets" role="group" aria-label="Sets to drill"></div></div>
-        <div class="dgroup"><span class="label">Cases to include</span><div class="seg" id="rdStatus" role="group" aria-label="Which cases to include by status" style="align-self:flex-start;flex-wrap:wrap"></div></div>
+        <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="rdStatus" role="group" aria-label="Which cases to include by status"></div></div>
         <div class="dgroup"><span class="label">View</span><div class="seg" id="rdView" role="group" aria-label="How the case is shown" style="align-self:flex-start"></div><span class="stats">Two sides is what you see mid-solve. The front color changes each time.</span></div>
       </div>
     </details>
@@ -2134,7 +2134,15 @@ const status = id => D.status[id] || 'new';
 // New → Learning → Learned → Mastered. Learned and Mastered both count as "learned" in progress.
 const NEXT_ST = {new:'learning', learning:'learned', learned:'mastered', mastered:'new'};
 const isOn = s => s==='learned' || s==='mastered';
-const stIn = (id, f) => { const s = status(id); return f==='active' ? (s==='learning' || s==='learned') : s===f; };
+// status filters are multi-select chips: 'all', or a comma list like 'learning,learned' (old single values, and 'active', still read right)
+const ST_KEYS = ['new','learning','learned','mastered'];
+const ST_CHIPS = [['all','All'],['new','Unlearned'],['learning','Learning'],['learned','Learned'],['mastered','Mastered']];
+function stParse(v){ if (v==='active') return 'learning,learned'; const l = String(v||'').split(',').filter(x=>ST_KEYS.includes(x)); return !l.length || l.length===ST_KEYS.length ? 'all' : ST_KEYS.filter(k=>l.includes(k)).join(','); }
+const stPass = (id, f) => f==='all' || f.split(',').includes(status(id));
+// like the set chips: All picks everything, a chip toggles, and the last one left can't be turned off
+function stToggle(f, k){ if (k==='all') return 'all'; const on = new Set(f==='all' ? ST_KEYS : f.split(',')); if (on.has(k)){ if (on.size > 1) on.delete(k); } else on.add(k); return stParse([...on].join(',')); }
+const stChipsHTML = (f, attr) => ST_CHIPS.map(([v,l])=>`<button class="chip" aria-pressed="${f==='all' || (v!=='all' && f.split(',').includes(v))}" data-${attr}="${v}">${l}</button>`).join('');
+const stLabel = f => f==='all' ? '' : f.split(',').map(k=>ST_CHIPS.find(x=>x[0]===k)[1]).join(' + ');
 const mOf = cs => cs.filter(c=>status(c.id)==='mastered').length;
 // each case keeps its last 12 trainer results in cstat (r: bit 0 = newest, 1 = DNF; rn: how many), so they sync with everything else
 const RMASK = 0xFFF;
@@ -2528,25 +2536,25 @@ document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); i
   if (BYID[id]) Viewer.open(BYID[id], null); else if (ORT[id]) Viewer.openRaw(ORT[id]); });
 // flashcards
 // pick which cases come up: a set (or all), any mix of its subsets, and a status filter; tucked in a drawer so the page stays clean
-const CARD_ST = [['all','All'],['learning','Learning'],['learned','Learned'],['mastered','Mastered'],['active','Learning + Learned']];
+
 const cardSetsOf = g => SETS.filter(s=>CASES.some(c=>c.g===g && c.set===s)), cardSetLabel = s => SET_NAME[s]||s, cardAllLabel = () => 'All';
 let cardG = 'all', cardSt = 'all'; const cardSel = new Set();
 const cardFix = () => { if (cardG!=='all' && !GROUPS.includes(cardG)) cardG = 'all'; if (cardG!=='all' && !cardSetsOf(cardG).some(s=>cardSel.has(s))) cardSetsOf(cardG).forEach(s=>cardSel.add(s)); };
 function cardLoad(){ const p = D.prefs, old = p.cardPool || '';
   cardG = p.cardGroup==='all' || GROUPS.includes(p.cardGroup) ? p.cardGroup : 'all';
   cardSel.clear(); (p.cardSets || (old.startsWith('set:') ? [old.slice(4)] : [])).forEach(s=>{ if (SETS.includes(s)) cardSel.add(s); });
-  cardSt = CARD_ST.some(([v])=>v===p.cardStatus) ? p.cardStatus : old==='learning' ? 'learning' : old==='active' ? 'active' : 'all'; cardFix(); }
+  cardSt = p.cardStatus ? stParse(p.cardStatus) : old==='learning' ? 'learning' : old==='active' ? 'learning,learned' : 'all'; cardFix(); }
 cardLoad();
 function cardSummary(){ const sets = cardG==='all' ? [] : cardSetsOf(cardG), on = sets.filter(s=>cardSel.has(s));
-  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : CARD_ST.find(([v])=>v===cardSt)[1]].filter(Boolean).join(' · '); }
+  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : stLabel(cardSt)].filter(Boolean).join(' · '); }
 function renderCardOpts(){ cardFix(); cardSummary();
   $('#cardG').innerHTML = [['all', cardAllLabel()], ...GROUPS.map(g=>[g,g])].map(([v,l])=>`<button aria-pressed="${cardG===v}" data-cgp="${v}">${l}</button>`).join('');
   const sets = cardG==='all' ? [] : cardSetsOf(cardG); $('#cardSets').closest('.dgroup').hidden = sets.length < 2;
   $('#cardSets').innerHTML = sets.length < 2 ? '' : `<button class="chip" aria-pressed="${sets.every(s=>cardSel.has(s))}" data-csall>All</button>` + sets.map(s=>`<button class="chip" aria-pressed="${cardSel.has(s)}" data-cset="${esc(s)}">${esc(cardSetLabel(s))}</button>`).join('');
-  $('#cardSt').innerHTML = CARD_ST.map(([v,l])=>`<button aria-pressed="${cardSt===v}" data-cst="${v}">${l}</button>`).join(''); }
+  $('#cardSt').innerHTML = stChipsHTML(cardSt,'cst'); }
 const fillCardGroup = renderCardOpts;
 function poolCases(){ let l = cardG==='all' ? CASES : CASES.filter(c=>c.g===cardG && cardSel.has(c.set));
-  if (cardSt!=='all') return l.filter(c=>stIn(c.id,cardSt));
+  if (cardSt!=='all') return l.filter(c=>stPass(c.id,cardSt));
   return l; }
 const saveCardPrefs = () => { D.prefs.cardGroup = cardG; D.prefs.cardSets = [...cardSel]; D.prefs.cardStatus = cardSt; delete D.prefs.cardPool; save(); renderCardOpts(); nextCard(); };
 $('#cardG').addEventListener('click', e=>{ const b=e.target.closest('[data-cgp]'); if(!b) return; cardG=b.dataset.cgp; saveCardPrefs(); });
@@ -2554,7 +2562,7 @@ $('#cardSets').addEventListener('click', e=>{ const sets = cardSetsOf(cardG);
   if (e.target.closest('[data-csall]')){ sets.forEach(s=>cardSel.add(s)); saveCardPrefs(); return; }
   const b=e.target.closest('[data-cset]'); if(!b) return; const s=b.dataset.cset;
   if (cardSel.has(s) && sets.filter(x=>cardSel.has(x)).length>1) cardSel.delete(s); else cardSel.add(s); saveCardPrefs(); });
-$('#cardSt').addEventListener('click', e=>{ const b=e.target.closest('[data-cst]'); if(!b) return; cardSt=b.dataset.cst; saveCardPrefs(); });
+$('#cardSt').addEventListener('click', e=>{ const b=e.target.closest('[data-cst]'); if(!b) return; cardSt=stToggle(cardSt,b.dataset.cst); saveCardPrefs(); });
 let cardCur=null, cardShown=false, cardView=null, cardT0=0, cardRec=null, cardRaf=0, cardArmed=false; const sess={h:0,m:0};
 // recent timed cards this session; ✕ deletes the time and takes back the Got it / Missed it
 const cardRecent = [];
@@ -2663,10 +2671,9 @@ function wcaScramble(st){ let best='';
 const tG = new Set((D.prefs.tG||[]).filter(g=>GROUPS.includes(g))), tSel = new Set((D.prefs.tSel||[]).filter(s=>SETS.includes(s)));
 if(!tG.size) tG.add('CLL'); if(!tSel.size) ['Sune','Anti-Sune'].forEach(s=>tSel.add(s));
 // which cases by status: all, learning, learned, or both (older saves had a Learning-only checkbox)
-const T_STATUS = [['all','All'],['learning','Learning'],['learned','Learned'],['mastered','Mastered'],['active','Learning + Learned']];
-const tStatusOf = () => ['all','learning','learned','mastered','active'].includes(D.prefs.tStatus) ? D.prefs.tStatus : (D.prefs.tOnly ? 'learning' : 'all');
+const tStatusOf = () => D.prefs.tStatus ? stParse(D.prefs.tStatus) : (D.prefs.tOnly ? 'learning' : 'all');
 let tStatus = tStatusOf();
-function renderTStatus(){ $('#tStatus').innerHTML = T_STATUS.map(([v,l])=>`<button aria-pressed="${tStatus===v}" data-ts="${v}">${l}</button>`).join(''); }
+function renderTStatus(){ $('#tStatus').innerHTML = stChipsHTML(tStatus,'ts'); }
 renderTStatus();
 let tCase=null, tState='idle', tStart=0, tRaf=0, tHoldT=0; const tSess=[];
 function loadSess(){ tSess.length=0; (D.recent||[]).forEach(r=>{ const c=BYID[r.id]; if(c) tSess.push({c, base:r.base, pen:r.pen||'', cur:r.cur, k:r.k||'', ak:r.ak||'', mv:r.mv||0}); }); }
@@ -2674,7 +2681,7 @@ function keepSess(){ D.recent = tSess.slice(0,40).map(x=>({id:x.c.id, base:x.bas
 loadSess();
 const saveTPrefs = () => { D.prefs.tG=[...tG]; D.prefs.tSel=[...tSel]; D.prefs.tStatus=tStatus; delete D.prefs.tOnly; save(); tSummary(); };
 function tSummary(){ const kinds=new Set([...tG].map(g=>g==='Ortega'?'ort':'ll')), st=[...tSel].filter(x=>kinds.has(setKind(x))).map(x=>SET_NAME[x]||x), ml={weak:'Weak first',deck:'Shuffled deck',random:'Random',daily:'Daily'}[tMode]||'';
-  const el=$('#tSummary'); if(!el) return; if(tMode==='daily' && !tFocus){ const d=ensureDaily(); el.textContent=`Daily · ${d.done.length} of ${d.ids.length} done`+(cnOn()?' · Color neutral':''); return; } el.textContent=[[...tG].join(', '), st.length===SETS.length?'All sets':st.join(', '), ml, {learning:'Learning only',learned:'Learned only',mastered:'Mastered only',active:'Learning + Learned'}[tStatus]||'', cnOn()?'Color neutral':''].filter(Boolean).join(' · '); }
+  const el=$('#tSummary'); if(!el) return; if(tMode==='daily' && !tFocus){ const d=ensureDaily(); el.textContent=`Daily · ${d.done.length} of ${d.ids.length} done`+(cnOn()?' · Color neutral':''); return; } el.textContent=[[...tG].join(', '), st.length===SETS.length?'All sets':st.join(', '), ml, stLabel(tStatus), cnOn()?'Color neutral':''].filter(Boolean).join(' · '); }
 function renderTSets(){ setTimeout(tSummary);
   $('#tGroups').innerHTML = GROUPS.map(g=>`<button class="chip" aria-pressed="${tG.has(g)}" data-g="${g}">${g}</button>`).join('');
   const kinds = new Set([...tG].map(g=>g==='Ortega'?'ort':'ll'));
@@ -2685,7 +2692,7 @@ function fixSets(){ for (const k of ['ll','ort']){ const on=[...tG].some(g=>(g==
 $('#tGroups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; const g=b.dataset.g; if(tG.has(g)&&tG.size>1) tG.delete(g); else tG.add(g); fixSets(); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
 $('#tSets').addEventListener('click', e=>{ if(e.target.closest('[data-allsets]')){ const kinds=new Set([...tG].map(g=>g==='Ortega'?'ort':'ll')); SETS.filter(s=>kinds.has(setKind(s))).forEach(s=>tSel.add(s)); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); return; }
   const b=e.target.closest('[data-set]'); if(!b) return; const s=b.dataset.set; if(tSel.has(s) && [...tSel].filter(x=>setKind(x)===setKind(s)).length>1) tSel.delete(s); else tSel.add(s); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
-$('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=b.dataset.ts; renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
+$('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=stToggle(tStatus,b.dataset.ts); renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 let tMode = ['weak','deck','random','daily'].includes(D.prefs.tMode) ? D.prefs.tMode : 'weak', tDeck = [], tFocus = null;
 let tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr', tPair = null;
@@ -2726,7 +2733,7 @@ $('#tMode').addEventListener('click', e=>{ const b=e.target.closest('[data-tm]')
 $('#tFocusOff').addEventListener('click', ()=>{ tFocus=null; renderTMode(); if(tState==='idle') newScramble(); });
 function tPool(){ if(tFocus && BYID[tFocus]) return [BYID[tFocus]];
   if(tMode==='daily'){ const d=ensureDaily(); return d.ids.filter(id=>!d.done.includes(id) && BYID[id]).map(id=>BYID[id]); }
-  let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); if(tStatus!=='all') l=l.filter(c=>stIn(c.id,tStatus)); return l; }
+  let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); l=l.filter(c=>stPass(c.id,tStatus)); return l; }
 // how much a case needs work: slower than your usual, few solves, or DNFs
 function caseWeight(c){ const t=kTimes(c.id), nd=need(c, tKind==='alg'?'a':'');
   if((!t || !t.length) && nd.score===null){ const ln = lenOf(c); return 3 * (ln ? Math.min(1.4, Math.max(.85, ln.v)) : 1); }
@@ -2758,7 +2765,7 @@ function newScramble(){
 // ---- alg attack: every alg in the picked sets, back to back, on one clock ----
 let atkList=[], atkShuf=false;
 const fmtA = v => v<60 ? v.toFixed(2) : Math.floor(v/60)+':'+(v%60).toFixed(2).padStart(5,'0');
-function atkPool(){ let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); if(tStatus!=='all') l=l.filter(c=>stIn(c.id,tStatus)); return l; }
+function atkPool(){ let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); l=l.filter(c=>stPass(c.id,tStatus)); return l; }
 const atkGroups = l => [...new Set(l.map(c=>c.g))];
 const atkKey = l => atkGroups(l).join('+')+'|'+[...new Set(l.map(c=>c.set))].join('+')+'|'+l.length;
 function atkSetup(){ const l=atkPool(), box=$('#tScr').closest('.scrbox'), th=$('#tHold'); $('#tScrLabel').textContent='Attack'; $('#tNext').textContent='Shuffle the order'; tModeNote(); $('#tModeNote').textContent='Attack uses the sets and statuses picked above.';
@@ -4556,7 +4563,15 @@ const status = id => D.status[id] || 'new';
 // New → Learning → Learned → Mastered. Learned and Mastered both count as "learned" in progress.
 const NEXT_ST = {new:'learning', learning:'learned', learned:'mastered', mastered:'new'};
 const isOn = s => s==='learned' || s==='mastered';
-const stIn = (id, f) => { const s = status(id); return f==='active' ? (s==='learning' || s==='learned') : s===f; };
+// status filters are multi-select chips: 'all', or a comma list like 'learning,learned' (old single values, and 'active', still read right)
+const ST_KEYS = ['new','learning','learned','mastered'];
+const ST_CHIPS = [['all','All'],['new','Unlearned'],['learning','Learning'],['learned','Learned'],['mastered','Mastered']];
+function stParse(v){ if (v==='active') return 'learning,learned'; const l = String(v||'').split(',').filter(x=>ST_KEYS.includes(x)); return !l.length || l.length===ST_KEYS.length ? 'all' : ST_KEYS.filter(k=>l.includes(k)).join(','); }
+const stPass = (id, f) => f==='all' || f.split(',').includes(status(id));
+// like the set chips: All picks everything, a chip toggles, and the last one left can't be turned off
+function stToggle(f, k){ if (k==='all') return 'all'; const on = new Set(f==='all' ? ST_KEYS : f.split(',')); if (on.has(k)){ if (on.size > 1) on.delete(k); } else on.add(k); return stParse([...on].join(',')); }
+const stChipsHTML = (f, attr) => ST_CHIPS.map(([v,l])=>`<button class="chip" aria-pressed="${f==='all' || (v!=='all' && f.split(',').includes(v))}" data-${attr}="${v}">${l}</button>`).join('');
+const stLabel = f => f==='all' ? '' : f.split(',').map(k=>ST_CHIPS.find(x=>x[0]===k)[1]).join(' + ');
 const mOf = cs => cs.filter(c=>status(c.id)==='mastered').length;
 // each case keeps its last 12 trainer results in cstat (r: bit 0 = newest, 1 = DNF; rn: how many), so they sync with everything else
 const RMASK = 0xFFF;
@@ -4960,26 +4975,26 @@ $('#bkRestore').addEventListener('click', async ()=>{ const m=$('#bkMsg'), parts
 document.addEventListener('click', e=>{ const b=e.target.closest('[data-v3]'); if(!b) return; const id=b.dataset.v3; if (BYID[id]) Viewer.open(BYID[id], null); });
 // ---- flashcards ----
 // pick which cases come up: a set (or all), any mix of its subsets, and a status filter; tucked in a drawer so the page stays clean
-const CARD_ST = [['all','All'],['learning','Learning'],['learned','Learned'],['mastered','Mastered'],['active','Learning + Learned']];
+
 const cardSetsOf = g => GSETS[g]||[], cardSetLabel = s => SET_SHORT[s]||s, cardAllLabel = () => GROUPS.includes('ZBLL') ? 'All but ZBLL' : 'All';
 let cardG = 'PLL', cardSt = 'all'; const cardSel = new Set();
 const cardFix = () => { if (cardG!=='all' && !GROUPS.includes(cardG)) cardG = 'PLL'; if (cardG!=='all' && !cardSetsOf(cardG).some(s=>cardSel.has(s))) cardSetsOf(cardG).forEach(s=>cardSel.add(s)); };
 function cardLoad(){ const p = D.prefs, old = p.cardPool || '';
   cardG = p.cardGroup==='all' || GROUPS.includes(p.cardGroup) ? p.cardGroup : 'PLL';
   cardSel.clear(); (p.cardSets || (old.startsWith('set:') ? [old.slice(4)] : [])).forEach(s=>{ if (SETS.includes(s)) cardSel.add(s); });
-  cardSt = CARD_ST.some(([v])=>v===p.cardStatus) ? p.cardStatus : old==='learning' ? 'learning' : old==='active' ? 'active' : 'all'; cardFix(); }
+  cardSt = p.cardStatus ? stParse(p.cardStatus) : old==='learning' ? 'learning' : old==='active' ? 'learning,learned' : 'all'; cardFix(); }
 cardLoad();
 function cardSummary(){ const sets = cardG==='all' ? [] : cardSetsOf(cardG), on = sets.filter(s=>cardSel.has(s));
-  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : CARD_ST.find(([v])=>v===cardSt)[1], cardG==='F2L' ? '' : (cardView==='iso' ? 'Two sides' : 'Top')].filter(Boolean).join(' · '); }
+  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : stLabel(cardSt), cardG==='F2L' ? '' : (cardView==='iso' ? 'Two sides' : 'Top')].filter(Boolean).join(' · '); }
 function renderCardOpts(){ cardFix(); cardSummary();
   $('#cardG').innerHTML = [['all', cardAllLabel()], ...GROUPS.map(g=>[g,g])].map(([v,l])=>`<button aria-pressed="${cardG===v}" data-cgp="${v}">${l}</button>`).join('');
   const sets = cardG==='all' ? [] : cardSetsOf(cardG); $('#cardSets').closest('.dgroup').hidden = sets.length < 2;
   $('#cardSets').innerHTML = sets.length < 2 ? '' : `<button class="chip" aria-pressed="${sets.every(s=>cardSel.has(s))}" data-csall>All</button>` + sets.map(s=>`<button class="chip" aria-pressed="${cardSel.has(s)}" data-cset="${esc(s)}">${esc(cardSetLabel(s))}</button>`).join('');
-  $('#cardSt').innerHTML = CARD_ST.map(([v,l])=>`<button aria-pressed="${cardSt===v}" data-cst="${v}">${l}</button>`).join('');
+  $('#cardSt').innerHTML = stChipsHTML(cardSt,'cst');
   $('#cardView').closest('.dgroup').hidden = cardG==='F2L'; }
 const fillCardGroup = renderCardOpts;
 function poolCases(){ let l = cardG==='all' ? CASES.filter(c=>c.g!=='ZBLL') : CASES.filter(c=>c.g===cardG && cardSel.has(c.set));
-  if (cardSt!=='all') return l.filter(c=>stIn(c.id,cardSt));
+  if (cardSt!=='all') return l.filter(c=>stPass(c.id,cardSt));
   return l; }
 const saveCardPrefs = () => { D.prefs.cardGroup = cardG; D.prefs.cardSets = [...cardSel]; D.prefs.cardStatus = cardSt; delete D.prefs.cardPool; save(); renderCardOpts(); nextCard(); };
 $('#cardG').addEventListener('click', e=>{ const b=e.target.closest('[data-cgp]'); if(!b) return; cardG=b.dataset.cgp; saveCardPrefs(); });
@@ -4987,7 +5002,7 @@ $('#cardSets').addEventListener('click', e=>{ const sets = cardSetsOf(cardG);
   if (e.target.closest('[data-csall]')){ sets.forEach(s=>cardSel.add(s)); saveCardPrefs(); return; }
   const b=e.target.closest('[data-cset]'); if(!b) return; const s=b.dataset.cset;
   if (cardSel.has(s) && sets.filter(x=>cardSel.has(x)).length>1) cardSel.delete(s); else cardSel.add(s); saveCardPrefs(); });
-$('#cardSt').addEventListener('click', e=>{ const b=e.target.closest('[data-cst]'); if(!b) return; cardSt=b.dataset.cst; saveCardPrefs(); });
+$('#cardSt').addEventListener('click', e=>{ const b=e.target.closest('[data-cst]'); if(!b) return; cardSt=stToggle(cardSt,b.dataset.cst); saveCardPrefs(); });
 let cardMap=null, cardCur=null, cardShown=false, cardState=null, cardT0=0, cardRec=null, cardRaf=0, cardArmed=false; const sess={h:0,m:0};
 // recent timed cards this session; ✕ deletes the time and takes back the Got it / Missed it
 const cardRecent = [];
@@ -5095,10 +5110,9 @@ const tG = new Set((D.prefs.tG||[]).filter(g=>GROUPS.includes(g))), tSel = new S
 if(!tG.size) tG.add('PLL');
 function fixSets(){ for (const g of GROUPS){ if (!tG.has(g)) continue; if (!GSETS[g].some(s=>tSel.has(s))) GSETS[g].forEach(s=>tSel.add(s)); } }
 fixSets();
-const T_STATUS = [['all','All'],['learning','Learning'],['learned','Learned'],['mastered','Mastered'],['active','Learning + Learned']];
-const tStatusOf = () => ['all','learning','learned','mastered','active'].includes(D.prefs.tStatus) ? D.prefs.tStatus : 'all';
+const tStatusOf = () => D.prefs.tStatus ? stParse(D.prefs.tStatus) : 'all';
 let tStatus = tStatusOf();
-function renderTStatus(){ $('#tStatus').innerHTML = T_STATUS.map(([v,l])=>`<button aria-pressed="${tStatus===v}" data-ts="${v}">${l}</button>`).join(''); }
+function renderTStatus(){ $('#tStatus').innerHTML = stChipsHTML(tStatus,'ts'); }
 renderTStatus();
 let tCase=null, tState='idle', tStart=0, tRaf=0, tHoldT=0, tGen=0, tReady=false; const tSess=[];
 function loadSess(){ tSess.length=0; (D.recent||[]).forEach(r=>{ const c=BYID[r.id]; if(c && (zbOn() || c.g!=='ZBLL')) tSess.push({c, base:r.base, pen:r.pen||'', cur:r.cur, k:r.k||'', ak:r.ak||'', mv:r.mv||0}); }); }
@@ -5111,7 +5125,7 @@ const saveTPrefs = () => { D.prefs.tG=[...tG]; D.prefs.tSel=[...tSel]; D.prefs.t
 function tSummary(){ const st=[...tSel].filter(s=>tG.has(SET_G[s])), ml={weak:'Weak first',deck:'Shuffled deck',random:'Random',daily:'Daily'}[tMode]||'';
   const el=$('#tSummary'); if(!el) return; if(tMode==='daily' && !tFocus){ const d=ensureDaily(); el.textContent=`Daily · ${d.done.length} of ${d.ids.length} done`; return; }
   const allIn = [...tG].every(g=>GSETS[g].every(s=>tSel.has(s)));
-  el.textContent=[[...tG].join(', '), allIn?'All sets':st.map(s=>SET_SHORT[s]||s).join(', '), ml, {learning:'Learning only',learned:'Learned only',mastered:'Mastered only',active:'Learning + Learned'}[tStatus]||''].filter(Boolean).join(' · '); }
+  el.textContent=[[...tG].join(', '), allIn?'All sets':st.map(s=>SET_SHORT[s]||s).join(', '), ml, stLabel(tStatus)].filter(Boolean).join(' · '); }
 function renderTSets(){ setTimeout(tSummary);
   $('#tGroups').innerHTML = GROUPS.map(g=>`<button class="chip" aria-pressed="${tG.has(g)}" data-g="${g}">${g}</button>`).join('');
   const shown = GROUPS.filter(g=>tG.has(g)).flatMap(g=>GSETS[g]);
@@ -5120,7 +5134,7 @@ function renderTSets(){ setTimeout(tSummary);
 $('#tGroups').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return; const g=b.dataset.g; if(tG.has(g)&&tG.size>1) tG.delete(g); else tG.add(g); fixSets(); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
 $('#tSets').addEventListener('click', e=>{ if(e.target.closest('[data-allsets]')){ GROUPS.filter(g=>tG.has(g)).flatMap(g=>GSETS[g]).forEach(s=>tSel.add(s)); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); return; }
   const b=e.target.closest('[data-set]'); if(!b) return; const s=b.dataset.set, g=SET_G[s]; if(tSel.has(s) && GSETS[g].filter(x=>tSel.has(x)).length>1) tSel.delete(s); else tSel.add(s); tFocus=null; renderTMode(); renderTSets(); saveTPrefs(); newScramble(); });
-$('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=b.dataset.ts; renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
+$('#tStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-ts]'); if(!b) return; tStatus=stToggle(tStatus,b.dataset.ts); renderTStatus(); saveTPrefs(); if(tState==='idle'||tState==='stopped') newScramble(); });
 $('#tNext').addEventListener('click', e=>{ e.currentTarget.blur(); if(tState==='idle'){ atkShuf = tKind==='atk'; newScramble(); atkShuf=false; } });
 const PRO_TPS = 12;
 // TPS bar color: red at 2 or slower, yellow at 6, green from 11 up, blended in between (follows light/dark theme)
@@ -5152,7 +5166,7 @@ $('#tMode').addEventListener('click', e=>{ const b=e.target.closest('[data-tm]')
 $('#tFocusOff').addEventListener('click', ()=>{ tFocus=null; renderTMode(); if(tState==='idle') newScramble(); });
 function tPool(){ if(tFocus && BYID[tFocus]) return [BYID[tFocus]];
   if(tMode==='daily'){ const d=ensureDaily(); return d.ids.filter(id=>!d.done.includes(id) && BYID[id]).map(id=>BYID[id]); }
-  let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); if(tStatus!=='all') l=l.filter(c=>stIn(c.id,tStatus)); return l; }
+  let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); l=l.filter(c=>stPass(c.id,tStatus)); return l; }
 function caseWeight(c){ const t=kTimes(c.id), nd=need(c, tKind==='alg'?'a':'');
   if((!t || !t.length) && nd.score===null){ const ln = lenOf(c); return 3 * (ln ? Math.min(1.4, Math.max(.85, ln.v)) : 1); }
   let w = Math.min(5, Math.max(.3, Math.pow(nd.score===null ? 1 : nd.score, 2)));
@@ -5187,7 +5201,7 @@ function newScramble(){
 // ---- alg attack: every alg in the picked sets, back to back, on one clock ----
 let atkList=[], atkShuf=false;
 const fmtA = v => v<60 ? v.toFixed(2) : Math.floor(v/60)+':'+(v%60).toFixed(2).padStart(5,'0');
-function atkPool(){ let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); if(tStatus!=='all') l=l.filter(c=>stIn(c.id,tStatus)); return l; }
+function atkPool(){ let l=CASES.filter(c=>tG.has(c.g)&&tSel.has(c.set)); l=l.filter(c=>stPass(c.id,tStatus)); return l; }
 const atkGroups = l => [...new Set(l.map(c=>c.g))];
 const atkKey = l => atkGroups(l).join('+')+'|'+[...new Set(l.map(c=>c.set))].join('+')+'|'+l.length;
 function atkSetup(){ const l=atkPool(), box=$('#tScr').closest('.scrbox'), th=$('#tHold'); $('#tScrLabel').textContent='Attack'; $('#tNext').textContent='Shuffle the order'; tModeNote(); $('#tModeNote').textContent='Attack uses the sets and statuses picked above.';
@@ -5371,7 +5385,7 @@ document.addEventListener('keyup', e=>{ if(!timerKeys(e)) return; if(e.code==='S
 let rdGroup = GROUPS.includes(D.prefs.rdGroup) ? D.prefs.rdGroup : 'PLL';
 const rdSel = new Set((D.prefs.rdSel||[]).filter(s=>SETS.includes(s)));
 const rdFix = () => { if (!GSETS[rdGroup].some(s=>rdSel.has(s))) GSETS[rdGroup].forEach(s=>rdSel.add(s)); }; rdFix();
-let rdStatus = ['all','learning','learned','mastered','active'].includes(D.prefs.rdStatus) ? D.prefs.rdStatus : 'all';
+let rdStatus = stParse(D.prefs.rdStatus);
 let rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
 let rd = null, rdRaf = 0; const rdSess = {n:0, c:0, t:[]};
 // recent drill answers this session; ✕ deletes the time and takes back the right / wrong
@@ -5389,19 +5403,19 @@ $('#rdRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-
   if (e.kept){ const r = D.recog[e.id]; if (r){ const j = r.lastIndexOf(+e.t.toFixed(2)); if (j>=0) r.splice(j,1); if (!r.length) delete D.recog[e.id]; } }
   rdRecent.splice(i,1); save(); rdStats(); renderRdRecent(); });
 function rdPool(){ let l = CASES.filter(c=>c.g===rdGroup && rdSel.has(c.set));
-  if (rdStatus!=='all') l = l.filter(c=>stIn(c.id,rdStatus)); return l; }
-function rdSummary(){ const sets = GSETS[rdGroup].filter(s=>rdSel.has(s)); $('#rdSummary').textContent = [rdGroup, sets.length===GSETS[rdGroup].length ? 'All sets' : sets.map(s=>SET_SHORT[s]||s).join(', '), {learning:'Learning only',learned:'Learned only',mastered:'Mastered only',active:'Learning + Learned'}[rdStatus]||'', rdGroup==='F2L' ? '' : (rdView==='iso'?'Two sides':'Top')].filter(Boolean).join(' · '); }
+  l = l.filter(c=>stPass(c.id,rdStatus)); return l; }
+function rdSummary(){ const sets = GSETS[rdGroup].filter(s=>rdSel.has(s)); $('#rdSummary').textContent = [rdGroup, sets.length===GSETS[rdGroup].length ? 'All sets' : sets.map(s=>SET_SHORT[s]||s).join(', '), stLabel(rdStatus), rdGroup==='F2L' ? '' : (rdView==='iso'?'Two sides':'Top')].filter(Boolean).join(' · '); }
 function renderRdOpts(){ rdSummary();
   $('#rdGroup').innerHTML = GROUPS.map(g=>`<button aria-pressed="${rdGroup===g}" data-rg="${g}">${g}</button>`).join('');
   $('#rdSets').innerHTML = `<button class="chip" aria-pressed="${GSETS[rdGroup].every(s=>rdSel.has(s))}" data-rsall>All</button>`+GSETS[rdGroup].map(s=>`<button class="chip" aria-pressed="${rdSel.has(s)}" data-rs="${s}">${SET_SHORT[s]||s}</button>`).join('');
-  $('#rdStatus').innerHTML = T_STATUS.map(([v,l])=>`<button aria-pressed="${rdStatus===v}" data-rst2="${v}">${l}</button>`).join('');
+  $('#rdStatus').innerHTML = stChipsHTML(rdStatus,'rst2');
   $('#rdView').innerHTML = [['iso','Two sides'],['top','Top']].map(([v,l])=>`<button aria-pressed="${rdView===v}" data-rv="${v}">${l}</button>`).join('');
   $('#rdView').closest('.dgroup').hidden = rdGroup==='F2L'; }
 const rdSave = () => { D.prefs.rdGroup=rdGroup; D.prefs.rdSel=[...rdSel]; D.prefs.rdStatus=rdStatus; D.prefs.rdView=rdView; save(); };
 $('#rdGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-rg]'); if(!b) return; rdGroup=b.dataset.rg; rdFix(); rdSave(); renderRdOpts(); rdNew(); });
 $('#rdSets').addEventListener('click', e=>{ if(e.target.closest('[data-rsall]')){ GSETS[rdGroup].forEach(s=>rdSel.add(s)); rdSave(); renderRdOpts(); rdNew(); return; }
   const b=e.target.closest('[data-rs]'); if(!b) return; const s=b.dataset.rs; if (rdSel.has(s) && GSETS[rdGroup].filter(x=>rdSel.has(x)).length>1) rdSel.delete(s); else rdSel.add(s); rdSave(); renderRdOpts(); rdNew(); });
-$('#rdStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-rst2]'); if(!b) return; rdStatus=b.dataset.rst2; rdSave(); renderRdOpts(); rdNew(); });
+$('#rdStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-rst2]'); if(!b) return; rdStatus=stToggle(rdStatus,b.dataset.rst2); rdSave(); renderRdOpts(); rdNew(); });
 $('#rdView').addEventListener('click', e=>{ const b=e.target.closest('[data-rv]'); if(!b) return; rdView=b.dataset.rv; rdSave(); renderRdOpts(); if (rd) renderRd(); });
 function rdPick(pool){ const miss = (D.rd.miss)||{}; const w = pool.map(c=>(rd && rd.c===c && pool.length>1) ? 0 : 1+2*(miss[c.id]||0)+(status(c.id)==='learning'?1:0)); let t = Math.random()*w.reduce((a,b)=>a+b,0); for (let i=0;i<pool.length;i++){ t-=w[i]; if (t<=0 && w[i]>0) return pool[i]; } return pool[0]; }
 function rdNew(){ cancelAnimationFrame(rdRaf); const pool = rdPool();
@@ -5714,7 +5728,7 @@ function refreshAll(){
   tSel.clear(); (D.prefs.tSel||[]).forEach(s=>{ if(SETS.includes(s)) tSel.add(s); }); fixSets();
   tStatus=tStatusOf(); renderTStatus();
   rdGroup = GROUPS.includes(D.prefs.rdGroup) ? D.prefs.rdGroup : 'PLL'; rdSel.clear(); (D.prefs.rdSel||[]).forEach(s=>{ if(SETS.includes(s)) rdSel.add(s); }); rdFix();
-  rdStatus = ['all','learning','learned','mastered','active'].includes(D.prefs.rdStatus) ? D.prefs.rdStatus : 'all'; rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
+  rdStatus = stParse(D.prefs.rdStatus); rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
   cardLoad();
   if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = ['cross','f2l'].includes(D.prefs.tPrac) ? D.prefs.tPrac : 'algs'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; cardView = D.prefs.cardView==='iso' ? 'iso' : 'top'; renderCardMode(); renderCardOpts();
   applyTheme(); if(!$('#v-prefs').hidden) renderSettings(); if(!$('#v-case').hidden) renderCasePage();
