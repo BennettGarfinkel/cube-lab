@@ -7,7 +7,7 @@ Cube Lab is a trainer for the 2x2 and 3x3 Rubik's Cube. A switch at the top chan
 ### 2x2
 
 - Learn every CLL, EG-1, EG-2, and Ortega case. Each case has a diagram, a recognition tip, alternate algorithms, and a 3D cube that plays the algorithm.
-- Mark each case as new, learning, or learned, and pick the algorithm you use.
+- Mark each case as new, learning, learned, or mastered, and pick the algorithm you use. After timed solves, Cube Lab suggests moving a case up (or back down) when your times support it.
 - Flashcards for recognition, either self-graded or timed.
 - Case timer with three modes. Scramble times a real scramble into the case, Alg only times the algorithm from a short setup, and Attack times every algorithm in your chosen sets back to back.
 - First side practice times a random scramble through the first face or layer and then shows the shortest one.
@@ -26,6 +26,7 @@ Cube Lab is a trainer for the 2x2 and 3x3 Rubik's Cube. A switch at the top chan
 - Splits that record each step of a solve (first side and last layer on the 2x2; cross, F2L, OLL, and PLL on the 3x3).
 - A target time for each session, a chart for each session, and a chart of your best and average for each day.
 - An auto solver that shows a step-by-step solution for any scramble.
+- Status filters in the case timer, flashcards, and recognition drill, so you can train any mix of unlearned, learning, learned, and mastered cases.
 - Color neutral mode, which uses every color in case scrambles and practice modes.
 - A backup code that moves all of your progress to another device.
 - Import from and export to csTimer.
