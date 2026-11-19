@@ -691,6 +691,7 @@ window.CubeLabHost = {
         <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="cardG" role="group" aria-label="Algorithm set" style="align-self:flex-start;flex-wrap:wrap"></div></div>
         <div class="dgroup"><span class="label">Sets</span><div class="chips" id="cardSets" role="group" aria-label="Sets to include"></div></div>
         <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="cardSt" role="group" aria-label="Which cases to include by status"></div></div>
+        <div class="dgroup"><span class="label">View</span><div class="seg sm" id="cardShow" role="group" aria-label="How the case is shown" style="align-self:flex-start"></div><span class="stats">3D starts at a random angle. Drag to turn it and find the case.</span></div>
       </div>
     </details>
     <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div><span class="stats" id="cardModeNote"></span></div>
@@ -885,7 +886,7 @@ window.CubeLabHost = {
     <div class="hdr-r"><div class="seg sm pz" role="group" aria-label="Puzzle"><button data-pz="2" aria-pressed="false">2x2</button><button data-pz="3" aria-pressed="false">3x3</button></div><div class="overall" id="overall"></div><a href="#prefs" class="gear" id="gearBtn" aria-label="Settings"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a></div>
   </header>
   <nav class="tabs" aria-label="Sections">
-    <a href="#learn">Learn</a><a href="#cards">Cards</a><a href="#timer">Drill</a><a href="#solve">Solve</a><a href="#recog">Recog</a>
+    <a href="#learn">Learn</a><a href="#cards">Cards</a><a href="#timer">Drill</a><a href="#solve">Solve</a><a href="#onelook">One-look</a>
   </nav>
 
   <section class="view" id="v-learn">
@@ -913,9 +914,17 @@ window.CubeLabHost = {
     </details>
     <div class="row" style="justify-content:space-between"><div class="seg" id="cardMode" role="group" aria-label="Flashcard mode"></div></div>
     <span class="stats" id="cardModeNote"></span>
-    <div class="card card-stage" id="cardStage"></div>
-    <p class="stats" id="cardStats"></p>
-    <div class="panel crecent" id="cardRecent" hidden></div>
+    <div id="cardBox" style="display:contents">
+      <div class="card card-stage" id="cardStage"></div>
+      <p class="stats" id="cardStats"></p>
+      <div class="panel crecent" id="cardRecent" hidden></div>
+    </div>
+    <div id="pickBox" style="display:contents" hidden>
+      <div class="card card-stage" id="rdStage"></div>
+      <p class="stats" id="rdStats"></p>
+      <div class="panel crecent" id="rdRecent" hidden></div>
+      <div class="panel" id="rdMissed" hidden></div>
+    </div>
   </section>
 
   <section class="view" id="v-timer" hidden>
@@ -986,20 +995,20 @@ window.CubeLabHost = {
     <div class="panel"><div class="row" style="justify-content:space-between"><span class="label">Solves</span><span class="stats" id="sCount"></span></div><div class="hist" id="sList"></div></div>
   </section>
 
-  <section class="view" id="v-recog" hidden>
-    <div class="vhead"><div class="ttl"><h2>Recognition drill</h2><button class="qbtn" data-help="recog" aria-label="How this tab works">?</button></div></div>
-    <details class="drawer" id="rdSettings"><summary><span class="dlabel">Options</span><span class="dsum" id="rdSummary"></span></summary>
+  <section class="view" id="v-onelook" hidden>
+    <div class="vhead"><div class="ttl"><h2>One-look drill</h2><button class="qbtn" data-help="onelook" aria-label="How this tab works">?</button></div></div>
+    <details class="drawer" id="o3Settings"><summary><span class="dlabel">Options</span><span class="dsum" id="o3Summary"></span></summary>
       <div class="dbody">
-        <div class="dgroup"><span class="label">Cases from</span><div class="seg" id="rdGroup" role="group" aria-label="Algorithm set to drill" style="align-self:flex-start;flex-wrap:wrap"></div></div>
-        <div class="dgroup"><span class="label">Sets</span><div class="chips" id="rdSets" role="group" aria-label="Sets to drill"></div></div>
-        <div class="dgroup"><span class="label">Cases to include</span><div class="chips" id="rdStatus" role="group" aria-label="Which cases to include by status"></div></div>
-        <div class="dgroup"><span class="label">View</span><div class="seg" id="rdView" role="group" aria-label="How the case is shown" style="align-self:flex-start"></div><span class="stats">Two sides is what you see mid-solve. The front color changes each time.</span></div>
+        <div class="dgroup"><span class="label">Round</span><div class="seg" id="o3Mode" role="group" aria-label="What each round trains" style="align-self:flex-start;flex-wrap:wrap"></div><span class="stats" id="o3ModeNote"></span></div>
+        <div class="dgroup" id="o3AlgsBox"><span class="label">Last layer</span><div class="seg" id="o3Algs" role="group" aria-label="Full or 2-look last layer" style="align-self:flex-start"></div></div>
+        <div class="dgroup" id="o3DiffBox"><span class="label">Difficulty</span><div class="seg" id="o3Diff" role="group" aria-label="One-look difficulty" style="align-self:flex-start;flex-wrap:wrap"></div><span class="stats" id="o3DiffNote"></span></div>
+        <div class="dgroup" id="o3StartBox"><span class="label">Start from</span><div class="seg" id="o3Start" role="group" aria-label="Where each solve starts" style="align-self:flex-start"></div></div>
+        <div class="dgroup" id="o3StBox"><span class="label" id="o3StLabel">Cases to include</span><div class="chips" id="o3St" role="group" aria-label="Which cases to include by status"></div></div>
       </div>
     </details>
-    <div class="card card-stage" id="rdStage"></div>
-    <p class="stats" id="rdStats"></p>
-    <div class="panel crecent" id="rdRecent" hidden></div>
-    <div class="panel" id="rdMissed" hidden></div>
+    <div class="card" id="o3Stage"></div>
+    <p class="stats" id="o3Stats"></p>
+    <div class="panel" id="o3Missed" hidden></div>
   </section>
 
   <section class="view" id="v-case" hidden>
@@ -2588,10 +2597,12 @@ let cardUndo = null;
 function renderCardStats(){ const t = cardSessText(); $('#cardStats').innerHTML = t + (cardUndo && cardMode==='self' ? `${t?' · ':''}<button class="linkbtn" data-cundo>Undo</button>` : ''); }
 $('#cardStats').addEventListener('click', ev=>{ if(!ev.target.closest('[data-cundo]') || !cardUndo) return; const e=cardUndo; cardUndo=null;
   revertCard(e, true); save(); cancelAnimationFrame(cardRaf); cardCur=BYID[e.id]; cardShown=true; cardArmed=false; cardRec=null; cardView=e.state; renderCard(); renderCardStats(); });
-let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self';
+let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self', cardShow = D.prefs.cardShow==='3d' ? '3d' : 'diag', card3dFresh = true;
 function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed recognition']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
+  $('#cardShow').innerHTML = [['diag','Diagram'],['3d','3D']].map(([v,l])=>`<button aria-pressed="${cardShow===v}" data-csh="${v}">${l}</button>`).join('');
   $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case' : ''; if (typeof cardRecent!=='undefined') renderCardRecent(); }
 $('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; cardUndo=null; save(); renderCardMode(); renderCardStats(); nextCard(); });
+$('#cardShow').addEventListener('click', e=>{ const b=e.target.closest('[data-csh]'); if(!b) return; cardShow=b.dataset.csh; D.prefs.cardShow=cardShow; save(); renderCardMode(); if (typeof cardSummary==='function') cardSummary(); if (cardCur) renderCard(); });
 renderCardMode(); renderCardOpts();
 function cardTick(){ const el=$('#cardClock'); if(!el || cardShown) return; el.textContent=((performance.now()-cardT0)/1000).toFixed(2); cardRaf=requestAnimationFrame(cardTick); }
 function armCard(){ if(!cardCur || cardShown || cardArmed) return; cardArmed=true; renderCard(); }
@@ -2608,19 +2619,21 @@ function pickWeighted(list, avoid){
 function nextCard(){
   const list=poolCases();
   if(!list.length){ cardCur=null; $('#cardStage').innerHTML='<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Options.</p>'; return; }
-  cancelAnimationFrame(cardRaf); cardRec=null; cardCur=pickWeighted(list,cardCur); cardShown=false; cardArmed=false; cardView=Cube.apply(cardCur.state, ['U','U2',"U'",'U U U U'][rnd(4)]); renderCard();
+  cancelAnimationFrame(cardRaf); cardRec=null; cardCur=pickWeighted(list,cardCur); cardShown=false; cardArmed=false; cardView=Cube.apply(cardCur.state, ['U','U2',"U'",'U U U U'][rnd(4)]); card3dFresh=true; renderCard();
 }
 function renderCard(){
   const c=cardCur, s=cardShown?c.state:cardView;
   const ra = recAvg(c.id);
   if (!cardShown && cardMode==='timed' && !cardArmed){ cancelAnimationFrame(cardRaf);
     $('#cardStage').innerHTML = `<div class="big blank" aria-hidden="true">${diagOf(c, Array(24).fill('X'), cardG==='all')}</div><p class="lede" style="text-align:center">The case appears when you tap Start, and the clock starts with it.</p><button class="btn yellow" data-g="arm">Start</button>`; return; }
-  $('#cardStage').innerHTML = `${cardShown || cardMode!=='timed' ? `<span class="gbadge">${c.g==='Ortega'?'Ortega '+c.set:c.g}</span>` : ''}<div class="big">${diagOf(c, s, cardG==='all')}</div>
+  const in3d = cardShow==='3d' && !cardShown;
+  $('#cardStage').innerHTML = `${cardShown || cardMode!=='timed' ? `<span class="gbadge">${c.g==='Ortega'?'Ortega '+c.set:c.g}</span>` : ''}${in3d ? `<div class="stage3d" id="card3d" aria-label="3D cube, drag to turn it"></div><p class="stats" style="text-align:center;margin:0">Drag to turn it.</p>` : `<div class="big">${diagOf(c, s, cardG==='all')}</div>`}
     ${cardShown ? `${cardRec!==null?`<p class="stats" style="text-align:center">Recognized in <b style="color:var(--ink)">${cardRec.toFixed(2)}s</b>${ra?` · your average ${ra.toFixed(2)}s`:''}. Tap Got it only if you named it right.</p>`:''}<h2>${c.name}</h2><div class="alg">${esc(algOf(c))}</div>${spot(c,true)}${noteHTML(c)}<p class="rec setup" style="text-align:center">Setup from solved: <code>${esc(setupOf(c))}</code></p><p class="rec" style="text-align:center">Shown in this set's standard hold.</p>
       <div class="row"><button class="btn alt" data-v3="${c.id}">Turn in 3D</button><button class="btn bad" data-g="m">Missed it</button><button class="btn good" data-g="h">Got it</button></div>${statusSeg(c)}`
     : cardMode==='timed'
       ? `<div class="recog" id="cardClock" aria-live="off">0.00</div><p class="lede" style="text-align:center">Tap as soon as you know which case it is (or press space). The top may be turned.</p><button class="btn yellow" data-g="show">I know it</button>`
       : `<span class="hidden-alg">· · · · · · ·</span><p class="lede" style="text-align:center">Name the case and say the algorithm in your head. The top may be turned; find the angle you'd start from.</p><button class="btn yellow" data-g="show">Show answer</button>`}`;
+  if (in3d){ OL3D.mount($('#card3d'), s, card3dFresh, true); card3dFresh=false; }
   if (!cardShown && cardMode==='timed'){ cardT0=performance.now(); cancelAnimationFrame(cardRaf); cardRaf=requestAnimationFrame(cardTick); }
 }
 $('#cardStage').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return;
@@ -3039,13 +3052,14 @@ const OL3D = (() => {
     if(w && el.width!==Math.round(w*r.getPixelRatio())) r.setSize(w,w,false);
     const d=7.6; cam.position.set(d*Math.cos(phi)*Math.sin(theta), d*Math.sin(phi), d*Math.cos(phi)*Math.cos(theta)); cam.lookAt(0,0,0); cam.aspect=1; cam.updateProjectionMatrix();
     r.render(scene,cam); raf=requestAnimationFrame(loop); }
-  function mount(box, st, fresh){
+  // rand: start from a random angle (flashcards), so you turn it to find the case
+  function mount(box, st, fresh, rand){
     if(!ok()){ box.innerHTML = threeFailed ? '<div class="err">The 3D view could not load on this device. Try the scramble or net view.</div>' : '<div class="err">Loading 3D…</div>';
-      if(!threeFailed) loadThree().then(()=>{ if(box.isConnected) mount(box, st, fresh); }, ()=>{ if(box.isConnected) box.innerHTML='<div class="err">The 3D view could not load on this device. Try the scramble or net view.</div>'; });
+      if(!threeFailed) loadThree().then(()=>{ if(box.isConnected) mount(box, st, fresh, rand); }, ()=>{ if(box.isConnected) box.innerHTML='<div class="err">The 3D view could not load on this device. Try the scramble or net view.</div>'; });
       return; }
     box.querySelectorAll('.err').forEach(x=>x.remove());
-    if(!r) init(); if(fresh){ theta=0.62; phi=0.5; }
-    st.forEach((c,i)=>stickers[i].material.color.setHex(HEX[c])); box.appendChild(r.domElement);
+    if(!r) init(); if(fresh){ if(rand){ theta=Math.random()*Math.PI*2; phi=0.15+Math.random()*0.6; } else { theta=0.62; phi=0.5; } }
+    st.forEach((c,i)=>stickers[i].material.color.setHex(HEX[c]!==undefined?HEX[c]:0x9AA1AD)); box.appendChild(r.domElement);
     cancelAnimationFrame(raf); loop(); }
   return { mount };
 })();
@@ -3438,7 +3452,7 @@ const HELP = {
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
     ['Make it yours',['Open a card\'s details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes.']]]},
   cards:{t:'Flashcards', s:[
-    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it. Tapped the wrong one? Undo next to the session count takes it back.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.']],
+    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it. Tapped the wrong one? Undo next to the session count takes it back.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.','<b>View</b> under Options switches between the diagram and a <b>3D</b> cube. The 3D cube starts at a random angle: drag to turn it and find the case, like in a real solve.']],
     ['What comes up',['Pick the set, any mix of its subsets, and which cases (by Learning status) under <b>Options</b>.','Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
     ['Keyboard',['Space reveals · 1 Missed it · 2 Got it.']]]},
   timer:{t:'Case timer', s:[
@@ -3487,7 +3501,7 @@ function refreshAll(){
   olG.clear(); (D.prefs.olG||['CLL']).forEach(g=>{ if(LL_GROUPS.includes(g)) olG.add(g); }); if(!olG.size) olG.add('CLL');
   cardLoad();
   if(['easy','medium','hard','mixed','full'].includes(D.prefs.olDiff)) olDiff=D.prefs.olDiff;
-  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs'; fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; renderCardMode(); renderCardOpts();
+  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = D.prefs.tPrac==='first' ? 'first' : 'algs'; fsGoal = D.prefs.fsGoal==='face' ? 'face' : 'layer'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; cardShow = D.prefs.cardShow==='3d' ? '3d' : 'diag'; renderCardMode(); renderCardOpts();
   applyTheme(); if(!$('#v-prefs').hidden) renderSettings(); if(!$('#v-case').hidden) renderCasePage();
   loadSess(); renderTSets(); renderTMode(); renderTKind(); renderOlGroups(); renderOlDiff(); syncCN(); renderTRes(); $('#tResult').hidden=true;
   if(!$('#v-onelook').hidden) olStats(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); if(!$('#v-timer').hidden && !tCase) newScramble(); if(!$('#v-solve').hidden) SV.render();
@@ -4459,7 +4473,9 @@ function sanitize(o){ const isObj = x => !!x && typeof x==='object' && !Array.is
   for (const f of ['ol','rd']){ const v = o[f]; if (!isObj(v)) continue; for (const a of ['n','c']) if (!num(v[a])) v[a] = 0;
     if (v.miss!==undefined){ if (!isObj(v.miss)) delete v.miss; else for (const a of Object.keys(v.miss)) if (!num(v.miss[a])) delete v.miss[a]; }
     if (v.bot!==undefined){ if (!isObj(v.bot)) delete v.bot; else counts(v.bot, ['n','c']); }
-    if (v.by!==undefined){ if (!isObj(v.by)) delete v.by; else for (const a of Object.keys(v.by)){ if (!isObj(v.by[a])) delete v.by[a]; else counts(v.by[a], ['n','c']); } } }
+    if (v.by!==undefined){ if (!isObj(v.by)) delete v.by; else for (const a of Object.keys(v.by)){ if (!isObj(v.by[a])) delete v.by[a]; else counts(v.by[a], ['n','c']); } }
+    if (v.missN!==undefined){ if (!isObj(v.missN)) delete v.missN; else for (const a of Object.keys(v.missN)) if (!num(v.missN[a])) delete v.missN[a]; }
+    if (v.hon!==undefined){ if (!Array.isArray(v.hon)) delete v.hon; else v.hon = v.hon.filter(x=>Array.isArray(x) && x.length===4 && x.every(num)).slice(-100); } }
   o.recent = o.recent.map(r=>({id:r.id, base: num(r.base) ? r.base : r.cur, pen: ['+2','DNF'].includes(r.pen) ? r.pen : '', cur:r.cur, k: r.k==='a' ? 'a' : '', ak: typeof r.ak==='string' ? r.ak.slice(0, 300) : '', mv: num(r.mv) ? r.mv : 0})).filter(r=>num(r.cur));
   if (o.stamp) for (const a of Object.keys(o.stamp)) if (!num(o.stamp[a])) delete o.stamp[a];
   if (o.daily){ o.daily.ids = o.daily.ids.filter(x=>typeof x==='string'); o.daily.done = Array.isArray(o.daily.done) ? o.daily.done.filter(x=>typeof x==='string') : []; if (typeof o.daily.date!=='string') o.daily = null; }
@@ -4486,7 +4502,7 @@ let storeWarned = false;
 const writeLocal = () => { try { localStorage.setItem(K, JSON.stringify(D)); }
   catch(e){ if (!storeWarned){ storeWarned = true; setTimeout(()=>{ try { Toast.show(Sync.on() ? "This browser's storage is full, so it can't save here. Your account copy is still saving." : "This browser's storage is full, so progress isn't saving. Back up from Settings, or free up space."); } catch(e2){} }, 1500); } } };
 const KEYED = ['status','times','cards','custom','cstat','recog','notes','atimes','algt','act','atk','crs','prac'];
-const SINGLE = ['prefs','rd','recent','cur','daily'];
+const SINGLE = ['prefs','rd','ol','recent','cur','daily'];
 function keysOf(o){ const m = {};
   for (const f of KEYED) for (const id of Object.keys(o[f]||{})) m[f+':'+id] = JSON.stringify(o[f][id]);
   for (const f of SINGLE) if (o[f] !== undefined) m[f] = JSON.stringify(o[f]);
@@ -4525,7 +4541,7 @@ const Sync = (() => {
   function queue(docs){ if (docs) docs.forEach(d=>dirty.add(d)); if(!col||off) return; clearTimeout(timer); timer=setTimeout(flush, 1200); }
   function bodyOf(docId){
     if (docId==='c3-state'){ const st={}; for (const [k,t] of Object.entries(D.stamp)) if (!k.startsWith('sess:')) st[k]=t;
-      return {v:1, updatedAt:D.updatedAt||0, stamp:st, status:D.status||{}, times:D.times||{}, cards:D.cards||{}, custom:D.custom||{}, cstat:D.cstat||{}, recog:D.recog||{}, notes:D.notes||{}, algt:D.algt||{}, atimes:D.atimes||{}, act:D.act||{}, atk:D.atk||{}, crs:D.crs||{}, prac:D.prac||{}, daily:D.daily||null, prefs:D.prefs||{}, rd:D.rd||{n:0,c:0}, recent:D.recent||[], cur:D.cur||null}; }
+      return {v:1, updatedAt:D.updatedAt||0, stamp:st, status:D.status||{}, times:D.times||{}, cards:D.cards||{}, custom:D.custom||{}, cstat:D.cstat||{}, recog:D.recog||{}, notes:D.notes||{}, algt:D.algt||{}, atimes:D.atimes||{}, act:D.act||{}, atk:D.atk||{}, crs:D.crs||{}, prac:D.prac||{}, daily:D.daily||null, prefs:D.prefs||{}, rd:D.rd||{n:0,c:0}, ol:D.ol||{n:0,c:0}, recent:D.recent||[], cur:D.cur||null}; }
     const id = docId.slice(8), s = (D.sessions||[]).find(x=>x.id===id);
     if (!s) return D.stamp['sess:'+id] ? {id, deleted:true, t:D.stamp['sess:'+id]} : null;
     return {id, name:s.name, solves:s.solves, comp:!!s.comp, t:D.stamp['sess:'+id]||0}; }
@@ -4908,7 +4924,7 @@ function delCaseTime(c, i){ const t = D.times[c.id]; if (!t || i<0 || i>=t.lengt
 function rtimesHTML(c){ const r = D.recog[c.id]||[]; if (!r.length) return '';
   return `<details class="ctimes rtimes"${rtOpen?' open':''}><summary>Recognition times <span class="stats">${r.length}</span></summary>
     <div class="ctlist">${r.map((v,i)=>[v,i]).reverse().map(([v,i])=>`<span class="ctime">${v.toFixed(2)}<button class="x sm" data-rdel="${i}" aria-label="Delete ${v.toFixed(2)} seconds">×</button></span>`).join('')}</div>
-    <p class="stats">Newest first. From timed flashcards and the Recognition drill. Recognition uses your last 10.</p></details>`; }
+    <p class="stats">Newest first. From timed flashcards and Pick the case. Recognition uses your last 10.</p></details>`; }
 // deleting here also stops the session's recent-cards list from removing the same time again
 const unkeep = (list, id, v) => { const e = list.find(x=>x.id===id && x.kept && +x.t.toFixed(2)===v); if (e) e.kept = false; return e; };
 function delRecog(c, i){ const r = D.recog[c.id]; if (!r || i<0 || i>=r.length) return; const v = r[i]; r.splice(i,1); if (!r.length) delete D.recog[c.id];
@@ -4974,7 +4990,7 @@ let bkArmed=false;
 const bkReset=()=>{ bkArmed=false; $('#bkRestore').textContent='Restore'; };
 $('#bkIn3').addEventListener('input', ()=>{ bkReset(); $('#bkMsg').textContent=''; });
 function restoreFrom(obj){ const keepStamp = D.stamp; for (const k of Object.keys(D)) delete D[k];
-  Object.assign(D, {v:1,status:{},times:{},cards:{},custom:{},cstat:{},recog:{},notes:{},atimes:{},daily:null,rd:{n:0,c:0},prefs:{},recent:[],sessions:[],cur:null}, JSON.parse(JSON.stringify(obj))); D.stamp = Object.assign({}, keepStamp||{}, obj.stamp||{}); sanitize(D); if(!D.stamp) D.stamp={}; save(); refreshAll(); }
+  Object.assign(D, {v:1,status:{},times:{},cards:{},custom:{},cstat:{},recog:{},notes:{},atimes:{},daily:null,rd:{n:0,c:0},ol:{n:0,c:0},prefs:{},recent:[],sessions:[],cur:null}, JSON.parse(JSON.stringify(obj))); D.stamp = Object.assign({}, keepStamp||{}, obj.stamp||{}); sanitize(D); if(!D.stamp) D.stamp={}; save(); refreshAll(); }
 $('#bkRestore').addEventListener('click', async ()=>{ const m=$('#bkMsg'), parts=await CubeLab.parseBackup($('#bkIn3').value);
   if(!parts){ m.className='msg err'; m.textContent="That code isn't valid. Copy the whole code, starting with CUBELAB"; bkReset(); return; }
   const what = Object.keys(parts).map(p=>p+'x'+p).join(' and ');
@@ -4994,18 +5010,18 @@ function cardLoad(){ const p = D.prefs, old = p.cardPool || '';
   cardSt = p.cardStatus ? stParse(p.cardStatus) : old==='learning' ? 'learning' : old==='active' ? 'learning,learned' : 'all'; cardFix(); }
 cardLoad();
 function cardSummary(){ const sets = cardG==='all' ? [] : cardSetsOf(cardG), on = sets.filter(s=>cardSel.has(s));
-  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : stLabel(cardSt), cardG==='F2L' ? '' : (cardView==='iso' ? 'Two sides' : 'Top')].filter(Boolean).join(' · '); }
+  $('#cardSummary').textContent = [cardG==='all' ? cardAllLabel() : cardG, cardG==='all' ? '' : on.length===sets.length ? 'All sets' : on.map(cardSetLabel).join(', '), cardSt==='all' ? '' : stLabel(cardSt), {top:'Top', iso:'Two sides', '3d':'3D'}[cardViewOf(cardG==='F2L')]].filter(Boolean).join(' · '); }
 function renderCardOpts(){ cardFix(); cardSummary();
   $('#cardG').innerHTML = [['all', cardAllLabel()], ...GROUPS.map(g=>[g,g])].map(([v,l])=>`<button aria-pressed="${cardG===v}" data-cgp="${v}">${l}</button>`).join('');
   const sets = cardG==='all' ? [] : cardSetsOf(cardG); $('#cardSets').closest('.dgroup').hidden = sets.length < 2;
   $('#cardSets').innerHTML = sets.length < 2 ? '' : `<button class="chip" aria-pressed="${sets.every(s=>cardSel.has(s))}" data-csall>All</button>` + sets.map(s=>`<button class="chip" aria-pressed="${cardSel.has(s)}" data-cset="${esc(s)}">${esc(cardSetLabel(s))}</button>`).join('');
   $('#cardSt').innerHTML = stChipsHTML(cardSt,'cst');
-  $('#cardView').closest('.dgroup').hidden = cardG==='F2L'; }
+  renderCardMode(); }
 const fillCardGroup = renderCardOpts;
 function poolCases(){ let l = cardG==='all' ? CASES.filter(c=>c.g!=='ZBLL') : CASES.filter(c=>c.g===cardG && cardSel.has(c.set));
   if (cardSt!=='all') return l.filter(c=>stPass(c.id,cardSt));
   return l; }
-const saveCardPrefs = () => { D.prefs.cardGroup = cardG; D.prefs.cardSets = [...cardSel]; D.prefs.cardStatus = cardSt; delete D.prefs.cardPool; save(); renderCardOpts(); nextCard(); };
+const saveCardPrefs = () => { D.prefs.cardGroup = cardG; D.prefs.cardSets = [...cardSel]; D.prefs.cardStatus = cardSt; delete D.prefs.cardPool; save(); renderCardOpts(); nextCard(); if (cardMode==='pick') rdNew(); };
 $('#cardG').addEventListener('click', e=>{ const b=e.target.closest('[data-cgp]'); if(!b) return; cardG=b.dataset.cgp; saveCardPrefs(); });
 $('#cardSets').addEventListener('click', e=>{ const sets = cardSetsOf(cardG);
   if (e.target.closest('[data-csall]')){ sets.forEach(s=>cardSel.add(s)); saveCardPrefs(); return; }
@@ -5029,12 +5045,21 @@ let cardUndo = null;
 function renderCardStats(){ const t = cardSessText(); $('#cardStats').innerHTML = t + (cardUndo && cardMode==='self' ? `${t?' · ':''}<button class="linkbtn" data-cundo>Undo</button>` : ''); }
 $('#cardStats').addEventListener('click', ev=>{ if(!ev.target.closest('[data-cundo]') || !cardUndo) return; const e=cardUndo; cardUndo=null;
   revertCard(e, true); save(); cancelAnimationFrame(cardRaf); cardCur=BYID[e.id]; cardShown=true; cardArmed=false; cardRec=null; cardState=e.state; cardMap=e.map; renderCard(); renderCardStats(); });
-let cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self', cardView = D.prefs.cardView==='iso' ? 'iso' : 'top';
-function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed recognition']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
-  $('#cardView').innerHTML = [['top','Top'],['iso','Two sides']].map(([v,l])=>`<button aria-pressed="${cardView===v}" data-cv="${v}">${l}</button>`).join('');
-  $('#cardModeNote').textContent = cardMode==='timed' ? 'Times how fast you know each case.' : ''; $('#cardModeNote').hidden = cardMode!=='timed'; if (typeof cardRecent!=='undefined') renderCardRecent(); }
-$('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; cardUndo=null; save(); renderCardMode(); renderCardStats(); nextCard(); });
-$('#cardView').addEventListener('click', e=>{ const b=e.target.closest('[data-cv]'); if(!b) return; cardView=b.dataset.cv; D.prefs.cardView=cardView; save(); renderCardMode(); cardSummary(); if (cardCur) renderCard(); });
+// modes: Self-check, Timed, and Pick the case (the old Recognition drill); views: top, two sides, or a 3D cube you turn
+const cardModeOf = v => ['timed','pick'].includes(v) ? v : 'self', cardViewIs = v => ['iso','3d'].includes(v) ? v : 'top';
+let cardMode = cardModeOf(D.prefs.cardMode), cardView = cardViewIs(D.prefs.cardView);
+// F2L has no top view, so Top shows two sides there
+const cardViewOf = f2l => f2l && cardView==='top' ? 'iso' : cardView;
+const CARD_NOTE = {timed:'Times how fast you know each case.', pick:'Pick the case from a list. The clock runs until you answer.'};
+function renderCardMode(){ $('#cardMode').innerHTML = [['self','Self-check'],['timed','Timed'],['pick','Pick the case']].map(([v,l])=>`<button aria-pressed="${cardMode===v}" data-cm="${v}">${l}</button>`).join('');
+  const f2l = cardG==='F2L', cv = cardViewOf(f2l);
+  $('#cardView').innerHTML = [...(f2l ? [] : [['top','Top']]), ['iso','Two sides'], ['3d','3D']].map(([v,l])=>`<button aria-pressed="${cv===v}" data-cv="${v}">${l}</button>`).join('');
+  $('#cardModeNote').textContent = CARD_NOTE[cardMode]||''; $('#cardModeNote').hidden = !CARD_NOTE[cardMode];
+  $('#cardBox').hidden = cardMode==='pick'; $('#pickBox').hidden = cardMode!=='pick';
+  if (typeof cardRecent!=='undefined') renderCardRecent(); }
+$('#cardMode').addEventListener('click', e=>{ const b=e.target.closest('[data-cm]'); if(!b) return; cardMode=b.dataset.cm; D.prefs.cardMode=cardMode; cardUndo=null; save(); renderCardMode(); renderCardStats();
+  if (cardMode==='pick'){ if (!rd) rdNew(); else renderRd(); rdStats(); renderRdRecent(); } else nextCard(); });
+$('#cardView').addEventListener('click', e=>{ const b=e.target.closest('[data-cv]'); if(!b) return; cardView=b.dataset.cv; D.prefs.cardView=cardView; save(); renderCardMode(); cardSummary(); if (cardMode==='pick'){ if (rd) renderRd(); } else if (cardCur) renderCard(); });
 renderCardMode(); renderCardOpts();
 function cardTick(){ const el=$('#cardClock'); if(!el || cardShown) return; el.textContent=((performance.now()-cardT0)/1000).toFixed(2); cardRaf=requestAnimationFrame(cardTick); }
 function armCard(){ if(!cardCur || cardShown || cardArmed) return; cardArmed=true; renderCard(); }
@@ -5050,21 +5075,25 @@ function pickWeighted(list, avoid){
 function nextCard(){
   const list=poolCases();
   if(!list.length){ cardCur=null; $('#cardStage').innerHTML='<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Options.</p>'; return; }
-  cancelAnimationFrame(cardRaf); cardRec=null; cardCur=pickWeighted(list,cardCur); cardShown=false; cardArmed=false; cardState=Cube.apply(cardCur.state, pickOne(AUF)); cardMap = cnOn() ? pickOne(CN_MAPS) : null; renderCard();
+  cancelAnimationFrame(cardRaf); cardRec=null; cardCur=pickWeighted(list,cardCur); cardShown=false; cardArmed=false; cardState=Cube.apply(cardCur.state, pickOne(AUF)); cardMap = cnOn() ? pickOne(CN_MAPS) : null; card3d = null; card3dFresh = true; renderCard();
 }
 const blankState = () => Array(54).fill('X');
+let card3d = null, card3dFresh = true;
+// the 3D card is a whole cube: F2L solved, the rest of the last layer random, so it looks like a real solve
+const stage3dHTML = id => `<div class="stage3d" id="${id}" aria-label="3D cube, drag to turn it"></div><p class="stats" style="text-align:center;margin:0">Drag to turn it.</p>`;
 function renderCard(){
-  const c=cardCur, s=cardShown?c.state:cardState, view = c.g==='F2L' ? 'iso' : cardView;
+  const c=cardCur, s=cardShown?c.state:cardState, view0 = cardViewOf(c.g==='F2L'), view = view0==='3d' && cardShown ? (c.g==='F2L' ? 'iso' : 'top') : view0;
   const ra = recAvg(c.id);
   const pic = st => view==='iso' ? isoSVG(c, st, {cmap:cardMap}) : topSVG(c, st, {arrows:[], cmap:cardMap});
   if (!cardShown && cardMode==='timed' && !cardArmed){ cancelAnimationFrame(cardRaf);
-    $('#cardStage').innerHTML = `<div class="big blank" aria-hidden="true">${view==='iso'?isoSVG(null, blankState(), {mode:'all'}):topSVG(c, blankState(), {mode:'pll', arrows:[]})}</div><p class="lede" style="text-align:center">The case appears when you tap Start, and the clock starts with it.</p><button class="btn yellow" data-g="arm">Start</button>`; return; }
-  $('#cardStage').innerHTML = `${cardShown || cardMode!=='timed' ? `<span class="gbadge">${esc(c.g)} · ${esc(SET_SHORT[c.set]||c.set)}</span>` : ''}<div class="big">${cardShown ? (view==='iso' ? isoSVG(c, c.state, {cmap:cardMap}) : topSVG(c, c.state, {cmap:cardMap})) : pic(s)}</div>${cardMap && !cardShown ? `<p class="rec" style="text-align:center">${CNAME[cardMap.D]} cross</p>` : ''}
+    $('#cardStage').innerHTML = `<div class="big blank" aria-hidden="true">${view!=='top'?isoSVG(null, blankState(), {mode:'all'}):topSVG(c, blankState(), {mode:'pll', arrows:[]})}</div><p class="lede" style="text-align:center">The case appears when you tap Start, and the clock starts with it.</p><button class="btn yellow" data-g="arm">Start</button>`; return; }
+  $('#cardStage').innerHTML = `${cardShown || cardMode!=='timed' ? `<span class="gbadge">${esc(c.g)} · ${esc(SET_SHORT[c.set]||c.set)}</span>` : ''}${view==='3d' ? stage3dHTML('card3d') : `<div class="big">${cardShown ? (view==='iso' ? isoSVG(c, c.state, {cmap:cardMap}) : topSVG(c, c.state, {cmap:cardMap})) : pic(s)}</div>`}${cardMap && !cardShown ? `<p class="rec" style="text-align:center">${CNAME[cardMap.D]} cross</p>` : ''}
     ${cardShown ? `${cardRec!==null?`<p class="stats" style="text-align:center">Recognized in <b style="color:var(--ink)">${cardRec.toFixed(2)}s</b>${ra?` · your average ${ra.toFixed(2)}s`:''}. Tap Got it only if you named it right.</p>`:''}<h2>${esc(c.full)}</h2><div class="alg">${esc(algOf(c))}</div>${spot(c,true)}${noteHTML(c)}<p class="rec setup" style="text-align:center">Setup from solved: <code>${esc(setupOf(c))}</code></p>
       <div class="row"><button class="btn alt" data-v3="${c.id}">Turn in 3D</button><button class="btn bad" data-g="m">Missed it</button><button class="btn good" data-g="h">Got it</button></div>${statusSeg(c)}`
     : cardMode==='timed'
       ? `<div class="recog" id="cardClock" aria-live="off">0.00</div><p class="lede" style="text-align:center">Tap as soon as you know which case it is (or press space). The top may be turned.</p><button class="btn yellow" data-g="show">I know it</button>`
       : `<span class="hidden-alg">· · · · · · ·</span><p class="lede" style="text-align:center">Name the case and say the algorithm in your head. The top may be turned; find the angle you'd start from.</p><button class="btn yellow" data-g="show">Show answer</button>`}`;
+  if (view==='3d'){ if (!card3d) card3d = variant(c).map(v=>cardMap ? cardMap[v] : v); Cube3D.mount($('#card3d'), card3d, card3dFresh); card3dFresh = false; }
   if (!cardShown && cardMode==='timed'){ cardT0=performance.now(); cancelAnimationFrame(cardRaf); cardRaf=requestAnimationFrame(cardTick); }
 }
 $('#cardStage').addEventListener('click', e=>{ const b=e.target.closest('[data-g]'); if(!b) return;
@@ -5385,19 +5414,14 @@ document.addEventListener('keydown', e=>{
   else if(['1','2','3'].includes(k) && tSess[0]){ e.preventDefault(); setPen(tSess[0], ['','+2','DNF'][+k-1]); }
   else if((k==='backspace'||k==='delete') && tSess[0]){ e.preventDefault(); delSolve(tSess[0]); }
 });
-document.addEventListener('keydown', e=>{ if($('#v-cards').hidden || !$('#sheet').hidden || e.target.matches('input, select, textarea') || !cardCur || e.ctrlKey || e.metaKey || e.altKey) return;
+document.addEventListener('keydown', e=>{ if($('#v-cards').hidden || cardMode==='pick' || !$('#sheet').hidden || e.target.matches('input, select, textarea') || !cardCur || e.ctrlKey || e.metaKey || e.altKey) return;
   if(e.code==='Space' && !cardShown){ e.preventDefault(); if(!e.repeat) revealCard(); return; }
   if(cardShown && !e.repeat && (e.key==='1' || e.key==='2')){ const b=$('#cardStage [data-g="'+(e.key==='1'?'m':'h')+'"]'); if(b){ e.preventDefault(); b.click(); } } });
 document.addEventListener('keyup', e=>{ if(!timerKeys(e)) return; if(e.code==='Space') e.preventDefault(); if(tState==='stopped') setTState('idle'); else if(e.code==='Space') holdEnd(); });
 
-// ---- recognition drill: name the case from what you'd see mid-solve ----
-let rdGroup = GROUPS.includes(D.prefs.rdGroup) ? D.prefs.rdGroup : 'PLL';
-const rdSel = new Set((D.prefs.rdSel||[]).filter(s=>SETS.includes(s)));
-const rdFix = () => { if (!GSETS[rdGroup].some(s=>rdSel.has(s))) GSETS[rdGroup].forEach(s=>rdSel.add(s)); }; rdFix();
-let rdStatus = stParse(D.prefs.rdStatus);
-let rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
+// ---- Pick the case (Cards): name the case from what you'd see mid-solve; uses the Cards options ----
 let rd = null, rdRaf = 0; const rdSess = {n:0, c:0, t:[]};
-// recent drill answers this session; ✕ deletes the time and takes back the right / wrong
+// recent answers this session; ✕ deletes the time and takes back the right / wrong
 const rdRecent = [];
 function renderRdRecent(){ const box=$('#rdRecent'); box.hidden = !rdRecent.length; if (box.hidden) return;
   box.innerHTML = `<span class="label">Recent cases</span>` + rdRecent.map((e,i)=>{ const c=BYID[e.id]; return `<div class="crow"><span>${esc(c?c.full:e.id)}</span><span class="ct">${e.t.toFixed(2)}s</span><span class="cres" style="color:var(--${e.ok?'good':'bad'})">${e.ok?'Right':'Wrong'}</span><button class="cdel" data-rddel="${i}" aria-label="Delete this answer">✕</button></div>`; }).join(''); }
@@ -5411,24 +5435,10 @@ $('#rdRecent').addEventListener('click', ev=>{ const b=ev.target.closest('[data-
   const s = D.cards[e.id]; if (s && newest){ if (e.prevL) s.l = e.prevL; else delete s.l; if (!s.h && !s.m && !s.t && !s.l) delete D.cards[e.id]; }
   if (e.kept){ const r = D.recog[e.id]; if (r){ const j = r.lastIndexOf(+e.t.toFixed(2)); if (j>=0) r.splice(j,1); if (!r.length) delete D.recog[e.id]; } }
   rdRecent.splice(i,1); save(); rdStats(); renderRdRecent(); });
-function rdPool(){ let l = CASES.filter(c=>c.g===rdGroup && rdSel.has(c.set));
-  l = l.filter(c=>stPass(c.id,rdStatus)); return l; }
-function rdSummary(){ const sets = GSETS[rdGroup].filter(s=>rdSel.has(s)); $('#rdSummary').textContent = [rdGroup, sets.length===GSETS[rdGroup].length ? 'All sets' : sets.map(s=>SET_SHORT[s]||s).join(', '), stLabel(rdStatus), rdGroup==='F2L' ? '' : (rdView==='iso'?'Two sides':'Top')].filter(Boolean).join(' · '); }
-function renderRdOpts(){ rdSummary();
-  $('#rdGroup').innerHTML = GROUPS.map(g=>`<button aria-pressed="${rdGroup===g}" data-rg="${g}">${g}</button>`).join('');
-  $('#rdSets').innerHTML = `<button class="chip" aria-pressed="${GSETS[rdGroup].every(s=>rdSel.has(s))}" data-rsall>All</button>`+GSETS[rdGroup].map(s=>`<button class="chip" aria-pressed="${rdSel.has(s)}" data-rs="${s}">${SET_SHORT[s]||s}</button>`).join('');
-  $('#rdStatus').innerHTML = stChipsHTML(rdStatus,'rst2');
-  $('#rdView').innerHTML = [['iso','Two sides'],['top','Top']].map(([v,l])=>`<button aria-pressed="${rdView===v}" data-rv="${v}">${l}</button>`).join('');
-  $('#rdView').closest('.dgroup').hidden = rdGroup==='F2L'; }
-const rdSave = () => { D.prefs.rdGroup=rdGroup; D.prefs.rdSel=[...rdSel]; D.prefs.rdStatus=rdStatus; D.prefs.rdView=rdView; save(); };
-$('#rdGroup').addEventListener('click', e=>{ const b=e.target.closest('[data-rg]'); if(!b) return; rdGroup=b.dataset.rg; rdFix(); rdSave(); renderRdOpts(); rdNew(); });
-$('#rdSets').addEventListener('click', e=>{ if(e.target.closest('[data-rsall]')){ GSETS[rdGroup].forEach(s=>rdSel.add(s)); rdSave(); renderRdOpts(); rdNew(); return; }
-  const b=e.target.closest('[data-rs]'); if(!b) return; const s=b.dataset.rs; if (rdSel.has(s) && GSETS[rdGroup].filter(x=>rdSel.has(x)).length>1) rdSel.delete(s); else rdSel.add(s); rdSave(); renderRdOpts(); rdNew(); });
-$('#rdStatus').addEventListener('click', e=>{ const b=e.target.closest('[data-rst2]'); if(!b) return; rdStatus=stToggle(rdStatus,b.dataset.rst2); rdSave(); renderRdOpts(); rdNew(); });
-$('#rdView').addEventListener('click', e=>{ const b=e.target.closest('[data-rv]'); if(!b) return; rdView=b.dataset.rv; rdSave(); renderRdOpts(); if (rd) renderRd(); });
+const rdPool = () => poolCases();
 function rdPick(pool){ const miss = (D.rd.miss)||{}; const w = pool.map(c=>(rd && rd.c===c && pool.length>1) ? 0 : 1+2*(miss[c.id]||0)+(status(c.id)==='learning'?1:0)); let t = Math.random()*w.reduce((a,b)=>a+b,0); for (let i=0;i<pool.length;i++){ t-=w[i]; if (t<=0 && w[i]>0) return pool[i]; } return pool[0]; }
 function rdNew(){ cancelAnimationFrame(rdRaf); const pool = rdPool();
-  if (!pool.length){ rd = null; $('#rdStage').innerHTML = '<p class="lede" style="text-align:center">No cases match. Pick more sets, or change Cases to include in Options.</p>'; return; }
+  if (!pool.length){ rd = null; $('#rdStage').innerHTML = '<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Options.</p>'; return; }
   const c = rdPick(pool), st = variant(c), cmap = pickMap();
   // answer choices: every PLL by name; otherwise six cases from the same set first, then the same group
   let opts;
@@ -5436,20 +5446,21 @@ function rdNew(){ cancelAnimationFrame(rdRaf); const pool = rdPool();
   else { const same = CASES.filter(x=>x!==c && x.set===c.set && x.sub===c.sub), grp = CASES.filter(x=>x!==c && x.g===c.g && x.set!==c.set);
     const sh = a => a.map(x=>[Math.random(),x]).sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
     opts = sh([c, ...sh(same).slice(0,5), ...sh(grp)].slice(0,6)); }
-  rd = {c, st, cmap, opts, t0:0, armed:false, done:null}; renderRd(); }
+  rd = {c, st, cmap, opts, t0:0, armed:false, done:null, fresh3d:true}; renderRd(); }
 function rdTick(){ const el=$('#rdClock'); if (!el || !rd || rd.done) return; el.textContent = ((performance.now()-rd.t0)/1000).toFixed(2); rdRaf = requestAnimationFrame(rdTick); }
-function renderRd(){ if (!rd) return; const c = rd.c, view = c.g==='F2L' ? 'iso' : rdView;
-  const pic = view==='iso' ? isoSVG(c, rd.st, {cmap:rd.cmap}) : topSVG(c, rd.st, {arrows:[], cmap:rd.cmap});
-  if (!rd.armed){ $('#rdStage').innerHTML = `<div class="big blank" aria-hidden="true">${view==='iso'?isoSVG(null, blankState(), {mode:'all'}):topSVG(c, blankState(), {mode:'pll', arrows:[]})}</div><p class="lede" style="text-align:center">Tap Start (or press space). The case appears and the clock runs until you pick an answer.</p><button class="btn yellow" data-rd="arm">Start</button>`; return; }
+function renderRd(){ if (!rd) return; const c = rd.c, view0 = cardViewOf(c.g==='F2L'), view = view0==='3d' && rd.done ? (c.g==='F2L' ? 'iso' : 'top') : view0;
+  const pic = view==='3d' ? stage3dHTML('rd3d') : `<div class="big">${view==='iso' ? isoSVG(c, rd.st, {cmap:rd.cmap}) : topSVG(c, rd.st, {arrows:[], cmap:rd.cmap})}</div>`;
+  const mount = () => { if (view==='3d'){ Cube3D.mount($('#rd3d'), rd.st.map(v=>rd.cmap[v]), rd.fresh3d); rd.fresh3d = false; } };
+  if (!rd.armed){ $('#rdStage').innerHTML = `<div class="big blank" aria-hidden="true">${view!=='top'?isoSVG(null, blankState(), {mode:'all'}):topSVG(c, blankState(), {mode:'pll', arrows:[]})}</div><p class="lede" style="text-align:center">Tap Start (or press space). The case appears and the clock runs until you pick an answer.</p><button class="btn yellow" data-rd="arm">Start</button>`; return; }
   if (rd.done){ const ok = rd.done.ok, pk = rd.done.pick;
-    $('#rdStage').innerHTML = `<p class="verdict ${ok?'ok':'no'}">${ok?'Right':'Not quite'} · ${rd.done.t.toFixed(2)}s</p><div class="big">${pic}</div>
+    $('#rdStage').innerHTML = `<p class="verdict ${ok?'ok':'no'}">${ok?'Right':'Not quite'} · ${rd.done.t.toFixed(2)}s</p>${pic}
       ${ok?'':`<p class="stats" style="text-align:center">You picked <b style="color:var(--ink)">${esc(pk.full)}</b>.</p>`}
       <h2>${esc(c.full)}</h2><div class="alg">${esc(algOf(c))}</div>${spot(c,true)}
       <div class="row"><button class="btn alt" data-v3="${c.id}">Turn in 3D</button><button class="btn yellow" data-rd="next">Next</button></div>${statusSeg(c)}`; return; }
   const choices = rd.opts ? `<div class="pick">${rd.opts.map(o=>`<button data-ans="${o.id}">${topSVG(o, o.state, {arrows:[]})}<span>${esc(o.name)}</span></button>`).join('')}</div>`
     : `<div class="names">${GSETS.PLL.map(s=>`<div class="nrow"><span class="label">${esc(SET_SHORT[s]||s)}</span><div class="nbtns">${CASES.filter(x=>x.set===s).map(o=>`<button data-ans="${o.id}">${esc(o.name)}</button>`).join('')}</div></div>`).join('')}</div>`;
-  $('#rdStage').innerHTML = `<div class="recog" id="rdClock" aria-live="off">0.00</div><div class="big">${pic}</div><p class="stats" style="text-align:center">${c.g==='PLL'?'Which PLL is it?':'Which case is it?'} The top may be turned, and any side may be in front.</p>${choices}`;
-  rd.t0 = performance.now(); cancelAnimationFrame(rdRaf); rdRaf = requestAnimationFrame(rdTick); }
+  $('#rdStage').innerHTML = `<div class="recog" id="rdClock" aria-live="off">0.00</div>${pic}<p class="stats" style="text-align:center">${c.g==='PLL'?'Which PLL is it?':'Which case is it?'} The top may be turned, and any side may be in front.</p>${choices}`;
+  mount(); rd.t0 = performance.now(); cancelAnimationFrame(rdRaf); rdRaf = requestAnimationFrame(rdTick); }
 $('#rdStage').addEventListener('click', e=>{ const b = e.target.closest('[data-rd],[data-ans]'); if (!b || !rd) return;
   if (b.dataset.rd==='arm'){ rd.armed = true; renderRd(); return; }
   if (b.dataset.rd==='next'){ rdNew(); rd.armed = true; renderRd(); return; }
@@ -5466,8 +5477,278 @@ function rdStats(){ const m = rdSess.t.length ? rdSess.t.reduce((a,b)=>a+b,0)/rd
   const miss = D.rd.miss || {}, ids = Object.keys(miss).filter(id=>BYID[id]).sort((a,b)=>miss[b]-miss[a]).slice(0,8), box = $('#rdMissed');
   box.hidden = !ids.length; if (ids.length) box.innerHTML = `<div class="row" style="justify-content:space-between"><span class="label">Mixed up most</span><button class="linkbtn" id="rdMissClear">Clear</button></div><div class="olist">${ids.map(id=>{ const c=BYID[id]; return `<div class="oitem">${diagBtn(c,{tag:false})}<div><b>${esc(c.full)}</b><span class="stats">${miss[id]} miss${miss[id]>1?'es':''}</span></div></div>`; }).join('')}</div>`; }
 $('#rdMissed').addEventListener('click', e=>{ if (e.target.closest('#rdMissClear')){ D.rd.miss = {}; save(); rdStats(); } });
-document.addEventListener('keydown', e=>{ if ($('#v-recog').hidden || !$('#sheet').hidden || e.target.matches('input, select, textarea') || !rd || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+document.addEventListener('keydown', e=>{ if ($('#v-cards').hidden || cardMode!=='pick' || !$('#sheet').hidden || e.target.matches('input, select, textarea') || !rd || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (e.code==='Space'){ e.preventDefault(); if (!rd.armed){ rd.armed = true; renderRd(); } else if (rd.done){ rdNew(); rd.armed = true; renderRd(); } } });
+// ---------- 3D cube for Cards and One-look: shows any position; drag to turn it ----------
+const Cube3D = (() => {
+  const HEX = {U:0xF5D80F,F:0x1FA34A,R:0xF2851D,B:0x2463D6,L:0xD6322E,D:0xFFFFFF,X:0x9AA1AD};
+  const ok = () => typeof THREE !== 'undefined'; let r = null, scene, cam, stickers = [], theta = 0.62, phi = 0.5, raf = 0;
+  const FAIL = '<div class="err">The 3D view could not load on this device. Try Top or Two sides.</div>';
+  function init(){
+    r = new THREE.WebGLRenderer({antialias:true, alpha:true}); r.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    scene = new THREE.Scene(); cam = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+    const body = new THREE.BoxGeometry(0.98,0.98,0.98), bm = new THREE.MeshBasicMaterial({color:0x16181e});
+    const sh = new THREE.Shape(), w = 0.42, q = 0.09; sh.moveTo(-w+q,-w); sh.lineTo(w-q,-w); sh.quadraticCurveTo(w,-w,w,-w+q); sh.lineTo(w,w-q); sh.quadraticCurveTo(w,w,w-q,w); sh.lineTo(-w+q,w); sh.quadraticCurveTo(-w,w,-w,w-q); sh.lineTo(-w,-w+q); sh.quadraticCurveTo(-w,-w,-w+q,-w);
+    const sg = new THREE.ShapeGeometry(sh), groups = {};
+    Cube.ST.forEach((s,i)=>{ (groups[CUBIE[i]] = groups[CUBIE[i]] || []).push(i); });
+    for (const [k, idx] of Object.entries(groups)){ const p = k.split(',').map(Number), g = new THREE.Group(); g.position.set(p[0], p[1], p[2]); g.add(new THREE.Mesh(body, bm));
+      idx.forEach(i=>{ const n = Cube.ST[i].n, m = new THREE.Mesh(sg, new THREE.MeshBasicMaterial({color:0x888888, side:THREE.DoubleSide}));
+        m.position.set(n[0]*0.495, n[1]*0.495, n[2]*0.495); m.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3(n[0],n[1],n[2])); g.add(m); stickers[i] = m; });
+      scene.add(g); }
+    const el = r.domElement; let drag = null;
+    el.addEventListener('pointerdown', e=>{ drag = {x:e.clientX, y:e.clientY}; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointermove', e=>{ if (!drag) return; theta -= (e.clientX-drag.x)*0.01; phi = Math.max(-1.45, Math.min(1.45, phi + (e.clientY-drag.y)*0.01)); drag = {x:e.clientX, y:e.clientY}; });
+    const end = () => { drag = null; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  }
+  function loop(){ const el = r.domElement; if (!el.isConnected){ raf = 0; return; } const w = el.parentNode.clientWidth;
+    if (w && el.width !== Math.round(w*r.getPixelRatio())) r.setSize(w, w, false);
+    const d = 11.2; cam.position.set(d*Math.cos(phi)*Math.sin(theta), d*Math.sin(phi), d*Math.cos(phi)*Math.cos(theta)); cam.lookAt(0,0,0); cam.aspect = 1; cam.updateProjectionMatrix();
+    r.render(scene, cam); raf = requestAnimationFrame(loop); }
+  // fresh: a new position. Cards start at a random angle (find the case yourself); 'home' starts at the usual front-right view
+  function mount(box, st, fresh, home){ if (!box) return;
+    if (!ok()){ box.innerHTML = threeFailed ? FAIL : '<div class="err">Loading 3D…</div>';
+      if (!threeFailed) loadThree().then(()=>{ if (box.isConnected) mount(box, st, fresh, home); }, ()=>{ if (box.isConnected) box.innerHTML = FAIL; });
+      return; }
+    box.querySelectorAll('.err').forEach(x=>x.remove());
+    if (!r) init();
+    if (fresh){ if (home){ theta = 0.62; phi = 0.5; } else { theta = Math.random()*Math.PI*2; phi = 0.15 + Math.random()*0.6; } }
+    st.forEach((c,i)=>stickers[i].material.color.setHex(HEX[c]!==undefined ? HEX[c] : HEX.X)); box.appendChild(r.domElement);
+    cancelAnimationFrame(raf); loop(); }
+  return { mount };
+})();
+
+// ---------- One-look: see the last pair (or the OLL) and predict the next case; or time lookahead in real solves ----------
+const O3 = (() => {
+  const TIERS = {easy:{name:'Easy', sec:10}, medium:{name:'Medium', sec:15}, hard:{name:'Hard', sec:20}};
+  // Easy / Medium / Hard: how many moves your alg for the step you track takes
+  const CUT = {pair:[7,10], oll:[8,11], ocll:[7,9]};
+  const MODES = [['oll','Pair → OLL'],['pll','OLL → PLL'],['zb','Pair → ZBLL'],['solve','Lookahead']];
+  const NOTE = {
+    oll: a => a==='2lk' ? 'F2L is done but the last pair. Plan the insert and predict the edge shape it leaves.' : 'F2L is done but the last pair. Plan the insert and predict the OLL it leaves.',
+    pll: a => a==='2lk' ? 'Edges are oriented. Predict the corner swap your corner alg leaves.' : 'An OLL case on a solved F2L. Predict the PLL your OLL alg leaves.',
+    zb: () => 'The last pair goes in with the edges already oriented. Predict the ZBLL case.',
+    solve: () => 'Real solves on your own cube. Tap when F2L is done, then pick each case as you reach it. It times F2L and your recognition.'};
+  const sk = (id, name, test) => ({id, name, test});
+  // what each round asks you to name, and how to tell which one a position is
+  const ANS = {
+    oll:  {cases:()=>CASES.filter(c=>c.g==='OLL'), q:'Which OLL?'},
+    oll2: {cases:()=>CASES.filter(c=>c.set==='Orient edges'), skip:sk('skip-eo','Edges already oriented', eoDone), q:'Which edge shape?'},
+    pll:  {cases:()=>CASES.filter(c=>c.g==='PLL'), q:'Which PLL?'},
+    pll2: {cases:()=>CASES.filter(c=>c.set==='Permute corners'), skip:sk('skip-cp','Corners already solved', cpDone), q:'Which corner swap?'},
+    zb:   {cases:()=>CASES.filter(c=>c.g==='ZBLL'), q:'Which ZBLL?'},
+    // lookahead solves also ask for the steps 2-look skips over
+    oc:   {cases:()=>CASES.filter(c=>c.set==='Orient corners'), skip:sk('skip-oc','Corners already oriented', ollDone), q:'Which corner case?'},
+    ep:   {cases:()=>CASES.filter(c=>c.set==='Permute edges'), skip:sk('skip-ep','Already solved', fullDone), q:'Which edge swap?'}};
+  const SKIP_ALL = {oll:sk('skip-oll','OLL skip', ollDone), pll:sk('skip-pll','PLL skip', fullDone)};
+  const nameOf = id => BYID[id] ? BYID[id].full : (Object.values(ANS).map(a=>a.skip).concat(Object.values(SKIP_ALL)).find(x=>x && x.id===id)||{name:id}).name;
+  function classify(s, k){ s = recolor(s); const A = ANS[k]; if (A.skip && A.skip.test(s)) return A.skip.id;
+    const c = A.cases().find(c=>preFor(s, c.alg, c.goal)!==null); return c ? c.id : null; }
+
+  let mode, algs, diff, from, stF, view, ol = null, raf = 0;
+  function load(){ const p = D.prefs;
+    mode = ['oll','pll','zb','solve'].includes(p.o3Mode) ? p.o3Mode : 'oll'; if (mode==='zb' && !zbOn()) mode = 'oll';
+    algs = p.o3Algs==='2lk' ? '2lk' : 'full'; diff = ['easy','medium','hard','mixed'].includes(p.o3Diff) ? p.o3Diff : 'mixed';
+    from = p.o3Start==='scr' ? 'scr' : 'cross'; stF = p.o3St ? stParse(p.o3St) : 'all';
+    view = ['scramble','net','3d'].includes(p.o3View) ? p.o3View : 'scramble'; }
+  load();
+  const store = () => { if (!D.ol || typeof D.ol!=='object') D.ol = {n:0, c:0}; return D.ol; };
+  const kindOf = () => mode==='solve' ? 'solve' : mode==='zb' ? 'zb' : mode + (algs==='2lk' ? '2' : '');
+  const savePrefs = () => { Object.assign(D.prefs, {o3Mode:mode, o3Algs:algs, o3Diff:diff, o3Start:from, o3St:stF, o3View:view}); save(); };
+
+  // ---- options ----
+  function renderOpts(){ const two = algs==='2lk' && mode!=='zb';
+    $('#o3Mode').innerHTML = MODES.filter(([v])=>v!=='zb' || zbOn()).map(([v,l])=>`<button aria-pressed="${mode===v}" data-o3m="${v}">${l}</button>`).join('');
+    $('#o3ModeNote').textContent = NOTE[mode](algs);
+    $('#o3AlgsBox').hidden = mode==='zb'; $('#o3Algs').innerHTML = [['full','Full'],['2lk','2-look']].map(([v,l])=>`<button aria-pressed="${algs===v}" data-o3a="${v}">${l}</button>`).join('');
+    $('#o3DiffBox').hidden = mode==='solve'; $('#o3Diff').innerHTML = [['easy','Easy'],['medium','Medium'],['hard','Hard'],['mixed','Mixed']].map(([v,l])=>`<button aria-pressed="${diff===v}" data-o3d="${v}">${l}</button>`).join('');
+    $('#o3DiffNote').textContent = mode==='pll' ? `Goes by how many moves your ${two?'corner':'OLL'} alg takes. Easy gives 10 seconds, Medium 15, Hard 20.` : 'Goes by how many moves your F2L alg takes. Easy gives 10 seconds, Medium 15, Hard 20.';
+    $('#o3StartBox').hidden = mode!=='solve'; $('#o3Start').innerHTML = [['cross','Cross solved'],['scr','Scramble']].map(([v,l])=>`<button aria-pressed="${from===v}" data-o3s="${v}">${l}</button>`).join('');
+    $('#o3StBox').hidden = mode==='solve' || two; $('#o3StLabel').textContent = mode==='pll' ? 'OLL cases to start from' : mode==='zb' ? 'ZBLL cases to include' : 'OLL cases to include';
+    $('#o3St').innerHTML = stChipsHTML(stF, 'o3st');
+    $('#o3Summary').textContent = [MODES.find(x=>x[0]===mode)[1], two ? '2-look' : '', mode==='solve' ? (from==='cross' ? 'Cross solved' : 'Scramble') : {easy:'Easy',medium:'Medium',hard:'Hard',mixed:'Mixed'}[diff], mode==='solve' || two || stF==='all' ? '' : stLabel(stF)].filter(Boolean).join(' · '); }
+  const changed = () => { savePrefs(); renderOpts(); stop(); ol = null; render(); stats(); };
+  $('#o3Mode').addEventListener('click', e=>{ const b = e.target.closest('[data-o3m]'); if (b){ mode = b.dataset.o3m; changed(); } });
+  $('#o3Algs').addEventListener('click', e=>{ const b = e.target.closest('[data-o3a]'); if (b){ algs = b.dataset.o3a; changed(); } });
+  $('#o3Diff').addEventListener('click', e=>{ const b = e.target.closest('[data-o3d]'); if (b){ diff = b.dataset.o3d; changed(); } });
+  $('#o3Start').addEventListener('click', e=>{ const b = e.target.closest('[data-o3s]'); if (b){ from = b.dataset.o3s; changed(); } });
+  $('#o3St').addEventListener('click', e=>{ const b = e.target.closest('[data-o3st]'); if (b){ stF = stToggle(stF, b.dataset.o3st); changed(); } });
+
+  // ---- building a round ----
+  const tierOf = (n, cut) => n <= cut[0] ? 'easy' : n <= cut[1] ? 'medium' : 'hard';
+  const pickTier = () => diff==='mixed' ? pickOne(['easy','medium','hard']) : diff;
+  const lenMine = c => moveCount(fitAlg(c, algOf(c)));
+  function byTier(list, cut, tier){ const l = list.filter(c=>tierOf(lenMine(c), cut)===tier); return l.length ? l : list; }
+  function pickMissed(list){ const miss = store().miss || {}, w = list.map(c=>1 + 2*(miss[c.id]||0)); let t = Math.random()*w.reduce((a,b)=>a+b,0);
+    for (let i=0; i<list.length; i++){ t -= w[i]; if (t < 0) return list[i]; } return list[list.length-1]; }
+  // undo case c's alg from a position where c's step is done; centers go back home so the scramble works.
+  // Returns null when your alg doesn't solve the result (rare: algs that rotate the cube)
+  function setupFrom(base, c){ const st = Cube.apply(Cube.reorient(Cube.apply(base, Cube.invert(fitAlg(c, algOf(c))))).s, pickOne(AUF));
+    return preFor(st, algOf(c), c.goal)!==null ? st : null; }
+  // where each listed alg for case c (plus your own, if you typed one) leaves the next step
+  function outcomes(st, c, k){ const list = algList(c).map(a=>({n:a.n, alg:a.alg}));
+    if (!list.some(a=>a.alg===algOf(c))) list.unshift({n:0, alg:algOf(c)});
+    return list.map(a=>{ const pre = preFor(st, a.alg, c.goal); if (pre===null) return null;
+      return {n:a.n, alg:a.alg, mine:a.alg===algOf(c), id:classify(Cube.apply(Cube.apply(st, pre), a.alg), k)}; }).filter(x=>x && x.id); }
+  function newPredict(k){
+    const tier = pickTier(), pair = k==='oll' || k==='oll2' || k==='zb', A = ANS[k];
+    for (let tries=0; tries<12; tries++){
+      let from_, base;
+      if (pair){
+        let targets = A.cases(); if (k!=='oll2') targets = targets.filter(c=>stPass(c.id, stF)); if (!targets.length) return null;
+        from_ = pickOne(byTier(CASES.filter(c=>c.g==='F2L'), CUT.pair, tier));
+        base = k==='oll2' && Math.random() < 1/8 ? variant(pickOne(CASES.filter(c=>c.set==='Orient corners'))) : variant(pickMissed(targets));
+      } else if (k==='pll'){
+        const starts = CASES.filter(c=>c.g==='OLL' && stPass(c.id, stF)); if (!starts.length) return null;
+        from_ = pickOne(byTier(starts, CUT.oll, tier)); base = variant(pickMissed(A.cases()));
+      } else { // pll2: orient the corners, then which corner swap
+        from_ = pickOne(byTier(CASES.filter(c=>c.set==='Orient corners'), CUT.ocll, tier));
+        base = Math.random() < 1/6 ? variant(pickOne(CASES.filter(c=>c.set==='Permute edges'))) : variant(pickMissed(A.cases()));
+      }
+      const st = setupFrom(base, from_); if (!st) continue;
+      const outs = outcomes(st, from_, k), mine = outs.find(o=>o.mine); if (!mine) continue;
+      return {k, tier, st, from:from_, outs, ids:[...new Set(outs.map(o=>o.id))], right:mine.id, cm: cnOn() ? pickOne(CN_MAPS) : CN_MAPS[0]};
+    }
+    return null; }
+  // lookahead start: cross solved, the four pairs and the last layer mixed up by undoing real F2L algs
+  function crossState(){ const f2ls = CASES.filter(c=>c.g==='F2L');
+    for (let tries=0; tries<20; tries++){ let s = Cube.apply(S0, [Cube.invert(pickOne(PLLS()).alg), Cube.invert(pickOne(OLLS()).alg)].join(' '));
+      for (const y of ['', 'y', 'y2', "y'"]){ s = Cube.reorient(Cube.apply(s, `${y} ${Cube.invert(pickOne(f2ls).alg)} ${y ? Cube.invert(y) : ''} ${pickOne(AUF)}`.trim())).s; }
+      const cross = [28,30,32,34].every(i=>s[i]==='D') && [1,2,4,5].every(f=>s[f*9+7]===s[f*9+4]);
+      if (cross && !f2lSolved(s)) return s; }
+    return Cube.apply(S0, "R U R' U' F' U' F"); }
+  const LOOKS = {full:['oll','pll'], '2lk':['oll2','oc','pll2','ep']};
+
+  function start(){ stop(); const k = kindOf(), my = {};
+    if (k==='solve'){
+      ol = Object.assign(my, {k, phase:'ready', looks:LOOKS[algs].slice(), li:0, rec:[], picks:[], scr:null, cm: cnOn() && from==='cross' ? pickOne(CN_MAPS) : CN_MAPS[0]});
+      (from==='cross' ? Scr.forState(crossState()) : Scr.random()).then(scr=>{ if (ol!==my) return; my.scr = scr || ''; render(); });
+      render(); return; }
+    const r = newPredict(k);
+    if (!r){ ol = null; $('#o3Stage').innerHTML = `<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Cases to include in Options.</p><button class="btn yellow" id="o3Go">Try again</button>`; return; }
+    ol = Object.assign(my, r, {t0:0, armed: view!=='scramble', done:false, scr:null, pickSet:null, pickSub:null, limit:TIERS[r.tier].sec*1000, fresh3d:true});
+    if (ol.armed) ol.t0 = performance.now();
+    Scr.forState(r.st).then(scr=>{ if (ol!==my) return; my.scr = scr || ''; document.querySelectorAll('#o3Stage .o3Scr').forEach(el=>el.textContent = my.scr || 'Couldn\'t build a scramble. Use the net or 3D view.'); const b = $('#o3Arm'); if (b) b.disabled = !my.scr; });
+    render(); }
+
+  // ---- drawing ----
+  const holdLine = cm => `${cap(CNAME[cm.U])} on top, ${CNAME[cm.F]} in front.`;
+  const viewSeg = () => `<div class="row" style="justify-content:space-between"><span class="label">Show the cube as</span><div class="seg" role="group" aria-label="How to show the cube">${[['scramble','Scramble'],['net','Net'],['3d','3D']].map(([v,l])=>`<button aria-pressed="${view===v}" data-o3v="${v}">${l}</button>`).join('')}</div></div>`;
+  function cubeHTML(){ const shown = ol.st.map(v=>ol.cm[v]), scr = ol.scr===null ? 'Building a scramble…' : (ol.scr || 'Couldn\'t build a scramble. Use the net or 3D view.');
+    const what = ol.k==='pll' || ol.k==='pll2' ? 'F2L is solved; the top is the case.' : 'The last pair goes in the front-right slot.';
+    if (view==='scramble') return `<div class="olscrbox"><span class="label">${holdLine(ol.cm)}</span><div class="scramble o3Scr">${esc(scr)}</div><span class="stats">${what}</span></div>${ol.done ? `<div class="netwrap">${netSVG(shown)}</div>` : ''}`;
+    if (view==='net') return `<div class="netwrap">${netSVG(shown)}</div><p class="stats" style="text-align:center">${cap(CNAME[ol.cm.U])} on top, ${CNAME[ol.cm.F]} in front. ${what}</p>`;
+    return `<div class="stage3d" id="o33d" aria-label="3D cube, drag to turn it"></div><p class="stats" style="text-align:center">Drag to turn it. ${what}</p>`; }
+  const caseBtn = o => `<button data-o3p="${o.id}">${topSVG(o, o.state, {arrows:[]})}<span>${esc(o.name)}</span></button>`;
+  const skipBtn = x => `<button data-o3p="${x.id}"><span style="font-family:var(--f-body);padding:18px 2px">${esc(x.name)}</span></button>`;
+  // the answer picker: sets first when there are many cases
+  function picker(k, st, withSkip){ const A = ANS[k], all = A.cases(), skip = A.skip || (withSkip ? SKIP_ALL[k] : null);
+    let h = `<span class="label">${A.q}</span>`;
+    if (k==='pll') return h + `<div class="names">${GSETS.PLL.map(s=>`<div class="nrow"><span class="label">${esc(SET_SHORT[s]||s)}</span><div class="nbtns">${all.filter(x=>x.set===s).map(o=>`<button data-o3p="${o.id}">${esc(o.name)}</button>`).join('')}</div></div>`).join('')}${skip ? `<div class="nrow"><div class="nbtns"><button data-o3p="${skip.id}">${esc(skip.name)}</button></div></div>` : ''}</div>`;
+    if (all.length <= 8) return h + `<div class="pick">${all.map(caseBtn).join('')}${skip ? skipBtn(skip) : ''}</div>`;
+    const sets = [...new Set(all.map(x=>x.set))];
+    h += `<div class="chips">${sets.map(s=>`<button class="chip" aria-pressed="${s===st.pickSet}" data-o3ps="${esc(s)}">${esc(k==='zb' ? s.replace('ZBLL ','') : SET_SHORT[s]||s)}</button>`).join('')}${skip ? `<button class="chip" data-o3p="${skip.id}">${esc(skip.name)}</button>` : ''}</div>`;
+    if (!st.pickSet) return h;
+    let inSet = all.filter(x=>x.set===st.pickSet);
+    if (k==='zb'){ const subs = [...new Set(inSet.map(x=>x.sub))];
+      h += `<span class="label">Which corner group?</span><div class="pick">${subs.map(n=>{ const o = inSet.find(x=>x.sub===n); return `<button data-o3sub="${n}" aria-pressed="${n===st.pickSub}">${topSVG(o, o.state, {mode:'coll', arrows:[]})}<span>Group ${n+1}</span></button>`; }).join('')}</div>`;
+      if (st.pickSub===null) return h; inSet = inSet.filter(x=>x.sub===st.pickSub); }
+    return h + `<div class="pick">${inSet.map(caseBtn).join('')}</div>`; }
+  function intro(){ const k = kindOf();
+    return `<p class="lede">${NOTE[mode](algs)} ${k==='solve' ? '' : `Each round gives you ${diff==='mixed' ? '10 to 20' : TIERS[diff].sec} seconds.`}</p><button class="btn yellow" id="o3Go">${k==='solve' ? 'Start a solve' : 'Start a round'}</button>`; }
+  function render(){ const box = $('#o3Stage'); if (!box) return;
+    if (!ol){ box.innerHTML = intro(); return; }
+    if (ol.k==='solve') return renderSolve(box);
+    let h = viewSeg() + cubeHTML();
+    if (!ol.armed && !ol.done){ box.innerHTML = h + `<div class="row" style="justify-content:center"><button class="btn yellow" id="o3Arm" ${ol.scr ? '' : 'disabled'}>Scrambled, start the ${ol.limit/1000}s</button></div>`; mount3d(); return; }
+    h += `<div class="countbar" id="o3Bar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${TIERS[ol.tier].name}</b> · <span id="o3Sec"></span></span></div>`;
+    if (!ol.done) h += picker(ol.k, ol);
+    else { const ok = ol.ids.includes(ol.answer), right = ok ? ol.answer : ol.right, rc = BYID[right], f = ol.from;
+      const mine = ol.outs.find(o=>o.mine), others = ol.outs.filter(o=>!o.mine && o.id!==mine.id);
+      const step = ol.k==='pll' || ol.k==='pll2' ? (ol.k==='pll' ? 'OLL' : 'corner') : 'F2L';
+      h += `<div class="verdict ${ok?'ok':'no'}">${ok ? 'Correct' : 'Not quite'}</div>
+        <div class="result">${rc ? diagBtn(rc) : ''}<div><span class="label">${ok ? 'You called it' : 'It was'}</span><h2>${esc(nameOf(right))}</h2>${rc ? `<div class="alg">${esc(algOf(rc))}</div>` : ''}
+        <span class="stats">${esc(f.full)}, your ${step} alg: <span class="mono">${esc(fitAlg(f, mine.alg))}</span> leaves ${esc(nameOf(mine.id))}.</span>
+        ${others.length ? `<span class="stats">${others.map(o=>`Alg ${o.n} (<span class="mono">${esc(o.alg)}</span>) leaves ${esc(nameOf(o.id))}`).join('; ')}, which also counts.</span>` : ''}
+        ${ok ? '' : `<span class="stats">You picked ${esc(nameOf(ol.answer))}.</span>`}</div></div>
+        ${rc ? statusSeg(rc) : ''}<button class="btn yellow" id="o3Go">Next round</button>`; }
+    box.innerHTML = h; mount3d();
+    if (!ol.done) count(); else { const b = $('#o3Bar'); b.firstChild.style.transform = 'scaleX(0)'; $('#o3Sec').textContent = 'Took '+((ol.tEnd-ol.t0)/1000).toFixed(1)+'s'; } }
+  function mount3d(){ const b = $('#o33d'); if (b && ol){ Cube3D.mount(b, ol.st.map(v=>ol.cm[v]), ol.fresh3d, true); ol.fresh3d = false; } }
+  function count(){ cancelAnimationFrame(raf); const f = () => { if (!ol || ol.done || !ol.armed || ol.k==='solve') return; const el = $('#o3Bar'); if (!el) return; const p = Math.min(1, (performance.now()-ol.t0)/ol.limit);
+    el.firstChild.style.transform = `scaleX(${1-p})`; $('#o3Sec').textContent = p>=1 ? 'Time is up. Pick your answer.' : Math.ceil((1-p)*ol.limit/1000)+'s'; if (p>=1) el.classList.add('over'); else raf = requestAnimationFrame(f); }; f(); }
+  const stop = () => { cancelAnimationFrame(raf); raf = 0; };
+  function arm(){ if (!ol || ol.armed || ol.done || !ol.scr) return; ol.armed = true; ol.t0 = performance.now(); render(); }
+  function answer(id){ if (!ol || ol.done) return; ol.answer = id; ol.done = true; ol.tEnd = performance.now(); stop();
+    const S = store(), hit = ol.ids.includes(id); touchDay(); S.n = (S.n||0)+1; if (hit) S.c = (S.c||0)+1;
+    S.by = S.by || {}; const bk = S.by[ol.k] = S.by[ol.k] || {n:0, c:0}; bk.n++; if (hit) bk.c++;
+    S.miss = S.miss || {}; S.missN = S.missN || {};
+    if (!hit){ const t = ol.right; S.miss[t] = Math.min(5, (S.miss[t]||0)+2); S.missN[t] = (S.missN[t]||0)+1; }
+    else ol.ids.forEach(i=>{ if (S.miss[i]){ S.miss[i]--; if (!S.miss[i]) delete S.miss[i]; } });
+    save(); stats(); render(); }
+
+  // ---- lookahead solves (on your own cube; the app trusts your picks) ----
+  const fmt = t => (t/1000).toFixed(2);
+  function solveClock(){ cancelAnimationFrame(raf); const f = () => { if (!ol || ol.k!=='solve') return; const el = $('#o3Clock'); if (!el) return;
+    const t0 = ol.phase==='f2l' ? ol.t0 : ol.phase==='look' ? ol.tl : null; if (t0===null) return; el.textContent = fmt(performance.now()-t0); raf = requestAnimationFrame(f); }; f(); }
+  function renderSolve(box){ const ph = ol.phase, cm = ol.cm;
+    const hold = from==='cross' ? `${holdLine(cm)} The ${CNAME[cm.D]} cross ends up solved on the bottom.` : 'Scramble in your usual hold, like the Solve tab.';
+    const lookName = k => ({oll:'OLL', pll:'PLL', oll2:'edge shape', oc:'corner case', pll2:'corner swap', ep:'edge swap'})[k];
+    let h = '';
+    if (ph==='ready'){ h = `<div class="olscrbox"><span class="label">${hold}</span><div class="scramble">${esc(ol.scr===null ? 'Building a scramble…' : ol.scr || 'Couldn\'t build a scramble. Tap New scramble.')}</div></div>
+      <p class="lede" style="text-align:center">Solve F2L, looking ahead to the last layer as you go. Tap Start (or press space) when you start.</p>
+      <div class="row" style="justify-content:center"><button class="btn alt" id="o3Go">New scramble</button><button class="btn yellow" data-o3do="start" ${ol.scr ? '' : 'disabled'}>Start</button></div>`; }
+    else if (ph==='f2l') h = `<div class="recog" id="o3Clock" style="text-align:center">0.00</div><p class="lede" style="text-align:center">Solving F2L. Tap the moment the last pair is in.</p><button class="btn yellow" data-o3do="f2l">F2L done</button>`;
+    else if (ph==='look'){ const k = ol.looks[ol.li]; h = `<div class="row" style="justify-content:space-between"><span class="stats">F2L ${fmt(ol.f2l)}s</span><span class="stats">Recognizing the ${lookName(k)}</span></div><div class="recog" id="o3Clock" style="text-align:center">0.00</div>${picker(k, ol, true)}`; }
+    else if (ph==='exec'){ const k = ol.looks[ol.li]; h = `<p class="lede" style="text-align:center">Do your ${lookName(ol.looks[ol.li-1])} alg, then tap Done (or press space). The clock for the ${lookName(k)} starts then.</p><button class="btn yellow" data-o3do="exec">Done</button>`; }
+    else { const tot = ol.rec.reduce((a,b)=>a+b,0);
+      h = `<div class="verdict ok">Solve logged</div><div class="olist">${[['F2L', ol.f2l, '']].concat(ol.looks.map((k,i)=>[`See the ${lookName(k)}`, ol.rec[i], nameOf(ol.picks[i])])).map(([l,t,n])=>`<div class="oitem"><div><b>${l}: ${fmt(t)}s</b>${n ? `<span class="stats">${esc(n)}</span>` : ''}</div></div>`).join('')}</div>
+        <p class="stats" style="text-align:center">Recognition total ${fmt(tot)}s. Under about 1 second per case means you saw it coming during F2L.</p><button class="btn yellow" id="o3Go">Next solve</button>`; }
+    box.innerHTML = h; if (ph==='f2l' || ph==='look') solveClock(); }
+  function solveStep(what){ if (!ol || ol.k!=='solve') return; const now = performance.now();
+    if (what==='start' && ol.phase==='ready' && ol.scr){ ol.phase = 'f2l'; ol.t0 = now; }
+    else if (what==='f2l' && ol.phase==='f2l'){ ol.f2l = now-ol.t0; ol.phase = 'look'; ol.tl = now; ol.pickSet = null; ol.pickSub = null; }
+    else if (what==='exec' && ol.phase==='exec'){ ol.phase = 'look'; ol.tl = now; ol.pickSet = null; ol.pickSub = null; }
+    else return;
+    render(); }
+  function solvePick(id){ if (ol.phase!=='look') return; ol.rec.push(performance.now()-ol.tl); ol.picks.push(id); ol.li++;
+    if (ol.li < ol.looks.length){ ol.phase = 'exec'; render(); return; }
+    ol.phase = 'done'; stop(); touchDay(); const S = store(); S.hon = (S.hon||[]).concat([[+(ol.f2l/1000).toFixed(2), +(ol.rec.reduce((a,b)=>a+b,0)/ol.rec.length/1000).toFixed(2), ol.rec.length, Math.round(Date.now()/1000)]]).slice(-100);
+    save(); stats(); render(); }
+
+  $('#o3Stage').addEventListener('click', e=>{
+    if (e.target.closest('#o3Go')){ start(); return; }
+    if (e.target.closest('#o3Arm')){ arm(); return; }
+    const d = e.target.closest('[data-o3do]'); if (d){ solveStep(d.dataset.o3do); return; }
+    const v = e.target.closest('[data-o3v]'); if (v){ view = v.dataset.o3v; savePrefs(); if (ol && !ol.armed && view!=='scramble'){ ol.armed = true; ol.t0 = performance.now(); } render(); return; }
+    const ps = e.target.closest('[data-o3ps]'); if (ps && ol){ ol.pickSet = ps.dataset.o3ps; ol.pickSub = null; render(); return; }
+    const sb = e.target.closest('[data-o3sub]'); if (sb && ol){ ol.pickSub = +sb.dataset.o3sub; render(); return; }
+    const p = e.target.closest('[data-o3p]'); if (p && ol){ if (ol.k==='solve') solvePick(p.dataset.o3p); else answer(p.dataset.o3p); } });
+  document.addEventListener('keydown', e=>{ if ($('#v-onelook').hidden || !$('#sheet').hidden || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.code!=='Space') return;
+    e.preventDefault(); const a = document.activeElement; if (a && a!==document.body && a.blur) a.blur();
+    if (!ol) return start();
+    if (ol.k==='solve'){ if (ol.phase==='ready') solveStep('start'); else if (ol.phase==='f2l') solveStep('f2l'); else if (ol.phase==='exec') solveStep('exec'); else if (ol.phase==='done') start(); return; }
+    if (!ol.armed) arm(); else if (ol.done) start(); });
+
+  // ---- stats ----
+  const NAMES = {oll:'Pair → OLL', oll2:'Pair → edges', pll:'OLL → PLL', pll2:'Corners → swap', zb:'Pair → ZBLL'};
+  function stats(){ const S = store(), by = S.by || {}, pc = x => `${x.c}/${x.n} (${Math.round(x.c/x.n*100)}%)`;
+    let t = '';
+    if (mode==='solve'){ const h = (S.hon||[]).slice(-12), m = i => h.reduce((a,x)=>a+x[i],0)/h.length;
+      t = h.length ? `Last ${h.length} lookahead solve${h.length>1?'s':''}: F2L ${m(0).toFixed(2)}s · ${m(1).toFixed(2)}s to recognize each case` : ''; }
+    else { const parts = Object.keys(NAMES).filter(k=>by[k] && by[k].n).map(k=>`${NAMES[k]} ${pc(by[k])}`); t = parts.join(' · '); }
+    $('#o3Stats').textContent = t;
+    const mn = S.missN || {}, miss = S.miss || {}, top = mode==='solve' ? [] : Object.keys(mn).filter(i=>BYID[i]).sort((a,b)=>mn[b]-mn[a]).slice(0,5), box = $('#o3Missed');
+    box.hidden = !top.length; if (!top.length) return;
+    box.innerHTML = `<div class="row" style="justify-content:space-between"><span class="label">Most missed</span><button class="linkbtn" id="o3MissClear">Clear</button></div>
+      <p class="stats">Missed cases come up more often until you get them right again.</p>
+      <div class="olist">${top.map(i=>`<div class="oitem">${diagBtn(BYID[i],{tag:false})}<div><b>${esc(BYID[i].full)}</b><span class="stats">Missed ${mn[i]}×${miss[i]?' · in review':''}</span></div></div>`).join('')}</div>`; }
+  $('#o3Missed').addEventListener('click', e=>{ if (e.target.closest('#o3MissClear')){ const S = store(); S.miss = {}; S.missN = {}; save(); stats(); } });
+
+  function show(){ renderOpts(); render(); stats(); }
+  function leave(){ stop(); }
+  function reload(){ load(); stop(); ol = null; if (!$('#v-onelook').hidden) show(); }
+  return { show, leave, reload };
+})();
 // ---------- undo toast ----------
 const Toast = (() => { let el = null, t = 0, undoFn = null;
   function show(msg, undo){ if (!el){ el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role','status'); el.innerHTML = '<span></span><button type="button">Undo</button>'; document.body.appendChild(el);
@@ -5648,19 +5929,21 @@ const SV = makeSV({pz:'3', sfx:'3', document, window, $, D, save, esc, Cube, S0,
 
 function leaveRun(keep){ if(keep!=='timer'){ if(tState==='running'){ stopTimer(); if(tState==='stopped') setTState('idle'); } else if(tState!=='idle'){ clearTimeout(tHoldT); setTState('idle'); } } if(keep!=='solve') SV.leave(); }
 // routing
-const VIEWS_=['learn','cards','timer','solve','recog','prefs','case'];
+const VIEWS_=['learn','cards','timer','solve','onelook','prefs','case'];
 let lastTab = 'learn';
-function route(){ if(location.hash==='#cross'){ setPrac('cross'); location.replace('#timer'); return; } leaveRun(location.hash.slice(1)); if(!$('#sheet').hidden) Viewer.close(); const h=location.hash.slice(1), cm=h.match(/^case-(.+)$/);
+function route(){ if(location.hash==='#cross'){ setPrac('cross'); location.replace('#timer'); return; }
+  // the Recognition drill moved into Cards as Pick the case
+  if(location.hash==='#recog'){ cardMode='pick'; D.prefs.cardMode='pick'; save(); renderCardMode(); location.replace('#cards'); return; } leaveRun(location.hash.slice(1)); if(!$('#sheet').hidden) Viewer.close(); const h=location.hash.slice(1), cm=h.match(/^case-(.+)$/);
   let v = cm && BYID[cm[1]] ? 'case' : VIEWS_.includes(h) && h!=='case' ? h : 'learn'; if (v==='case') caseId = cm[1];
   VIEWS_.forEach(x=>{ $('#v-'+x).hidden = x!==v; }); if (v!=='prefs' && v!=='case') lastTab = v; if (v==='prefs') renderSettings(); if (v==='case'){ renderCasePage(); window.scrollTo(0,0); }
   $('#gearBtn').setAttribute('aria-current', v==='prefs' ? 'page' : 'false'); if (!$('#helpSheet').hidden) Help.close();
   document.querySelectorAll('nav.tabs a').forEach(a=>a.setAttribute('aria-current', a.getAttribute('href')==='#'+(v==='case'?'learn':v)?'page':'false'));
-  if(v==='cards'){ if(!cardCur) nextCard(); else if(!cardShown) renderCard(); }
+  if(v==='cards'){ if(cardMode==='pick'){ if(!rd) rdNew(); else renderRd(); rdStats(); renderRdRecent(); } else if(!cardCur) nextCard(); else if(!cardShown || cardViewOf(cardCur.g==='F2L')==='3d') renderCard(); }
   if(v==='timer'){ if(tKind==='alg' && tCase && tPair && tPair.ak!==algOf(tCase) && tState==='idle') tCase=null; renderCaseStats(); if(tPrac!=='algs') renderPrac(); if(!tCase || (tPrac!=='algs' && pracCur && pracCur.key!==pracKey())) newScramble(); }
-  if(v==='recog'){ renderRdOpts(); if(!rd) rdNew(); rdStats(); }
+  if(v==='onelook') O3.show(); else O3.leave();
   if(v==='solve') SV.show();
   if(v==='learn'){ renderLearn(); if (learnScroll){ const y = learnScroll; learnScroll = 0; window.scrollTo(0, y); } }
-  document.body.classList.remove('focus'); Wake.set(D.prefs.wake!==false && ['cards','timer','solve','recog'].includes(v)); Toast.hide();
+  document.body.classList.remove('focus'); Wake.set(D.prefs.wake!==false && ['cards','timer','solve','onelook'].includes(v)); Toast.hide();
   const act=document.querySelector('nav.tabs a[aria-current="page"]'); if(act && act.scrollIntoView && NAV.scrollWidth>NAV.clientWidth) act.scrollIntoView({block:'nearest', inline:'nearest'}); navFade(); CubeLab.tabs(NAV);
 }
 window.addEventListener('hashchange', () => CubeLab.navigate(route, $('#v-learn').closest('#app2,#app3')));
@@ -5689,9 +5972,9 @@ const HELP = {
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
   cards:{t:'Flashcards', s:[
-    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it. Tapped the wrong one? Undo next to the session count takes it back.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.','<b>Top</b> or <b>Two sides</b> sets how the case is shown. F2L always shows two sides.']],
+    ['Modes',['<b>Self-check</b>: name the case, reveal, then mark Got it or Missed it. Tapped the wrong one? Undo next to the session count takes it back.','<b>Timed recognition</b>: tap Start (or space) to show the case and start the clock; it runs until you tap I know it. Times are only saved when you got it right.','Your last few timed cards show under the card. Tap ✕ on one to delete its time and take back the Got it or Missed it.','<b>Pick the case</b>: tap Start, then pick the case from a list as fast as you can. PLL shows all 21 names; other sets show six options. Cases you mix up come up more, and show under <b>Mixed up most</b>.','<b>Top</b>, <b>Two sides</b> or <b>3D</b> under Options sets how the case is shown. 3D is a whole cube at a random angle: drag to turn it and find the case, like mid-solve. F2L has no top view.']],
     ['What comes up',['Pick the set, any mix of its subsets, and which cases (by Learning status) under <b>Options</b>.','Cases you miss, are slow on or are still Learning come up more often.','Cards you keep getting right wait longer before coming back (1 day, then 2, 4, 8…), so old cases still get reviewed now and then.']],
-    ['Keyboard',['Space reveals · 1 Missed it · 2 Got it.']]]},
+    ['Keyboard',['Space reveals (or starts, and moves on in Pick the case) · 1 Missed it · 2 Got it.']]]},
   timer:{t:'Case timer', s:[
     ['Algs, Cross or F2L',['<b>Algs</b> times the cases in your sets. <b>Cross</b> and <b>F2L</b> time one step of a solve.','For both, scramble with white on top and green in front, then turn the cube over (x2) so white is on the bottom.','With <b>color neutral</b> on (in Settings), Cross shows the shortest cross on any color, and F2L starts with a cross on a random color already solved.','<b>Cross</b>: pick how many moves the best cross takes, plan it, then time it. After you stop you see the best cross and can tap whether yours was that short.','<b>F2L</b>: the white cross is already solved, so time all four pairs. <b>Compare with the auto solver</b> shows another way through.']],
     ['Each attempt',['Hold the cube <b>yellow on top, green in front</b> (with color neutral on, the line under the scramble says which colors) and apply the scramble. It\'s a real, random-looking scramble that lands on the case.','Last-layer cases leave F2L solved. F2L cases leave the cross and three slots solved; the front-right pair is the case.','Hold the timer (or space) until it turns green, let go to start, tap anywhere or press any key to stop.']],
@@ -5699,7 +5982,7 @@ const HELP = {
     ['Attack',['<b>Attack</b> lists every alg in the sets you picked. Start the clock, do them all back to back, then stop. It keeps your best time for that selection.']],
     ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.']],
     ['Comparing algs',['Times are also saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the case\'s details.']],
-    ['Case stats',['Tap a column to sort, or a case to drill just that one.','<b>Avg</b> is your last 12 solves. <b>Recog</b> comes from timed flashcards and the Recognition drill. <b>TPS</b> is your alg\'s moves over your average with it.']],
+    ['Case stats',['Tap a column to sort, or a case to drill just that one.','<b>Avg</b> is your last 12 solves. <b>Recog</b> comes from timed flashcards and Pick the case. <b>TPS</b> is your alg\'s moves over your average with it.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']]]},
   solve:{t:'Solve', s:[
     ['Each solve',['Hold <b>white on top, green in front</b>, then scramble. Scrambles are random-state, like WCA.','With inspection on (Settings), you get 15 seconds: +2 after 15, DNF after 17. With inspection calls on, it beeps once at 8 seconds and twice at 12. Esc or <b>Cancel inspection</b> throws the attempt away.']],
@@ -5709,15 +5992,16 @@ const HELP = {
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']],
     ['Splits',['Pick <b>Splits</b> next to Timer. While the clock runs, tap (or press a key) as you finish the cross, F2L and OLL, then once more when the cube is solved.','<b>Where your time goes</b> then shows your average for each step.']],
     ['Targets and trends',['Set a <b>target time</b> in the Session panel to draw it on the chart and count how many recent solves beat it.','<b>Progress over time</b> shows one point per day you practiced, and each time your best single fell.']]]},
-  recog:{t:'Recognition drill', s:[
-    ['The idea',['A case appears the way you\'d see it mid-solve: the top plus the two sides facing you. Any side can be in front, and the top may be turned.','Pick the case as fast as you can. PLL shows all 21 names; other sets show six options.']],
-    ['What it tracks',['Right answers feed your recognition time, which the colored dots and Weak first use.','Cases you mix up come up more, and show under <b>Mixed up most</b>.','Your last few answers show under the drill. Tap ✕ on one to delete its time and take back the right or wrong. Older times can be deleted from a case\'s details.']],
-    ['Keyboard',['Space starts, and moves to the next case after you answer.']]]},
+  onelook:{t:'One-look drill', s:[
+    ['Prediction rounds',['<b>Pair → OLL</b>: F2L is done except the last pair, in the front-right slot. Plan the insert, then predict the OLL case it leaves and pick it before time runs out (10, 15 or 20 seconds).','<b>OLL → PLL</b>: an OLL case with F2L solved. Predict the PLL you get after your OLL alg.','<b>Pair → ZBLL</b> (with ZBLL on in Settings): the pair goes in with the edges already oriented, so predict the ZBLL case.','Predictions use <b>your</b> alg from Learn. If another listed alg for that case leaves a different case, that answer counts too.','<b>2-look</b> asks for the first look only: which edge shape after the pair, or which corner swap after the corners are oriented.']],
+    ['Difficulty',['Easy, Medium and Hard go by how long your alg for the step you track is. Mixed picks one each round.','<b>Cases to include</b> filters by Learn status: the OLL you name in Pair → OLL, the OLL you start from in OLL → PLL.']],
+    ['Lookahead solves',['<b>Lookahead</b> times real solves on your own cube, from a solved cross or a full scramble. Tap when F2L is done, then tap the OLL you see; tap again when OLL is done, then tap the PLL.','It times F2L and how long each case takes you to recognize. The app can\'t see your cube, so it trusts your picks.','Short recognition times mean you saw the case coming during F2L.']],
+    ['Setting up',['Show the cube as a scramble to do on your own cube, a net or a 3D view. Scrambles are done yellow on top, green in front (color neutral changes this; the line under the scramble says how).']]]},
   improve:{t:"How to get faster", s:[
     ["Memorizing algs",["Start with 2-look OLL and PLL so you can solve with few algs, then learn full PLL (21) before full OLL (57).","Learn one set at a time and mark it <b>Learning</b> in Learn so the drills focus on it.","Break algs into triggers you already know, like R U R' U' (sexy) or R' F R F' (sledgehammer).","Do a few minutes of <b>Cards</b> every day, and get each alg right slowly before using <b>Drill \u2192 Alg only</b> for speed."]],
     ["Turning speed",["Use finger tricks for U, U' and F so your grip stays the same through the alg.","Cut rotations and regrips. In F2L, try to insert pairs into the back slots without turning the whole cube.","Go smooth, not fast. Pauses cost more than slow turns.","Drill one alg 5 times in a row with the same fingering until it is automatic."]],
-    ["Recognition and lookahead",["Plan the full cross in inspection and solve it on the bottom, so you can see F2L pieces while you do it.","In F2L, slow down so you can look for the next pair while you insert the current one. Slow with no pauses beats fast with stops.","For PLL, read two sides: headlights and bars tell you most cases. The <b>Recog</b> drill trains this.","Once OLL is solid, start noticing which PLL each OLL leaves you with."]],
-    ["Practice plan (about 25 min)",["<b>5 min Cards</b> on the algs you are learning.","<b>5 min Drill</b> on Cross or F2L to train planning and lookahead.","<b>5 min Recog</b> on PLL or OLL.","<b>10 min Solve</b> with <b>Splits</b> on, to see which stage is slowest. Work on that one next."]]]},
+    ["Recognition and lookahead",["Plan the full cross in inspection and solve it on the bottom, so you can see F2L pieces while you do it.","In F2L, slow down so you can look for the next pair while you insert the current one. Slow with no pauses beats fast with stops.","For PLL, read two sides: headlights and bars tell you most cases. <b>Cards → Pick the case</b> trains this.","Once OLL is solid, start noticing which PLL each OLL leaves you with. The <b>One-look</b> drill trains this."]],
+    ["Practice plan (about 25 min)",["<b>5 min Cards</b> on the algs you are learning.","<b>5 min Drill</b> on Cross or F2L to train planning and lookahead.","<b>5 min One-look</b> on Pair → OLL or OLL → PLL.","<b>10 min Solve</b> with <b>Splits</b> on, to see which stage is slowest. Work on that one next."]]]},
 };
 const Help = (() => { const sh = $('#helpSheet');
   function open(k){ const h = HELP[k]; if (!h) return; $('#hTitle3').textContent = h.t;
@@ -5737,13 +6021,11 @@ function refreshAll(){
   tG.clear(); (D.prefs.tG||['PLL']).forEach(g=>{ if(GROUPS.includes(g)) tG.add(g); }); if(!tG.size) tG.add('PLL');
   tSel.clear(); (D.prefs.tSel||[]).forEach(s=>{ if(SETS.includes(s)) tSel.add(s); }); fixSets();
   tStatus=tStatusOf(); renderTStatus();
-  rdGroup = GROUPS.includes(D.prefs.rdGroup) ? D.prefs.rdGroup : 'PLL'; rdSel.clear(); (D.prefs.rdSel||[]).forEach(s=>{ if(SETS.includes(s)) rdSel.add(s); }); rdFix();
-  rdStatus = stParse(D.prefs.rdStatus); rdView = D.prefs.rdView==='top' ? 'top' : 'iso';
   cardLoad();
-  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = ['cross','f2l'].includes(D.prefs.tPrac) ? D.prefs.tPrac : 'algs'; renderPrac(); cardMode = D.prefs.cardMode==='timed' ? 'timed' : 'self'; cardView = D.prefs.cardView==='iso' ? 'iso' : 'top'; renderCardMode(); renderCardOpts();
+  if(['weak','deck','random','daily'].includes(D.prefs.tMode)) tMode=D.prefs.tMode; tKind = ['alg','atk'].includes(D.prefs.tKind) ? D.prefs.tKind : 'scr'; renderTKind(); tPrac = ['cross','f2l'].includes(D.prefs.tPrac) ? D.prefs.tPrac : 'algs'; renderPrac(); cardMode = cardModeOf(D.prefs.cardMode); cardView = cardViewIs(D.prefs.cardView); renderCardMode(); renderCardOpts(); rd = null; O3.reload();
   applyTheme(); if(!$('#v-prefs').hidden) renderSettings(); if(!$('#v-case').hidden) renderCasePage();
   loadSess(); renderTSets(); renderTMode(); renderTKind(); renderTRes(); $('#tResult').hidden=true;
-  if(!$('#v-recog').hidden){ renderRdOpts(); rdStats(); } if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); if(!$('#v-timer').hidden && !tCase) newScramble(); if(!$('#v-solve').hidden) SV.render();
+  if(!$('#v-cards').hidden && cardMode==='pick'){ rdNew(); rdStats(); } if(!$('#v-onelook').hidden) O3.show(); if(!$('#v-learn').hidden) renderLearn(); else renderProgress(); if(!$('#v-timer').hidden && !tCase) newScramble(); if(!$('#v-solve').hidden) SV.render();
 }
 const busy = () => (tState!=='idle' && tState!=='stopped') || SV.busy();
 renderTSets(); renderTMode(); renderTKind(); renderProgress(); route();
@@ -5756,7 +6038,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-19a</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-19b</p>'));</script>
 <script>CubeLab.ready();</script>
 <script>
 // Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
