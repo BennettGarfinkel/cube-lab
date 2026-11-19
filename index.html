@@ -301,6 +301,11 @@ h2{font-size:22px;letter-spacing:-.015em}
 /* sections: flat, divided by a hairline, no box */
 .panel{background:none;border:0;border-top:1px solid var(--line);border-radius:0;padding:16px 0 0;gap:12px}
 .panel.card,.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.o3intro{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 4px 6px}
+.o3intro .o3pic{width:132px;margin-bottom:4px}.o3intro .o3pic svg{width:100%;display:block}
+.o3intro h2{margin:0}.o3intro .lede{margin:0;max-width:32em}
+.o3intro .btn{margin-top:8px;min-width:200px}
+@media (hover:none){.o3intro .o3key{display:none}}
 .panel.first{border-top:0;padding-top:0}
 details.panel>summary{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
 /* controls */
@@ -5653,8 +5658,14 @@ const O3 = (() => {
       h += `<span class="label">Which corner group?</span><div class="pick">${subs.map(n=>{ const o = inSet.find(x=>x.sub===n); return `<button data-o3sub="${n}" aria-pressed="${n===st.pickSub}">${topSVG(o, o.state, {mode:'coll', arrows:[]})}<span>Group ${n+1}</span></button>`; }).join('')}</div>`;
       if (st.pickSub===null) return h; inSet = inSet.filter(x=>x.sub===st.pickSub); }
     return h + `<div class="pick">${inSet.map(caseBtn).join('')}</div>`; }
-  function intro(){ const k = kindOf();
-    return `<p class="lede">${NOTE[mode](algs)} ${k==='solve' ? '' : `Each round gives you ${diff==='mixed' ? '10 to 20' : TIERS[diff].sec} seconds.`}</p><button class="btn yellow" id="o3Go">${k==='solve' ? 'Start a solve' : 'Start a round'}</button>`; }
+  // start screen: a picture of where each round starts, what to do, and one clear button
+  const INTRO_PIC = {pair:"R U' R'", ll:"R U2 R' U' R U' R'", solve:"R U F' L2 B D' R2 U' F"};
+  function intro(){ const k = kindOf(), pic = k==='solve' ? 'solve' : mode==='pll' ? 'll' : 'pair';
+    const title = MODES.find(x=>x[0]===mode)[1] + (algs==='2lk' && mode!=='zb' ? ' (2-look)' : '');
+    const sub = k==='solve' ? (from==='cross' ? 'Starts from a solved cross' : 'Starts from a full scramble') : `${diff==='mixed' ? '10 to 20' : TIERS[diff].sec} seconds a round`;
+    return `<div class="o3intro"><div class="o3pic" aria-hidden="true">${isoSVG(null, Cube.apply(S0, INTRO_PIC[pic]), {mode:'all'})}</div>
+      <h2>${esc(title)}</h2><p class="lede">${NOTE[mode](algs)}</p><span class="stats">${sub} · change it in Options</span>
+      <button class="btn yellow" id="o3Go">${k==='solve' ? 'Start a solve' : 'Start a round'}</button><span class="stats o3key">or press space</span></div>`; }
   function render(){ const box = $('#o3Stage'); if (!box) return;
     if (!ol){ box.innerHTML = intro(); return; }
     if (ol.k==='solve') return renderSolve(box);
@@ -6038,7 +6049,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-19b</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-19c</p>'));</script>
 <script>CubeLab.ready();</script>
 <script>
 // Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
