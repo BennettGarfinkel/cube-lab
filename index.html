@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Cube Lab</title>
 <meta name="description" content="A 2x2 and 3x3 trainer: learn algorithms, drill cases, and time full solves.">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#F5F5F2">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cube Lab">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Crect x='1' y='1' width='13' height='13' rx='3' fill='%23F5D80F'/%3E%3Crect x='16' y='1' width='13' height='13' rx='3' fill='%23D6322E'/%3E%3Crect x='1' y='16' width='13' height='13' rx='3' fill='%231FA34A'/%3E%3Crect x='16' y='16' width='13' height='13' rx='3' fill='%23F5D80F'/%3E%3C/svg%3E">
 <style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -5749,7 +5756,21 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-16c</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-19a</p>'));</script>
 <script>CubeLab.ready();</script>
+<script>
+// Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
+(() => {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const mq = matchMedia('(prefers-color-scheme: dark)');
+  const sync = () => { const t = document.documentElement.getAttribute('data-theme');
+    meta.content = (t === 'dark' || (t !== 'light' && mq.matches)) ? '#0C0D10' : '#F5F5F2'; };
+  sync(); new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (mq.addEventListener) mq.addEventListener('change', sync);
+  if ('serviceWorker' in navigator && window.isSecureContext)
+    addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+})();
+</script>
 </body>
 </html>
