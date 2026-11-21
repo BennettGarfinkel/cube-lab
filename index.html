@@ -4400,7 +4400,7 @@ const cpDone = s => ollDone(s) && AUF.some(a=>cornersHome(Cube.apply(s,a)));
 const fullDone = s => AUF.some(a=>Cube.isSolved(Cube.apply(s,a)));
 const GOAL = {full:fullDone, oll:ollDone, f2l:f2lSolved, eo:eoDone, cp:cpDone};
 // the top turn (if any) an alg needs first to reach its goal from this state; null if it doesn't
-function preFor(state, alg, goal){ try { Cube.parse(alg); } catch(e){ return null; } for (const a of AUF){ const t = recolor(Cube.apply(Cube.apply(state,a),alg)); if (GOAL[goal](t)) return a; } return null; }
+function preFor(state, alg, goal){ try { Cube.parse(alg); } catch(e){ return null; } for (const a of AUF){ const t = recolor(Cube.reorient(Cube.apply(Cube.apply(state,a),alg)).s); if (GOAL[goal](t)) return a; } return null; }
 const validAlg = (c, alg) => preFor(c.state, alg, c.goal) !== null;
 const fitAlg = (c, alg) => { const p = preFor(c.state, alg, c.goal); return p ? Cube.simplify(p+' '+alg) : alg; };
 const esc = s => String(s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
@@ -5139,15 +5139,21 @@ const Scr = (() => {
 const byGoal = g => CASES.filter(c=>c.g===g);
 const PLLS = () => byGoal('PLL'), OLLS = () => byGoal('OLL');
 const EPS = () => CASES.filter(c=>c.set==='Permute edges'), OCLLS = () => CASES.filter(c=>c.set==='OCLL');
-function noiseFor(c){ const inv = x => x ? Cube.invert(x.alg) : '', maybe = (l, p) => Math.random() < p ? pickOne(l) : null;
-  if (c.goal==='full') return pickOne(AUF);
-  if (c.goal==='oll') return [inv(maybe(PLLS(), .95)), pickOne(AUF)].join(' ');
-  if (c.goal==='eo') return [inv(maybe(PLLS(), .95)), inv(maybe(OCLLS(), .9)), pickOne(AUF)].join(' ');
-  if (c.goal==='cp') return [inv(maybe(EPS(), .8)), pickOne(AUF)].join(' ');
-  return [inv(maybe(PLLS(), .95)), inv(maybe(OLLS(), .95)), pickOne(AUF)].join(' '); }
+// noise: the random last-layer algs the case sits on top of (each one gets undone, deepest first)
+function noiseFor(c){ const al = x => x ? x.alg : '', maybe = (l, p) => Math.random() < p ? pickOne(l) : null;
+  if (c.goal==='full') return [pickOne(AUF)];
+  if (c.goal==='oll') return [al(maybe(PLLS(), .95)), pickOne(AUF)];
+  if (c.goal==='eo') return [al(maybe(PLLS(), .95)), al(maybe(OCLLS(), .9)), pickOne(AUF)];
+  if (c.goal==='cp') return [al(maybe(EPS(), .8)), pickOne(AUF)];
+  return [al(maybe(PLLS(), .95)), al(maybe(OLLS(), .95)), pickOne(AUF)]; }
+// The position alg a solves into s. Some algs end with the cube tilted (l' U R' D2 R U' R' D2 R2 ends rotated),
+// so s has to be turned to match that final hold first, or the last layer lands on the wrong face.
+const tiltOf = new Map();   // alg -> the turn that undoes how it leaves the cube tilted ('' for most algs)
+function undoOnto(s, a){ if (!tiltOf.has(a)){ const ro = Cube.reorient(Cube.apply(S0, a)).rot; tiltOf.set(a, ro ? Cube.invert(ro) : ''); }
+  const r = tiltOf.get(a); return recolor(Cube.apply(r ? Cube.apply(s, r) : s, Cube.invert(a))); }
+const undoSteps = (s, algs) => algs.filter(Boolean).reduce(undoOnto, s);
 function variant(c, alg){ const a = alg || fitAlg(c, algOf(c));
-  const s = recolor(Cube.apply(S0, (noiseFor(c) + ' ' + Cube.invert(a)).trim()));
-  return Cube.apply(s, pickOne(AUF)); }
+  return Cube.apply(undoSteps(S0, [...noiseFor(c), a]), pickOne(AUF)); }
 // ---- case timer ----
 const tG = new Set((D.prefs.tG||[]).filter(g=>GROUPS.includes(g))), tSel = new Set((D.prefs.tSel||[]).filter(s=>SETS.includes(s)));
 if(!tG.size) tG.add('PLL');
@@ -5587,7 +5593,7 @@ const O3 = (() => {
     for (let i=0; i<list.length; i++){ t -= w[i]; if (t < 0) return list[i]; } return list[list.length-1]; }
   // undo case c's alg from a position where c's step is done; centers go back home so the scramble works.
   // Returns null when your alg doesn't solve the result (rare: algs that rotate the cube)
-  function setupFrom(base, c){ const st = Cube.apply(Cube.reorient(Cube.apply(base, Cube.invert(fitAlg(c, algOf(c))))).s, pickOne(AUF));
+  function setupFrom(base, c){ const st = Cube.apply(undoOnto(base, fitAlg(c, algOf(c))), pickOne(AUF));
     return preFor(st, algOf(c), c.goal)!==null ? st : null; }
   // where each listed alg for case c (plus your own, if you typed one) leaves the next step
   function outcomes(st, c, k){ const list = algList(c).map(a=>({n:a.n, alg:a.alg}));
@@ -5616,8 +5622,9 @@ const O3 = (() => {
     return null; }
   // lookahead start: cross solved, the four pairs and the last layer mixed up by undoing real F2L algs
   function crossState(){ const f2ls = CASES.filter(c=>c.g==='F2L');
-    for (let tries=0; tries<20; tries++){ let s = Cube.apply(S0, [Cube.invert(pickOne(PLLS()).alg), Cube.invert(pickOne(OLLS()).alg)].join(' '));
-      for (const y of ['', 'y', 'y2', "y'"]){ s = Cube.reorient(Cube.apply(s, `${y} ${Cube.invert(pickOne(f2ls).alg)} ${y ? Cube.invert(y) : ''} ${pickOne(AUF)}`.trim())).s; }
+    for (let tries=0; tries<20; tries++){ let s = undoSteps(S0, [pickOne(PLLS()).alg, pickOne(OLLS()).alg]);
+      // mix up each slot in turn: turn the cube so that slot is front-right, undo an F2L alg there, turn back
+      for (const y of ['', 'y', 'y2', "y'"]){ if (y) s = recolor(Cube.apply(s, y)); s = undoOnto(s, pickOne(f2ls).alg); if (y) s = recolor(Cube.apply(s, Cube.invert(y))); s = Cube.apply(s, pickOne(AUF)); }
       const cross = [28,30,32,34].every(i=>s[i]==='D') && [1,2,4,5].every(f=>s[f*9+7]===s[f*9+4]);
       if (cross && !f2lSolved(s)) return s; }
     return Cube.apply(S0, "R U R' U' F' U' F"); }
@@ -6049,7 +6056,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-19e</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-20a</p>'));</script>
 <script>CubeLab.ready();</script>
 <script>
 // Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
