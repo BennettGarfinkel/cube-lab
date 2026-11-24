@@ -168,6 +168,8 @@ select{font:inherit;font-size:14px;padding:8px 10px;border-radius:9px;border:1px
 .timer .hint{font-size:12px;color:var(--muted)}
 .timer.running .hint{color:color-mix(in srgb,var(--bg) 60%,transparent)}
 .timer.holding .t{color:var(--bad)}.timer.ready .t{color:var(--good)}
+.timer{position:relative}.tcancel{position:absolute;top:10px;right:10px;font:600 13px var(--f-body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;touch-action:manipulation}
+.timer:not(.holding):not(.ready) .tcancel{display:none}
 .x.sm{width:26px;height:26px;font-size:15px}
 textarea{font-family:var(--f-mono);font-size:12px;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);resize:vertical;word-break:break-all}
 details.panel>summary{cursor:pointer;list-style:none}details.panel>summary::-webkit-details-marker{display:none}
@@ -720,7 +722,7 @@ window.CubeLabHost = {
     <div class="row" id="tFocusRow" hidden><span class="chip" aria-pressed="true" id="tFocusChip"></span><button class="linkbtn" id="tFocusOff">Back to your picked sets</button></div>
     <div class="stage">
       <div class="scrbox"><div class="scrhead"><span class="label" id="tScrLabel">Scramble</span><button class="linkbtn" id="tNext">New scramble</button></div><div class="scramble" id="tScr"><span class="loading">Preparing scrambles…</span></div><p class="stats" id="tHold" style="text-align:center" hidden></p></div>
-      <div class="timer" id="tBox" role="button" tabindex="0" aria-label="Start or stop the timer"><div class="t" id="tTime">0.00</div><div class="hint" id="tHint">Hold, then let go to start</div></div>
+      <div class="timer" id="tBox" role="button" tabindex="0" aria-label="Start or stop the timer"><div class="t" id="tTime">0.00</div><div class="hint" id="tHint">Hold, then let go to start</div><button class="tcancel" type="button" aria-label="Cancel, don't start the timer">Cancel</button></div>
     </div>
     <div class="card" id="tResult" hidden></div>
     <div class="panel" id="tRecent"><div class="row" style="justify-content:space-between"><span class="label">Recent solves</span><span class="stats" id="tAvg"></span></div><div class="hist" id="tHist"></div></div>
@@ -753,7 +755,7 @@ window.CubeLabHost = {
         <p class="stats" id="sRound" style="text-align:center;max-width:none;font-weight:600;color:var(--ink)" hidden></p>
         <details id="sPrevWrap"><summary class="rec" style="cursor:pointer">Show the scrambled cube</summary><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:8px"><div class="seg sm" id="sPrevView" role="group" aria-label="Show the cube as"></div><div class="netwrap" id="sPrev" style="width:100%"></div></div></details>
       </div>
-      <div class="timer" id="sBox" role="button" tabindex="0" aria-label="Solve timer"><div class="t" id="sTime">0.00</div><div class="hint" id="sHint"></div></div>
+      <div class="timer" id="sBox" role="button" tabindex="0" aria-label="Solve timer"><div class="t" id="sTime">0.00</div><div class="hint" id="sHint"></div><button class="tcancel" type="button" aria-label="Cancel, don't start the timer">Cancel</button></div>
       <div class="typebox" id="sTypeBox" hidden><label class="label" for="sTypeIn">Type your time</label><div class="row"><input id="sTypeIn" class="textin mono" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="1234 = 12.34"><button class="btn sm" id="sTypeGo">Add</button></div><p class="stats" id="sTypeMsg" aria-live="polite">Digits only: 1234 is 12.34, 10523 is 1:05.23. Add + for a +2, or type DNF.</p></div>
       <div class="stagefoot" id="sCancelRow" hidden><button class="linkbtn" id="sCancel">Cancel inspection</button></div>
     </div>
@@ -947,7 +949,7 @@ window.CubeLabHost = {
     <div class="row" id="tFocusRow" hidden><span class="chip" aria-pressed="true" id="tFocusChip"></span><button class="linkbtn" id="tFocusOff">Back to your picked sets</button></div>
     <div class="stage">
       <div class="scrbox"><div class="scrhead"><span class="label" id="tScrLabel">Scramble</span><button class="linkbtn" id="tNext">New scramble</button></div><div class="scramble" id="tScr"><span class="loading">Preparing scrambles…</span></div><p class="stats" id="tHold" style="text-align:center" hidden></p></div>
-      <div class="timer" id="tBox" role="button" tabindex="0" aria-label="Start or stop the timer"><div class="t" id="tTime">0.00</div><div class="hint" id="tHint">Hold, then let go to start</div></div>
+      <div class="timer" id="tBox" role="button" tabindex="0" aria-label="Start or stop the timer"><div class="t" id="tTime">0.00</div><div class="hint" id="tHint">Hold, then let go to start</div><button class="tcancel" type="button" aria-label="Cancel, don't start the timer">Cancel</button></div>
     </div>
     <div class="card" id="tResult" hidden></div>
     <div class="panel" id="tRecent"><div class="row" style="justify-content:space-between"><span class="label">Recent solves</span><span class="stats" id="tAvg"></span></div><div class="hist" id="tHist"></div></div>
@@ -980,7 +982,7 @@ window.CubeLabHost = {
         <p class="stats" id="sRound" style="text-align:center;max-width:none;font-weight:600;color:var(--ink)" hidden></p>
         <details id="sPrevWrap"><summary class="rec" style="cursor:pointer">Show the scrambled cube</summary><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:8px"><div class="netwrap" id="sPrev" style="width:100%"></div><button class="btn alt sm" id="sPrev3d">Turn it in 3D</button></div></details>
       </div>
-      <div class="timer" id="sBox" role="button" tabindex="0" aria-label="Solve timer"><div class="t" id="sTime">0.00</div><div class="hint" id="sHint"></div></div>
+      <div class="timer" id="sBox" role="button" tabindex="0" aria-label="Solve timer"><div class="t" id="sTime">0.00</div><div class="hint" id="sHint"></div><button class="tcancel" type="button" aria-label="Cancel, don't start the timer">Cancel</button></div>
       <div class="typebox" id="sTypeBox" hidden><label class="label" for="sTypeIn3">Type your time</label><div class="row"><input id="sTypeIn3" class="textin mono" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="1234 = 12.34"><button class="btn sm" id="sTypeGo">Add</button></div><p class="stats" id="sTypeMsg" aria-live="polite">Digits only: 1234 is 12.34, 10523 is 1:05.23. Add + for a +2, or type DNF.</p></div>
       <div class="stagefoot" id="sCancelRow" hidden><button class="linkbtn" id="sCancel">Cancel inspection</button></div>
     </div>
@@ -1428,7 +1430,7 @@ function makeSV(X){
   if (P2) renderPrevSeg();
   else $('#sPrev3d').addEventListener('click', ()=>{ if (!scr) return; X.Viewer.openRaw({title:'Scrambled cube', group:'Solve · white on top, green in front', state: Cube.apply(S0, scr).map(c=>WCA[c])}); });
   // timer state machine: idle → (armed → inspecting →) holding → ready → running → stopped → idle
-  const HINT = { armed:'Let go to start inspection', inspecting:'Hold until green, then let go', holding:'Keep holding…', ready:'Let go to start', running:'Tap or press any key to stop', stopped:'Let go' };
+  const HINT = { armed:'Let go to start inspection', inspecting:'Hold until green, then let go', holding:'Keep holding… (slide off or Esc to cancel)', ready:'Let go to start · slide off to cancel', running:'Tap or press any key to stop', stopped:'Let go' };
   function setS(s){ state = s; CubeLab.focusMode(s==='running' || (inInsp && ['inspecting','holding','ready'].includes(s)), $('#v-solve .stage .timer'));
     ['holding','ready','running'].forEach(k=>box.classList.toggle(k, s===k));
     box.classList.toggle('insp', inInsp && s!=='running');
@@ -1651,12 +1653,17 @@ function makeSV(X){
   // events
   box.addEventListener('pointerdown', e=>{ e.preventDefault(); try{ box.setPointerCapture(e.pointerId); }catch(_){} press(); });
   box.addEventListener('pointerup', release);
+  // changed your mind while holding: slide off the timer, press Esc, or tap Cancel. During inspection it goes back to inspecting
+  function cancelHold(){ if (state!=='holding' && state!=='ready') return false; clearTimeout(holdT); setS(inInsp ? 'inspecting' : 'idle'); return true; }
+  box.addEventListener('pointermove', e=>{ if (state!=='holding' && state!=='ready') return; const r = box.getBoundingClientRect(), m = 6; if (e.clientX<r.left-m || e.clientX>r.right+m || e.clientY<r.top-m || e.clientY>r.bottom+m) cancelHold(); });
+  box.querySelector('.tcancel').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); cancelHold(); });
   box.addEventListener('pointercancel', ()=>{ clearTimeout(holdT); if (state==='holding'||state==='ready') setS(inInsp?'inspecting':'idle'); else if (state==='armed'||state==='stopped') setS('idle'); });
   box.addEventListener('contextmenu', e=>e.preventDefault());
   // while the timer runs the rest of the page is hidden, so a tap anywhere counts
   document.addEventListener('pointerdown', e=>{ if (state!=='running' || $('#v-solve').hidden || box.contains(e.target)) return; e.preventDefault(); CubeLab.eatClick(); tapRun(); if (state==='stopped') setS('idle'); });
   const keysOn = e => !$('#v-solve').hidden && $('#sheet').hidden && !e.target.matches('input:not([type=checkbox]), select, textarea');
   document.addEventListener('keydown', e=>{ if (!keysOn(e)) return;
+    if (e.key==='Escape' && cancelHold()){ e.preventDefault(); return; }
     if (e.key==='Escape' && (inInsp || state==='armed') && state!=='running'){ e.preventDefault(); cancelInsp(); return; }
     if (state==='running'){ e.preventDefault(); if (!e.repeat) tapRun(); return; }
     if (e.code==='Space'){ e.preventDefault(); const a = document.activeElement; if (a && a!==document.body && a.blur) a.blur(); if (!e.repeat) press(); return; }
@@ -2889,7 +2896,7 @@ $('#fsGoal').addEventListener('click', e=>{ const b = e.target.closest('[data-fg
 renderPrac();
 const fmtT = ms => (ms/1000).toFixed(2);
 const tBox = $('#tBox');
-const HINTS = {idle:'Hold, then let go to start', holding:'Keep holding…', ready:'Let go to start', running:'Tap or press any key to stop', stopped:'Let go'};
+const HINTS = {idle:'Hold, then let go to start', holding:'Keep holding… (slide off or Esc to cancel)', ready:'Let go to start · slide off to cancel', running:'Tap or press any key to stop', stopped:'Let go'};
 function setTState(s){ tState=s; CubeLab.focusMode(s==='running', tBox); ['holding','ready','running'].forEach(k=>tBox.classList.toggle(k, s===k)); $('#tHint').textContent = s==='idle' && !tCase ? 'Nothing to time yet. Check Options.' : HINTS[s]; }
 function tick(){ $('#tTime').textContent=fmtT(performance.now()-tStart); tRaf=requestAnimationFrame(tick); }
 function holdStart(){ if(tState!=='idle'||!tCase) return; setTState('holding'); $('#tTime').textContent='0.00'; clearTimeout(tHoldT); tHoldT=setTimeout(()=>{ if(tState==='holding') setTState('ready'); }, 300); }
@@ -2965,6 +2972,10 @@ $('#tResult').addEventListener('click', e=>{ const rs=e.target.closest('[data-rs
 $('#tHist').addEventListener('click', e=>{ const d=e.target.closest('[data-del]'); if(d) delSolve(tSess[+d.dataset.del]); });
 tBox.addEventListener('pointerdown', e=>{ e.preventDefault(); if(stopTimer()) return; try{ tBox.setPointerCapture(e.pointerId); }catch(_){} holdStart(); });
 tBox.addEventListener('pointerup', holdEnd);
+// changed your mind while holding: slide off the timer, press Esc, or tap Cancel, and it won't start
+function cancelHold(){ if(tState!=='holding' && tState!=='ready') return false; clearTimeout(tHoldT); setTState('idle'); return true; }
+tBox.addEventListener('pointermove', e=>{ if(tState!=='holding' && tState!=='ready') return; const r=tBox.getBoundingClientRect(), m=6; if(e.clientX<r.left-m || e.clientX>r.right+m || e.clientY<r.top-m || e.clientY>r.bottom+m) cancelHold(); });
+tBox.querySelector('.tcancel').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); cancelHold(); });
 tBox.addEventListener('pointercancel', ()=>{ clearTimeout(tHoldT); if(tState!=='running') setTState('idle'); });
 tBox.addEventListener('contextmenu', e=>e.preventDefault());
 // while the timer runs the rest of the page is hidden, so a tap anywhere stops it
@@ -2973,6 +2984,7 @@ const timerKeys = e => !$('#v-timer').hidden && $('#sheet').hidden && !e.target.
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape' && !$('#sheet').hidden){ Viewer.close(); return; }
   if(!timerKeys(e)) return;
+  if(e.key==='Escape' && cancelHold()){ e.preventDefault(); return; }
   if(tState==='running'){ e.preventDefault(); stopTimer(); return; }
   if(e.code==='Space'){ e.preventDefault(); const a=document.activeElement; if(a && a!==document.body && a.blur) a.blur(); if(!e.repeat) holdStart(); return; }
   // shortcuts: N new scramble, 1/2/3 OK/+2/DNF on the last solve, Backspace deletes it
@@ -5334,7 +5346,7 @@ $('#crLevel').addEventListener('click', e=>{ const b = e.target.closest('[data-c
 renderPrac();
 const fmtT = ms => (ms/1000).toFixed(2);
 const tBox = $('#tBox');
-const HINTS = {idle:'Hold, then let go to start', holding:'Keep holding…', ready:'Let go to start', running:'Tap or press any key to stop', stopped:'Let go'};
+const HINTS = {idle:'Hold, then let go to start', holding:'Keep holding… (slide off or Esc to cancel)', ready:'Let go to start · slide off to cancel', running:'Tap or press any key to stop', stopped:'Let go'};
 function setTState(s){ tState=s; CubeLab.focusMode(s==='running', tBox); ['holding','ready','running'].forEach(k=>tBox.classList.toggle(k, s===k)); $('#tHint').textContent = s==='idle' && !tCase ? 'Nothing to time yet. Check Options.' : HINTS[s]; }
 function tick(){ $('#tTime').textContent=fmtT(performance.now()-tStart); tRaf=requestAnimationFrame(tick); }
 function holdStart(){ if(tState!=='idle'||!tCase||!tReady) return; setTState('holding'); $('#tTime').textContent='0.00'; clearTimeout(tHoldT); tHoldT=setTimeout(()=>{ if(tState==='holding') setTState('ready'); }, 300); }
@@ -5409,6 +5421,10 @@ $('#tResult').addEventListener('click', e=>{ const rs=e.target.closest('[data-rs
 $('#tHist').addEventListener('click', e=>{ const d=e.target.closest('[data-del]'); if(d) delSolve(tSess[+d.dataset.del]); });
 tBox.addEventListener('pointerdown', e=>{ e.preventDefault(); if(stopTimer()) return; try{ tBox.setPointerCapture(e.pointerId); }catch(_){} holdStart(); });
 tBox.addEventListener('pointerup', holdEnd);
+// changed your mind while holding: slide off the timer, press Esc, or tap Cancel, and it won't start
+function cancelHold(){ if(tState!=='holding' && tState!=='ready') return false; clearTimeout(tHoldT); setTState('idle'); return true; }
+tBox.addEventListener('pointermove', e=>{ if(tState!=='holding' && tState!=='ready') return; const r=tBox.getBoundingClientRect(), m=6; if(e.clientX<r.left-m || e.clientX>r.right+m || e.clientY<r.top-m || e.clientY>r.bottom+m) cancelHold(); });
+tBox.querySelector('.tcancel').addEventListener('pointerdown', e=>{ e.preventDefault(); e.stopPropagation(); cancelHold(); });
 tBox.addEventListener('pointercancel', ()=>{ clearTimeout(tHoldT); if(tState!=='running') setTState('idle'); });
 tBox.addEventListener('contextmenu', e=>e.preventDefault());
 // while the timer runs the rest of the page is hidden, so a tap anywhere stops it
@@ -5417,6 +5433,7 @@ const timerKeys = e => !$('#v-timer').hidden && $('#sheet').hidden && !e.target.
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape' && !$('#sheet').hidden){ Viewer.close(); return; }
   if(!timerKeys(e)) return;
+  if(e.key==='Escape' && cancelHold()){ e.preventDefault(); return; }
   if(tState==='running'){ e.preventDefault(); stopTimer(); return; }
   if(e.code==='Space'){ e.preventDefault(); const a=document.activeElement; if(a && a!==document.body && a.blur) a.blur(); if(!e.repeat) holdStart(); return; }
   if(tState!=='idle' || tKind==='atk' || tPrac!=='algs' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
@@ -6056,7 +6073,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-20a</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-24a</p>'));</script>
 <script>CubeLab.ready();</script>
 <script>
 // Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
