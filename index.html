@@ -306,6 +306,20 @@ h2{font-size:22px;letter-spacing:-.015em}
 .o3intro{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:10px 4px 6px}
 .o3intro .o3pic{width:132px;margin-bottom:4px}.o3intro .o3pic svg{width:100%;display:block}
 .o3intro h2{margin:0}.o3intro .lede{margin:0;max-width:32em}
+/* One-look round: cube on the left and answers on the right on a wide screen, stacked on a phone */
+.olgrid{display:flex;flex-direction:column;gap:12px}
+.olL,.olR{display:flex;flex-direction:column;gap:12px;min-width:0}
+.olcube{position:relative;display:flex;flex-direction:column;gap:8px}
+.olgrid.gone .olcube>*,.olgrid.gone .olscrline{visibility:hidden}
+.olgrid.gone .olcube::after{content:"Time is up. Answer from memory.";position:absolute;inset:0;min-height:96px;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;color:var(--muted);font-weight:600;border:1px dashed var(--line);border-radius:12px}
+.olctl{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.olR>.row{gap:8px;flex-wrap:wrap}
+.olsess{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;justify-content:center;padding:8px 10px;margin-bottom:10px;background:var(--bg);border-radius:12px}
+.olsess b{font-size:18px}
+@media (min-width:720px){
+  .olgrid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);column-gap:24px;align-items:start}
+  .olL .stage3d{max-width:min(100%,440px)}
+}
 .o3intro .btn{margin-top:8px;min-width:200px}
 @media (hover:none){.o3intro .o3key{display:none}}
 .panel.first{border-top:0;padding-top:0}
@@ -2367,16 +2381,16 @@ const noteOf = c => (D.notes[c.id]||'').trim();
 const noteHTML = c => noteOf(c) ? `<p class="notebox"><b>Your notes</b><br>${esc(noteOf(c))}</p>` : '';
 const recAvg = id => { const r = D.recog[id]; if (!r || !r.length) return null; const t = r.slice(-10); return t.reduce((a,b)=>a+b,0)/t.length; };
 // ---- how much each case needs work, from everything the app records ----
-// recognition (timed flashcards), case time (Scramble and Alg only together), alg length, DNFs, misses and recent trend.
+// recognition (timed flashcards), execution TPS on your alg (case time if moves can't be counted), DNFs, misses and recent trend.
 // Each is compared with YOUR usual for that measure, so 1 = typical for you, above 1 = weaker.
 const median = a => { if (!a.length) return null; const b = a.slice().sort((x,y)=>x-y), m = b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(algPair(c).alg)); };
 const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
-function needBase(){ if (NEED) return NEED; const rec = [], recG = {}, tps = [], full = {};
-  for (const c of CASES){ const r = recAvg(c.id); if (r!==null){ rec.push(r); (recG[c.g] = recG[c.g] || []).push(r); } const t = tpsOf(c); if (t) tps.push(t);
+function needBase(){ if (NEED) return NEED; const rec = [], recG = {}, tps = [], tpsG = {}, full = {};
+  for (const c of CASES){ const r = recAvg(c.id); if (r!==null){ rec.push(r); (recG[c.g] = recG[c.g] || []).push(r); } const t = tpsOf(c); if (t){ tps.push(t); (tpsG[c.g] = tpsG[c.g] || []).push(t); }
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
   const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
-  NEED = {rec:median(rec), recG:Object.fromEntries(Object.entries(recG).filter(([g,v])=>v.length>=3).map(([g,v])=>[g, median(v)])), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+  NEED = {rec:median(rec), recG:Object.fromEntries(Object.entries(recG).filter(([g,v])=>v.length>=3).map(([g,v])=>[g, median(v)])), tps:median(tps), tpsG:Object.fromEntries(Object.entries(tpsG).filter(([g,v])=>v.length>=3).map(([g,v])=>[g, median(v)])), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
 // move count next to the usual alg in its set, kept in a narrow range. Speed on the alg is the exec part's job,
 // so a long alg you do fast still comes out fine overall.
 const lenOf = c => { const m = mvOf(c), u = needBase().mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u} : null; };
@@ -2388,15 +2402,17 @@ const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
   const r = recAvg(c.id), rb = B.recG[c.g] || B.rec; if (r!==null && rb) parts.push({k:'rec', v:clamp(r/rb), w:1, you:r, usual:rb});
-  const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:1.2, you:a, usual:fb});
-  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:.5, you:ln.you, usual:ln.usual});
+  // execution speed as TPS (moves / your time on this alg), so a long alg you turn fast isn't marked weak
+  const tp = tpsOf(c), tb = B.tpsG[c.g] || B.tps;
+  if (tp && tb) parts.push({k:'tps', v:clamp(tb/tp), w:1.2, you:tp, usual:tb});
+  else { const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:1.2, you:a, usual:fb}); }
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const rl = typeof cd.l==='string' ? cd.l : '', dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0;
   const miss = rl.length >= 5 ? (rl.split('m').length-1)/rl.length : cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length + Math.max(cd.h + cd.m, rl.length);
   let score = parts.length ? parts.reduce((x,p)=>x+p.v*p.w,0) / parts.reduce((x,p)=>x+p.w,0) : null;
   if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(D.times[c.id]); }
-  const far = parts.filter(p=>(p.k==='rec' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
+  const far = parts.filter(p=>(p.k==='rec' || p.k==='tps' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
   let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .34 || far ? 'weak' : score <= .95 ? 'strong' : 'ok';
   // the single biggest reason, in words
   // what pushed the score up most: a big DNF or miss rate, a measure 40%+ off, or else the largest share of the score
@@ -2404,9 +2420,9 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
     const cand = parts.filter(p=>p.v>1).map(p=>({...p, c:(p.v-1)*p.w/W})); if (dnf) cand.push({k:'dnf', c:2*dnf}); if (miss) cand.push({k:'miss', c:1.2*miss});
     worst = dnf >= .15 ? {k:'dnf'} : miss >= .34 ? {k:'miss'} : far || cand.sort((x,y)=>y.c-x.c)[0] || null; }
   const why = !worst ? '' : worst.k==='dnf' ? `${Math.round(dnf*100)}% DNF in the case timer` : worst.k==='miss' ? `missed ${Math.round(miss*100)}% of ${rl.length >= 5 ? 'your last '+rl.length+' tries at naming it' : 'flashcards'}`
-    : worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='len' ? `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}`
+    : worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='tps' ? `executing at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}`
     : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
-  const long = !!(worst && worst.k==='len');
+  const long = tier === 'weak'; // a weak case gets a tip when a listed alg is 2+ moves shorter
   return B.cache[key] = {score, tier, why, n, long}; }
 const TIER_NAME = {strong:'Strong for you', ok:'About your usual', weak:'Weak spot'};
 const needDot = c => { const t = need(c).tier; return t ? `<i class="nd ${t}" title="${TIER_NAME[t]}" aria-label="${TIER_NAME[t]}"></i>` : ''; };
@@ -3047,9 +3063,12 @@ function loadThree(){ if (window.THREE) return Promise.resolve(); if (threeP) re
   threeP = new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
     sc.onload = () => window.THREE ? res() : (threeFailed = true, rej()); sc.onerror = () => { threeFailed = true; threeP = null; rej(); }; document.head.appendChild(sc); });
   return threeP; }
+// ease the 3D view back to the usual front-right angle (theta .62, phi .5), the short way round
+function springBack(theta, phi){ const T=0.62, P=0.5, k=0.14; let dt=(T-theta)%(2*Math.PI); if(dt>Math.PI) dt-=2*Math.PI; if(dt<-Math.PI) dt+=2*Math.PI;
+  return Math.abs(dt)<1e-3 && Math.abs(P-phi)<1e-3 ? [T,P] : [theta+dt*k, phi+(P-phi)*k]; }
 const OL3D = (() => {
   const HEX = {U:0xF5D80F,F:0x1FA34A,R:0xF2851D,B:0x2463D6,L:0xD6322E,D:0xFFFFFF};
-  const ok = () => typeof THREE !== 'undefined'; let r=null, scene, cam, stickers=[], theta=0.62, phi=0.5, raf=0;
+  const ok = () => typeof THREE !== 'undefined'; let r=null, scene, cam, stickers=[], theta=0.62, phi=0.5, raf=0, held=false, spring=false;
   function init(){
     r = new THREE.WebGLRenderer({antialias:true, alpha:true}); r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
     scene = new THREE.Scene(); cam = new THREE.PerspectiveCamera(30,1,0.1,100);
@@ -3061,21 +3080,23 @@ const OL3D = (() => {
         m.position.set(n[0]*0.495,n[1]*0.495,n[2]*0.495); m.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),new THREE.Vector3(n[0],n[1],n[2])); g.add(m); stickers[i]=m; });
       scene.add(g); });
     const el=r.domElement; let drag=null;
-    el.addEventListener('pointerdown', e=>{ drag={x:e.clientX,y:e.clientY}; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointerdown', e=>{ drag={x:e.clientX,y:e.clientY}; held=true; el.setPointerCapture(e.pointerId); });
     el.addEventListener('pointermove', e=>{ if(!drag) return; theta-=(e.clientX-drag.x)*0.01; phi=Math.max(-1.45,Math.min(1.45,phi+(e.clientY-drag.y)*0.01)); drag={x:e.clientX,y:e.clientY}; });
-    const end=()=>{ drag=null; }; el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end);
+    const end=()=>{ drag=null; held=false; }; el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end);
   }
   function loop(){ const el=r.domElement; if(!el.isConnected){ raf=0; return; } const w=el.parentNode.clientWidth;
     if(w && el.width!==Math.round(w*r.getPixelRatio())) r.setSize(w,w,false);
-    const d=7.6; cam.position.set(d*Math.cos(phi)*Math.sin(theta), d*Math.sin(phi), d*Math.cos(phi)*Math.cos(theta)); cam.lookAt(0,0,0); cam.aspect=1; cam.updateProjectionMatrix();
+    if(spring && !held) [theta,phi]=springBack(theta,phi);
+    const d=7.1; cam.position.set(d*Math.cos(phi)*Math.sin(theta), d*Math.sin(phi), d*Math.cos(phi)*Math.cos(theta)); cam.lookAt(0,0,0); cam.aspect=1; cam.updateProjectionMatrix();
     r.render(scene,cam); raf=requestAnimationFrame(loop); }
   // rand: start from a random angle (flashcards), so you turn it to find the case
-  function mount(box, st, fresh, rand){
+  // sprung: after you let go it eases back to the front-right view, so you can peek at the back and come straight back
+  function mount(box, st, fresh, rand, sprung){
     if(!ok()){ box.innerHTML = threeFailed ? '<div class="err">The 3D view could not load on this device. Try the scramble or net view.</div>' : '<div class="err">Loading 3D…</div>';
-      if(!threeFailed) loadThree().then(()=>{ if(box.isConnected) mount(box, st, fresh, rand); }, ()=>{ if(box.isConnected) box.innerHTML='<div class="err">The 3D view could not load on this device. Try the scramble or net view.</div>'; });
+      if(!threeFailed) loadThree().then(()=>{ if(box.isConnected) mount(box, st, fresh, rand, sprung); }, ()=>{ if(box.isConnected) box.innerHTML='<div class="err">The 3D view could not load on this device. Try the scramble or net view.</div>'; });
       return; }
     box.querySelectorAll('.err').forEach(x=>x.remove());
-    if(!r) init(); if(fresh){ if(rand){ theta=Math.random()*Math.PI*2; phi=0.15+Math.random()*0.6; } else { theta=0.62; phi=0.5; } }
+    if(!r) init(); spring=!!sprung; if(fresh){ if(rand){ theta=Math.random()*Math.PI*2; phi=0.15+Math.random()*0.6; } else { theta=0.62; phi=0.5; } }
     st.forEach((c,i)=>stickers[i].material.color.setHex(HEX[c]!==undefined?HEX[c]:0x9AA1AD)); box.appendChild(r.domElement);
     cancelAnimationFrame(raf); loop(); }
   return { mount };
@@ -3123,21 +3144,30 @@ function olNew(){
 }
 function olArm(){ if(!ol||ol.armed) return; ol.armed=true; ol.t0=performance.now(); renderOl(); }
 function olCount(){ cancelAnimationFrame(olRaf); const f=()=>{ if(!ol||ol.done||!ol.armed) return; const el=$('#olBar'); if(!el) return; const p=Math.min(1,(performance.now()-ol.t0)/ol.limit);
-  el.firstChild.style.transform=`scaleX(${1-p})`; $('#olSec').textContent=p>=1?'Time is up. Pick your answer.':Math.ceil((1-p)*ol.limit/1000)+'s'; if(p>=1) el.classList.add('over'); else olRaf=requestAnimationFrame(f); }; f(); }
+  el.firstChild.style.transform=`scaleX(${1-p})`; $('#olSec').textContent=p>=1?'Time is up. Answer from memory.':Math.ceil((1-p)*ol.limit/1000)+'s'; if(p>=1){ el.classList.add('over'); ol.gone=true; const g=$('#olGrid'); if(g) g.classList.add('gone'); } else olRaf=requestAnimationFrame(f); }; f(); }
+// this session: rounds answered, right, skipped. Shown after End; starting again from the intro resets it
+let olSess={n:0,c:0,s:0};
+const sessHTML=S=>!S.n&&!S.s?'':`<div class="olsess"><span class="label">Session</span><b>${S.c}/${S.n} correct${S.n?` (${Math.round(S.c/S.n*100)}%)`:''}</b>${S.s?`<span class="stats">${S.s} skipped</span>`:''}</div>`;
+const olCtl=skip=>`<div class="olctl">${skip?'<button class="btn alt sm" data-olx="skip">Skip</button>':''}<button class="btn alt sm" data-olx="end">End</button></div>`;
+const olWrap=(L,R)=>`<div class="olgrid${ol&&ol.gone&&!ol.done?' gone':''}" id="olGrid"><div class="olL">${L}</div><div class="olR">${R}</div></div>`;
+function olEnd(){ cancelAnimationFrame(olRaf); ol=null; renderOl(); }
+function olSkip(){ if(!ol||ol.done) return; olSess.s++; olNew(); }
 function renderOl(){
-  if(!ol){ $('#olStage').innerHTML=`<div class="row" style="justify-content:space-between"><p class="lede">Each round picks a random case from the sets chosen in Options. ${olDiff==='full'?`Full mode starts from a random scramble: find the shortest first face (${cnOn()?'any color':'white'}), predict the bottom and the case, all within 15 seconds.`:`Find the ${cnOn()?'bottom':'white'} ${olG.has('EG-1')||olG.has('EG-2')?'face':'layer'} solution first, then track where the top corners go during it.`}</p><button class="btn yellow" id="olGo">Start a round</button></div>`; return; }
+  if(!ol){ $('#olStage').innerHTML=`${sessHTML(olSess)}<div class="row" style="justify-content:space-between"><p class="lede">Each round picks a random case from the sets chosen in Options. ${olDiff==='full'?`Full mode starts from a random scramble: find the shortest first face (${cnOn()?'any color':'white'}), predict the bottom and the case, all within 15 seconds.`:`Find the ${cnOn()?'bottom':'white'} ${olG.has('EG-1')||olG.has('EG-2')?'face':'layer'} solution first, then track where the top corners go during it.`}</p><button class="btn yellow" id="olGo">Start a round</button></div>`; return; }
   let h=`<div class="row" style="justify-content:space-between"><span class="label">Show the cube as</span><div class="seg" role="group" aria-label="How to show the cube" id="olView">${[['scramble','Scramble'],['net','Net'],['3d','3D']].map(([v,l])=>`<button aria-pressed="${olView===v}" data-olv="${v}">${l}</button>`).join('')}</div></div>`;
-  const scrTxt = ol.scr||'Generating…', cm=ol.cm, shown=cnShow(ol.st,cm), botName=CNAME[cm.D];
+  const scrTxt = ol.scr||'Generating…', cm=ol.cm, shown=cnShow(ol.st,cm), botName=CNAME[cm.D], c0=h.length;
   if(olView==='scramble'){
     h+=`<div class="olscrbox"><span class="label">${holdTxt(cm)}</span><div class="scramble olScr">${esc(scrTxt)}</div></div>`;
     if(ol.done) h+=`<div class="netwrap">${netSVG(shown)}</div>`;
   } else if(olView==='net') h+=`<div class="netwrap">${netSVG(shown)}</div><p class="stats" style="text-align:center">${ol.full?'Top face is drawn above the front.':`${botName[0].toUpperCase()+botName.slice(1)} is the bottom face.`}</p>`;
   else h+=`<div class="stage3d" id="ol3d" aria-label="3D cube, drag to turn it"></div><p class="stats" style="text-align:center">Drag to turn it.${ol.full?'':` ${botName[0].toUpperCase()+botName.slice(1)} is on the bottom.`}</p>`;
+  // left column: the cube (hidden once time is up); right column: timer, answers, result
+  const L=h.slice(0,c0)+`<div class="olcube">${h.slice(c0)}</div>`; h='';
   if(!ol.armed && !ol.done){
-    h+=`<div class="row" style="justify-content:center"><button class="btn yellow" id="olArm" ${ol.scr?'':'disabled'}>Scrambled — start the ${ol.limit/1000}s</button></div>`;
-    $('#olStage').innerHTML=h; return;
+    h+=`<div class="row" style="justify-content:center"><button class="btn yellow" id="olArm" ${ol.scr?'':'disabled'}>Scrambled — start the ${ol.limit/1000}s</button></div>${olCtl(true)}`;
+    $('#olStage').innerHTML=olWrap(L,h); const a3=$('#ol3d'); if(a3){ OL3D.mount(a3, cnShow(ol.st,ol.cm), ol.fresh3d, false, true); ol.fresh3d=false; } return;
   }
-  h+=`<div class="countbar" id="olBar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${OL_TIERS[ol.tier].name}</b> · <span id="olSec"></span></span>${olView==='scramble'?'':`<span class="stats" style="min-width:0;overflow-wrap:anywhere">Scramble: <span class="mono olScr">${esc(scrTxt)}</span></span>`}</div>`;
+  h+=`<div class="countbar" id="olBar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${OL_TIERS[ol.tier].name}</b> · <span id="olSec"></span></span>${ol.done?'':olCtl(true)}</div>${olView==='scramble'?'':`<span class="stats olscrline" style="min-width:0;overflow-wrap:anywhere">Scramble: <span class="mono olScr">${esc(scrTxt)}</span></span>`}`;
   if(!ol.done){
     const BOT={'CLL':'Solved (CLL)','EG-1':'Adjacent swap (EG-1)','EG-2':'Diagonal swap (EG-2)'};
     if(ol.face) h+=`<span class="label">Bottom layer once the face is done?</span><div class="chips">${LL_GROUPS.map(g=>`<button class="chip" aria-pressed="${g===ol.pickG}" data-pg="${g}">${BOT[g]}</button>`).join('')}</div>`;
@@ -3155,17 +3185,18 @@ function renderOl(){
       <div class="result">${diagBtn(right)}<div><span class="label">${ok?'You called it':'It was'}</span><h2>${right.full}</h2>${spot(right)}<div class="alg">${esc(algOf(right))}</div>
       ${botLine}<span class="stats">${ol.full?`First face (${CNAME[cm[sol.col]]})`:`${botName[0].toUpperCase()+botName.slice(1)} ${ol.face?'face':'layer'}`}: <span class="mono">${sol.path}</span>${others.length?` (another equally short solution leads to ${others.join(', ')}, which also counts)`:''}</span>
       ${ok?'':`<span class="stats">You picked ${BYID[ol.answer].full}.</span>`}</div></div>
-      ${statusSeg(right)}<button class="btn yellow" id="olGo">Next round</button>`;
+      ${statusSeg(right)}<div class="row"><button class="btn yellow" id="olGo">Next round</button><button class="btn alt" data-olx="end">End</button></div>`;
   }
-  $('#olStage').innerHTML=h; const b3=$('#ol3d'); if(b3){ OL3D.mount(b3, cnShow(ol.st,ol.cm), ol.fresh3d); ol.fresh3d=false; } if(!ol.done) olCount(); else { const b=$('#olBar'); b.firstChild.style.transform='scaleX(0)'; $('#olSec').textContent='Took '+((ol.tEnd-ol.t0)/1000).toFixed(1)+'s'; }
+  $('#olStage').innerHTML=olWrap(L,h); const b3=$('#ol3d'); if(b3){ OL3D.mount(b3, cnShow(ol.st,ol.cm), ol.fresh3d, false, true); ol.fresh3d=false; } if(!ol.done) olCount(); else { const b=$('#olBar'); b.firstChild.style.transform='scaleX(0)'; $('#olSec').textContent='Took '+((ol.tEnd-ol.t0)/1000).toFixed(1)+'s'; }
 }
 $('#olStage').addEventListener('click', e=>{
-  if(e.target.closest('#olGo')){ olNew(); return; }
+  if(e.target.closest('#olGo')){ if(!ol) olSess={n:0,c:0,s:0}; olNew(); return; }
+  const x=e.target.closest('[data-olx]'); if(x){ if(x.dataset.olx==='skip') olSkip(); else olEnd(); return; }
   if(e.target.closest('#olArm')){ olArm(); return; }
   const v=e.target.closest('[data-olv]'); if(v){ olView=v.dataset.olv; D.prefs.olView=olView; save(); if(ol&&!ol.armed&&olView!=='scramble'){ ol.armed=true; ol.t0=performance.now(); } renderOl(); return; }
   const g=e.target.closest('[data-pg]'); if(g){ ol.pickG=g.dataset.pg; ol.pickSet=null; renderOl(); return; }
   const s=e.target.closest('[data-ps]'); if(s){ ol.pickSet=s.dataset.ps; renderOl(); return; }
-  const p=e.target.closest('[data-pick]'); if(p){ ol.answer=p.dataset.pick; ol.done=true; ol.tEnd=performance.now(); ol.botGuess=BYID[ol.answer].g; const hit=ol.ids.includes(ol.answer); touchDay(); D.ol.n++; if(hit) D.ol.c++; D.ol.by=D.ol.by||{}; const bt=D.ol.by[ol.tier]=D.ol.by[ol.tier]||{n:0,c:0}; bt.n++; if(hit) bt.c++;
+  const p=e.target.closest('[data-pick]'); if(p){ ol.answer=p.dataset.pick; ol.done=true; ol.tEnd=performance.now(); ol.botGuess=BYID[ol.answer].g; const hit=ol.ids.includes(ol.answer); touchDay(); D.ol.n++; if(hit) D.ol.c++; olSess.n++; if(hit) olSess.c++; D.ol.by=D.ol.by||{}; const bt=D.ol.by[ol.tier]=D.ol.by[ol.tier]||{n:0,c:0}; bt.n++; if(hit) bt.c++;
     if(ol.face){ D.ol.bot=D.ol.bot||{n:0,c:0}; D.ol.bot.n++; if(ol.ids.some(i=>BYID[i].g===ol.botGuess)) D.ol.bot.c++; }
     D.ol.miss=D.ol.miss||{}; D.ol.missN=D.ol.missN||{};
     if(!hit){ const t=ol.ids[0]; D.ol.miss[t]=Math.min(5,(D.ol.miss[t]||0)+2); D.ol.missN[t]=(D.ol.missN[t]||0)+1; }
@@ -3463,7 +3494,7 @@ const HELP = {
     ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned → Mastered</b>.','Tap any diagram to watch the alg on a 3D cube.']],
     ['Status suggestions',['After solves in the Case timer, Cube Lab offers to move a case up: to <b>Learned</b> after 5 clean solves in a row, and to <b>Mastered</b> after 10 clean in a row that average at or under your usual for the learned cases in that group (it needs 3 timed ones to compare).','A mastered case that starts slipping (2 DNFs in its last 10, or clearly slower times) gets an offer to move back. <b>Not yet</b> hides the offer for 10 more solves.']],
     ['What to work on next',['<b>Learn next</b> picks a case to start: it keeps going in the set you changed most recently, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
-    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), your case time from the Case timer, DNFs and how long the alg is. Open a card\'s details to see the main reason.']],
+    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards), how fast you execute the alg (turns per second in the Case timer), DNFs and misses. Alg length does not count against a case. If a weak case has a shorter listed alg, its details say so. Open a card\'s details to see the main reason.']],
     ['Ortega',['New to 2x2 speed methods? Start with <b>Ortega</b>: solve the bottom face, orient the top (7 OLLs), then fix both layers (5 PBLs). Its cases work like every other case here, including the Case timer.']],
     ['Suggested order',['CLL first, then EG-1 (adjacent swap on the bottom), then EG-2 (diagonal swap).','Within each: the sets in the order listed here (Sune, Anti-Sune, Pi, H, U, T, L, Oriented), case 1 first.']],
     ['Reading a case',['Every case in a set uses the same hold. A U at the start of an alg lines the case up from it.','<b>Spot it</b> lists the quickest top-layer clues. <b>Headlights</b>: two matching stickers on a side. <b>Opposite colors</b>: red/orange or blue/green.']],
@@ -3477,7 +3508,7 @@ const HELP = {
     ['Each attempt',['Hold the cube <b>yellow on top, green in front</b> and apply the scramble.','CLL leaves the white layer solved. EG leaves the white face with the bottom swap; for EG-1, turn the bottom so the bar is where the case says.','Hold the timer (or space) until it turns green, let go to start, tap anywhere or press any key to stop.']],
     ['Scramble or Alg only',['<b>Alg only</b> shows setup moves from solved, then times just the alg and shows your turns per second next to Pro speed (about 13).','Both count toward the same case average.']],
     ['Attack',['<b>Attack</b> lists every alg in the sets you picked. Start the clock, do them all back to back, then stop. It keeps your best time for that selection.']],
-    ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.','<b>Weak first</b> uses everything the app knows about a case: recognition, case time, alg length, DNFs, misses and whether you\'re improving.']],
+    ['Options',['Pick sets, how cases are chosen (<b>Weak first</b>, <b>Shuffled deck</b>, <b>Random</b> or <b>Daily</b>: 12 cases a day from your slowest and least-practiced), and which statuses to include.','<b>Weak first</b> uses everything the app knows about a case: recognition, execution speed (TPS), DNFs, misses and whether you\'re improving.']],
     ['Comparing algs',['Times are also saved per alg. Set an alternate as <b>Mine</b> in Learn, time it, and both averages show next to each alg in the card\'s details.']],
     ['Case stats',['Tap a column to sort, or a case to drill just that one.','<b>Avg</b> is your last 12 solves. <b>Recog</b> comes from timed flashcards. <b>TPS</b> is your alg\'s moves over your average with it.']],
     ['Keyboard',['N new scramble · 1 / 2 / 3 sets the last solve to OK / +2 / DNF · Backspace deletes it (with Undo).']]]},
@@ -4845,11 +4876,11 @@ function algAvgOf(id, ak){ const m=D.algt[id]; if(!m) return avg(id); const t=ak
 function mineAvg(id){ const c=BYID[id]; return c ? algAvgOf(id, algOf(c)) : avg(id); }
 const MVC = {}, mvOf = c => { const k = c.id+'|'+algOf(c); return MVC[k] !== undefined ? MVC[k] : (MVC[k] = moveCount(fitAlg(c, algOf(c)))); };
 const tpsOf = c => { const aa = mineAvg(c.id), mv = aa ? mvOf(c) : 0; return aa && mv ? mv/aa : null; };
-function needBase(){ if (NEED) return NEED; const rec = [], recG = {}, tps = [], full = {};
-  for (const c of CASES){ const r = recAvg(c.id); if (r!==null){ rec.push(r); (recG[c.g] = recG[c.g] || []).push(r); } const t = tpsOf(c); if (t) tps.push(t);
+function needBase(){ if (NEED) return NEED; const rec = [], recG = {}, tps = [], tpsG = {}, full = {};
+  for (const c of CASES){ const r = recAvg(c.id); if (r!==null){ rec.push(r); (recG[c.g] = recG[c.g] || []).push(r); } const t = tpsOf(c); if (t){ tps.push(t); (tpsG[c.g] = tpsG[c.g] || []).push(t); }
     const a = avg(c.id); if (a!==null) (full[c.g] = full[c.g] || []).push(a); }
   const mv = {}; for (const c of CASES){ const m = mvOf(c); if (m) (mv[c.g] = mv[c.g] || []).push(m); }
-  NEED = {rec:median(rec), recG:Object.fromEntries(Object.entries(recG).filter(([g,v])=>v.length>=3).map(([g,v])=>[g, median(v)])), tps:median(tps), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
+  NEED = {rec:median(rec), recG:Object.fromEntries(Object.entries(recG).filter(([g,v])=>v.length>=3).map(([g,v])=>[g, median(v)])), tps:median(tps), tpsG:Object.fromEntries(Object.entries(tpsG).filter(([g,v])=>v.length>=3).map(([g,v])=>[g, median(v)])), full:Object.fromEntries(Object.entries(full).map(([g,v])=>[g, median(v)])), mv:Object.fromEntries(Object.entries(mv).map(([g,v])=>[g, median(v)])), cache:{}}; return NEED; }
 // move count next to the usual alg in its set, kept in a narrow range. Speed on the alg is the exec part's job,
 // so a long alg you do fast still comes out fine overall.
 const lenOf = c => { const m = mvOf(c), u = needBase().mv[c.g]; return m && u ? {v:Math.min(1.6, Math.max(.75, m/u)), you:m, usual:u} : null; };
@@ -4861,24 +4892,26 @@ const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
   const r = recAvg(c.id), rb = B.recG[c.g] || B.rec; if (r!==null && rb) parts.push({k:'rec', v:clamp(r/rb), w:1, you:r, usual:rb});
-  const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:1.2, you:a, usual:fb});
-  const ln = parts.length ? lenOf(c) : null; if (ln) parts.push({k:'len', v:ln.v, w:.5, you:ln.you, usual:ln.usual});
+  // execution speed as TPS (moves / your time on this alg), so a long alg you turn fast isn't marked weak
+  const tp = tpsOf(c), tb = B.tpsG[c.g] || B.tps;
+  if (tp && tb) parts.push({k:'tps', v:clamp(tb/tp), w:1.2, you:tp, usual:tb});
+  else { const a = avg(c.id), fb = B.full[c.g]; if (a!==null && fb) parts.push({k:'full', v:clamp(a/fb), w:1.2, you:a, usual:fb}); }
   const cs = D.cstat[c.id], cd = D.cards[c.id] || {h:0, m:0};
   const rl = typeof cd.l==='string' ? cd.l : '', dnf = cs && cs.n >= 3 ? cs.d/cs.n : 0;
   const miss = rl.length >= 5 ? (rl.split('m').length-1)/rl.length : cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length + Math.max(cd.h + cd.m, rl.length);
   let score = parts.length ? parts.reduce((x,p)=>x+p.v*p.w,0) / parts.reduce((x,p)=>x+p.w,0) : null;
   if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(D.times[c.id]); }
-  const far = parts.filter(p=>(p.k==='rec' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
+  const far = parts.filter(p=>(p.k==='rec' || p.k==='tps' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
   let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .34 || far ? 'weak' : score <= .95 ? 'strong' : 'ok';
   // what pushed the score up most: a big DNF or miss rate, a measure 40%+ off, or else the largest share of the score
   let worst = null; if (tier === 'weak'){ const W = parts.reduce((x,p)=>x+p.w,0) || 1;
     const cand = parts.filter(p=>p.v>1).map(p=>({...p, c:(p.v-1)*p.w/W})); if (dnf) cand.push({k:'dnf', c:2*dnf}); if (miss) cand.push({k:'miss', c:1.2*miss});
     worst = dnf >= .15 ? {k:'dnf'} : miss >= .34 ? {k:'miss'} : far || cand.sort((x,y)=>y.c-x.c)[0] || null; }
   const why = !worst ? '' : worst.k==='dnf' ? `${Math.round(dnf*100)}% DNF in the case timer` : worst.k==='miss' ? `missed ${Math.round(miss*100)}% of ${rl.length >= 5 ? 'your last '+rl.length+' tries at naming it' : 'flashcards'}`
-    : worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='len' ? `long alg, ${worst.you} moves when most in this set take about ${Math.round(worst.usual)}`
+    : worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='tps' ? `executing at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}`
     : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
-  const long = !!(worst && worst.k==='len');
+  const long = tier === 'weak'; // a weak case gets a tip when a listed alg is 2+ moves shorter
   return B.cache[key] = {score, tier, why, n, long}; }
 const TIER_NAME = {strong:'Strong for you', ok:'About your usual', weak:'Weak spot'};
 const needDot = c => { const t = need(c).tier; return t ? `<i class="nd ${t}" title="${TIER_NAME[t]}" aria-label="${TIER_NAME[t]}"></i>` : ''; };
@@ -5508,9 +5541,11 @@ $('#rdMissed').addEventListener('click', e=>{ if (e.target.closest('#rdMissClear
 document.addEventListener('keydown', e=>{ if ($('#v-cards').hidden || cardMode!=='pick' || !$('#sheet').hidden || e.target.matches('input, select, textarea') || !rd || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   if (e.code==='Space'){ e.preventDefault(); if (!rd.armed){ rd.armed = true; renderRd(); } else if (rd.done){ rdNew(); rd.armed = true; renderRd(); } } });
 // ---------- 3D cube for Cards and One-look: shows any position; drag to turn it ----------
+function springBack(theta, phi){ const T=0.62, P=0.5, k=0.14; let dt=(T-theta)%(2*Math.PI); if(dt>Math.PI) dt-=2*Math.PI; if(dt<-Math.PI) dt+=2*Math.PI;
+  return Math.abs(dt)<1e-3 && Math.abs(P-phi)<1e-3 ? [T,P] : [theta+dt*k, phi+(P-phi)*k]; }
 const Cube3D = (() => {
   const HEX = {U:0xF5D80F,F:0x1FA34A,R:0xF2851D,B:0x2463D6,L:0xD6322E,D:0xFFFFFF,X:0x9AA1AD};
-  const ok = () => typeof THREE !== 'undefined'; let r = null, scene, cam, stickers = [], theta = 0.62, phi = 0.5, raf = 0;
+  const ok = () => typeof THREE !== 'undefined'; let r = null, scene, cam, stickers = [], theta = 0.62, phi = 0.5, raf = 0, held = false, spring = false;
   const FAIL = '<div class="err">The 3D view could not load on this device. Try Top or Two sides.</div>';
   function init(){
     r = new THREE.WebGLRenderer({antialias:true, alpha:true}); r.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
@@ -5524,21 +5559,23 @@ const Cube3D = (() => {
         m.position.set(n[0]*0.495, n[1]*0.495, n[2]*0.495); m.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), new THREE.Vector3(n[0],n[1],n[2])); g.add(m); stickers[i] = m; });
       scene.add(g); }
     const el = r.domElement; let drag = null;
-    el.addEventListener('pointerdown', e=>{ drag = {x:e.clientX, y:e.clientY}; el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointerdown', e=>{ drag = {x:e.clientX, y:e.clientY}; held = true; el.setPointerCapture(e.pointerId); });
     el.addEventListener('pointermove', e=>{ if (!drag) return; theta -= (e.clientX-drag.x)*0.01; phi = Math.max(-1.45, Math.min(1.45, phi + (e.clientY-drag.y)*0.01)); drag = {x:e.clientX, y:e.clientY}; });
-    const end = () => { drag = null; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    const end = () => { drag = null; held = false; }; el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
   }
   function loop(){ const el = r.domElement; if (!el.isConnected){ raf = 0; return; } const w = el.parentNode.clientWidth;
     if (w && el.width !== Math.round(w*r.getPixelRatio())) r.setSize(w, w, false);
-    const d = 11.2; cam.position.set(d*Math.cos(phi)*Math.sin(theta), d*Math.sin(phi), d*Math.cos(phi)*Math.cos(theta)); cam.lookAt(0,0,0); cam.aspect = 1; cam.updateProjectionMatrix();
+    if (spring && !held) [theta, phi] = springBack(theta, phi);
+    const d = 10.6; cam.position.set(d*Math.cos(phi)*Math.sin(theta), d*Math.sin(phi), d*Math.cos(phi)*Math.cos(theta)); cam.lookAt(0,0,0); cam.aspect = 1; cam.updateProjectionMatrix();
     r.render(scene, cam); raf = requestAnimationFrame(loop); }
   // fresh: a new position. Cards start at a random angle (find the case yourself); 'home' starts at the usual front-right view
-  function mount(box, st, fresh, home){ if (!box) return;
+  // sprung: eases back to the home view after you let go (One-look)
+  function mount(box, st, fresh, home, sprung){ if (!box) return;
     if (!ok()){ box.innerHTML = threeFailed ? FAIL : '<div class="err">Loading 3D…</div>';
-      if (!threeFailed) loadThree().then(()=>{ if (box.isConnected) mount(box, st, fresh, home); }, ()=>{ if (box.isConnected) box.innerHTML = FAIL; });
+      if (!threeFailed) loadThree().then(()=>{ if (box.isConnected) mount(box, st, fresh, home, sprung); }, ()=>{ if (box.isConnected) box.innerHTML = FAIL; });
       return; }
     box.querySelectorAll('.err').forEach(x=>x.remove());
-    if (!r) init();
+    if (!r) init(); spring = !!sprung;
     if (fresh){ if (home){ theta = 0.62; phi = 0.5; } else { theta = Math.random()*Math.PI*2; phi = 0.15 + Math.random()*0.6; } }
     st.forEach((c,i)=>stickers[i].material.color.setHex(HEX[c]!==undefined ? HEX[c] : HEX.X)); box.appendChild(r.domElement);
     cancelAnimationFrame(raf); loop(); }
@@ -5690,12 +5727,21 @@ const O3 = (() => {
     return `<div class="o3intro"><div class="o3pic" aria-hidden="true">${isoSVG(null, Cube.apply(S0, INTRO_PIC[pic]), {mode:'all'})}</div>
       <h2>${esc(title)}</h2><p class="lede">${NOTE[mode](algs)}</p><span class="stats">${sub} · change it in Options</span>
       <button class="btn yellow" id="o3Go">${k==='solve' ? 'Start a solve' : 'Start a round'}</button><span class="stats o3key">or press space</span></div>`; }
+  // this session: rounds answered, right, skipped. Shown after End; starting again from the intro resets it
+  let sess = {n:0, c:0, s:0};
+  const sessHTML = () => !sess.n && !sess.s ? '' : `<div class="olsess"><span class="label">Session</span><b>${sess.c}/${sess.n} correct${sess.n ? ` (${Math.round(sess.c/sess.n*100)}%)` : ''}</b>${sess.s ? `<span class="stats">${sess.s} skipped</span>` : ''}</div>`;
+  const ctl = skip => `<div class="olctl">${skip ? '<button class="btn alt sm" data-o3x="skip">Skip</button>' : ''}<button class="btn alt sm" data-o3x="end">End</button></div>`;
+  function begin(){ if (!ol) sess = {n:0, c:0, s:0}; start(); }
+  function end(){ stop(); ol = null; render(); }
+  function skip(){ if (!ol || ol.done || ol.k==='solve') return; sess.s++; start(); }
   function render(){ const box = $('#o3Stage'); if (!box) return;
-    if (!ol){ box.innerHTML = intro(); return; }
+    if (!ol){ box.innerHTML = sessHTML() + intro(); return; }
     if (ol.k==='solve') return renderSolve(box);
-    let h = viewSeg() + cubeHTML();
-    if (!ol.armed && !ol.done){ box.innerHTML = h + `<div class="row" style="justify-content:center"><button class="btn yellow" id="o3Arm" ${ol.scr ? '' : 'disabled'}>Scrambled, start the ${ol.limit/1000}s</button></div>`; mount3d(); return; }
-    h += `<div class="countbar" id="o3Bar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${TIERS[ol.tier].name}</b> · <span id="o3Sec"></span></span></div>`;
+    // left column: the cube (hidden once time is up); right column: timer, answers, result
+    const L = viewSeg() + `<div class="olcube">${cubeHTML()}</div>`;
+    const grid = R => `<div class="olgrid${ol.gone && !ol.done ? ' gone' : ''}" id="o3Grid"><div class="olL">${L}</div><div class="olR">${R}</div></div>`;
+    if (!ol.armed && !ol.done){ box.innerHTML = grid(`<div class="row" style="justify-content:center"><button class="btn yellow" id="o3Arm" ${ol.scr ? '' : 'disabled'}>Scrambled, start the ${ol.limit/1000}s</button></div>${ctl(true)}`); mount3d(); return; }
+    let h = `<div class="countbar" id="o3Bar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${TIERS[ol.tier].name}</b> · <span id="o3Sec"></span></span>${ol.done ? '' : ctl(true)}</div>`;
     if (!ol.done) h += picker(ol.k, ol);
     else { const ok = ol.ids.includes(ol.answer), right = ok ? ol.answer : ol.right, rc = BYID[right], f = ol.from;
       const mine = ol.outs.find(o=>o.mine), others = ol.outs.filter(o=>!o.mine && o.id!==mine.id);
@@ -5705,16 +5751,17 @@ const O3 = (() => {
         <span class="stats">${esc(f.full)}, your ${step} alg: <span class="mono">${esc(fitAlg(f, mine.alg))}</span> leaves ${esc(nameOf(mine.id))}.</span>
         ${others.length ? `<span class="stats">${others.map(o=>`Alg ${o.n} (<span class="mono">${esc(o.alg)}</span>) leaves ${esc(nameOf(o.id))}`).join('; ')}, which also counts.</span>` : ''}
         ${ok ? '' : `<span class="stats">You picked ${esc(nameOf(ol.answer))}.</span>`}</div></div>
-        ${rc ? statusSeg(rc) : ''}<button class="btn yellow" id="o3Go">Next round</button>`; }
-    box.innerHTML = h; mount3d();
+        ${rc ? statusSeg(rc) : ''}<div class="row"><button class="btn yellow" id="o3Go">Next round</button><button class="btn alt" data-o3x="end">End</button></div>`; }
+    box.innerHTML = grid(h); mount3d();
     if (!ol.done) count(); else { const b = $('#o3Bar'); b.firstChild.style.transform = 'scaleX(0)'; $('#o3Sec').textContent = 'Took '+((ol.tEnd-ol.t0)/1000).toFixed(1)+'s'; } }
-  function mount3d(){ const b = $('#o33d'); if (b && ol){ Cube3D.mount(b, ol.st.map(v=>ol.cm[v]), ol.fresh3d, true); ol.fresh3d = false; } }
+  function mount3d(){ const b = $('#o33d'); if (b && ol){ Cube3D.mount(b, ol.st.map(v=>ol.cm[v]), ol.fresh3d, true, true); ol.fresh3d = false; } }
   function count(){ cancelAnimationFrame(raf); const f = () => { if (!ol || ol.done || !ol.armed || ol.k==='solve') return; const el = $('#o3Bar'); if (!el) return; const p = Math.min(1, (performance.now()-ol.t0)/ol.limit);
-    el.firstChild.style.transform = `scaleX(${1-p})`; $('#o3Sec').textContent = p>=1 ? 'Time is up. Pick your answer.' : Math.ceil((1-p)*ol.limit/1000)+'s'; if (p>=1) el.classList.add('over'); else raf = requestAnimationFrame(f); }; f(); }
+    el.firstChild.style.transform = `scaleX(${1-p})`; $('#o3Sec').textContent = p>=1 ? 'Time is up. Answer from memory.' : Math.ceil((1-p)*ol.limit/1000)+'s';
+    if (p>=1){ el.classList.add('over'); ol.gone = true; const g = $('#o3Grid'); if (g) g.classList.add('gone'); } else raf = requestAnimationFrame(f); }; f(); }
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
   function arm(){ if (!ol || ol.armed || ol.done || !ol.scr) return; ol.armed = true; ol.t0 = performance.now(); render(); }
   function answer(id){ if (!ol || ol.done) return; ol.answer = id; ol.done = true; ol.tEnd = performance.now(); stop();
-    const S = store(), hit = ol.ids.includes(id); touchDay(); S.n = (S.n||0)+1; if (hit) S.c = (S.c||0)+1;
+    const S = store(), hit = ol.ids.includes(id); touchDay(); S.n = (S.n||0)+1; if (hit) S.c = (S.c||0)+1; sess.n++; if (hit) sess.c++;
     S.by = S.by || {}; const bk = S.by[ol.k] = S.by[ol.k] || {n:0, c:0}; bk.n++; if (hit) bk.c++;
     S.miss = S.miss || {}; S.missN = S.missN || {};
     if (!hit){ const t = ol.right; S.miss[t] = Math.min(5, (S.miss[t]||0)+2); S.missN[t] = (S.missN[t]||0)+1; }
@@ -5738,6 +5785,7 @@ const O3 = (() => {
     else { const tot = ol.rec.reduce((a,b)=>a+b,0);
       h = `<div class="verdict ok">Solve logged</div><div class="olist">${[['F2L', ol.f2l, '']].concat(ol.looks.map((k,i)=>[`See the ${lookName(k)}`, ol.rec[i], nameOf(ol.picks[i])])).map(([l,t,n])=>`<div class="oitem"><div><b>${l}: ${fmt(t)}s</b>${n ? `<span class="stats">${esc(n)}</span>` : ''}</div></div>`).join('')}</div>
         <p class="stats" style="text-align:center">Recognition total ${fmt(tot)}s. Under about 1 second per case means you saw it coming during F2L.</p><button class="btn yellow" id="o3Go">Next solve</button>`; }
+    if (ph==='f2l' || ph==='look' || ph==='exec') h = `<div class="olctl"><button class="btn alt sm" data-o3x="end">End, don't save</button></div>` + h;
     box.innerHTML = h; if (ph==='f2l' || ph==='look') solveClock(); }
   function solveStep(what){ if (!ol || ol.k!=='solve') return; const now = performance.now();
     if (what==='start' && ol.phase==='ready' && ol.scr){ ol.phase = 'f2l'; ol.t0 = now; }
@@ -5751,16 +5799,18 @@ const O3 = (() => {
     save(); stats(); render(); }
 
   $('#o3Stage').addEventListener('click', e=>{
-    if (e.target.closest('#o3Go')){ start(); return; }
+    if (e.target.closest('#o3Go')){ begin(); return; }
     if (e.target.closest('#o3Arm')){ arm(); return; }
+    const x = e.target.closest('[data-o3x]'); if (x){ if (x.dataset.o3x==='skip') skip(); else end(); return; }
     const d = e.target.closest('[data-o3do]'); if (d){ solveStep(d.dataset.o3do); return; }
     const v = e.target.closest('[data-o3v]'); if (v){ view = v.dataset.o3v; savePrefs(); if (ol && !ol.armed && view!=='scramble'){ ol.armed = true; ol.t0 = performance.now(); } render(); return; }
     const ps = e.target.closest('[data-o3ps]'); if (ps && ol){ ol.pickSet = ps.dataset.o3ps; ol.pickSub = null; render(); return; }
     const sb = e.target.closest('[data-o3sub]'); if (sb && ol){ ol.pickSub = +sb.dataset.o3sub; render(); return; }
     const p = e.target.closest('[data-o3p]'); if (p && ol){ if (ol.k==='solve') solvePick(p.dataset.o3p); else answer(p.dataset.o3p); } });
-  document.addEventListener('keydown', e=>{ if ($('#v-onelook').hidden || !$('#sheet').hidden || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.code!=='Space') return;
+  document.addEventListener('keydown', e=>{ if ($('#v-onelook').hidden || !$('#sheet').hidden || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey || e.repeat || (e.code!=='Space' && e.key!=='Escape')) return;
+    if (e.key==='Escape'){ if (ol){ e.preventDefault(); end(); } return; }
     e.preventDefault(); const a = document.activeElement; if (a && a!==document.body && a.blur) a.blur();
-    if (!ol) return start();
+    if (!ol) return begin();
     if (ol.k==='solve'){ if (ol.phase==='ready') solveStep('start'); else if (ol.phase==='f2l') solveStep('f2l'); else if (ol.phase==='exec') solveStep('exec'); else if (ol.phase==='done') start(); return; }
     if (!ol.armed) arm(); else if (ol.done) start(); });
 
@@ -6002,7 +6052,7 @@ const HELP = {
     ['Track your progress',['Tap a group at the top to switch to it.','Tap a case\'s status to cycle <b>New → Learning → Learned → Mastered</b>.','Tap any diagram to watch the alg on a 3D cube.','Arrows on PLL diagrams show where each piece goes.']],
     ['Status suggestions',['After solves in the Case timer, Cube Lab offers to move a case up: to <b>Learned</b> after 5 clean solves in a row, and to <b>Mastered</b> after 10 clean in a row that average at or under your usual for the learned cases in that group (it needs 3 timed ones to compare).','A mastered case that starts slipping (2 DNFs in its last 10, or clearly slower times) gets an offer to move back. <b>Not yet</b> hides the offer for 10 more solves.']],
     ['What to work on next',['<b>Learn next</b> picks a case to start: it keeps going in the set you changed most recently, then follows the suggested order.','With 4 or more in progress it suggests <b>practicing</b> one of them instead, the least-timed or weakest first. You can still pick a new one.']],
-    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), your case time from the Case timer, DNFs and how long the alg is. Open a case\'s details to see the main reason.']],
+    ['The colored dot',['Once a case has some practice, a dot shows how it compares with your other cases: <b style="color:var(--good)">green</b> strong, <b style="color:var(--warn)">yellow</b> about your usual, <b style="color:var(--bad)">red</b> a weak spot.','It combines your recognition (timed flashcards and the recognition drill), how fast you execute the alg (turns per second in the Case timer), DNFs and misses. Alg length does not count against a case. If a weak case has a shorter listed alg, its details say so. Open a case\'s details to see the main reason.']],
     ['Suggested order',['New to CFOP? Start with <b>2-look</b>: ten algs that solve the last layer in four steps.','Then the full <b>PLL</b> (21 algs, usually learned first since they come up every solve), then <b>OLL</b> (57). Learn <b>F2L</b> cases as you meet them: most people solve F2L intuitively first.','Already orient edges before the last layer (ZZ, or edge control)? <b>ZBLL</b> solves the whole last layer in one alg. Turn it on in Settings, then learn it a group of 12 at a time.']],
     ['Reading a case',['Diagrams show the cube yellow on top, green in front. Grey stickers don\'t matter for that case.','<b>Spot it</b> describes the starting view: <b>headlights</b> are two matching corners on a side, a <b>bar</b> is a full matching row.','Details also shows each last-layer case as you\'ll see it mid-solve: the top plus two sides.']],
     ['Make it yours',['Open a case\'s Details to pick an alternate as <b>Mine</b>, type your own alg, see fingertrick hints and add notes. Every alg here was checked on a simulated cube.']]]},
@@ -6073,7 +6123,7 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-24a</p>'));</script>
+<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-25a</p>'));</script>
 <script>CubeLab.ready();</script>
 <script>
 // Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
