@@ -3138,11 +3138,12 @@ function olNew(){
   const gen = () => olDiff==='full' ? olNewFull() : olNewNear(); let r=gen(), t0=performance.now();
   for(let i=0; i<30 && (r.ids.length>1 || !r.ids.length) && performance.now()-t0<600; i++){ const n=gen(); if(n.ids.length && (!r.ids.length || n.ids.length<r.ids.length)) r=n; }
   const st=r.st;
-  ol=Object.assign(r, {t0:performance.now(), pickG:null, pickSet:null, done:false, scr:null, limit:OL_TIERS[r.tier].sec*1000, armed: olView!=='scramble', fresh3d:true});
+  ol=Object.assign(r, {t0:performance.now(), pickG:null, pickSet:null, done:false, scr:null, limit:OL_TIERS[r.tier].sec*1000, armed:false, fresh3d:true});
   renderOl();
   whenReady(()=>{ if(ol&&ol.st===st){ ol.scr=scrambleFor(st); document.querySelectorAll('.olScr').forEach(el=>el.textContent=ol.scr); const b=$('#olArm'); if(b) b.disabled=false; } });
 }
-function olArm(){ if(!ol||ol.armed) return; ol.armed=true; ol.t0=performance.now(); renderOl(); }
+// every view waits for Start: Scramble once you've scrambled, Net and 3D show a blank cube until the clock starts
+function olArm(){ if(!ol||ol.armed||ol.done||(olView==='scramble'&&!ol.scr)) return; ol.armed=true; ol.fresh3d=true; ol.t0=performance.now(); renderOl(); }
 function olCount(){ cancelAnimationFrame(olRaf); const f=()=>{ if(!ol||ol.done||!ol.armed) return; const el=$('#olBar'); if(!el) return; const p=Math.min(1,(performance.now()-ol.t0)/ol.limit);
   el.firstChild.style.transform=`scaleX(${1-p})`; $('#olSec').textContent=p>=1?'Time is up. Answer from memory.':Math.ceil((1-p)*ol.limit/1000)+'s'; if(p>=1){ el.classList.add('over'); ol.gone=true; const g=$('#olGrid'); if(g) g.classList.add('gone'); } else olRaf=requestAnimationFrame(f); }; f(); }
 // this session: rounds answered, right, skipped. Shown after End; starting again from the intro resets it
@@ -3155,17 +3156,17 @@ function olSkip(){ if(!ol||ol.done) return; olSess.s++; olNew(); }
 function renderOl(){
   if(!ol){ $('#olStage').innerHTML=`${sessHTML(olSess)}<div class="row" style="justify-content:space-between"><p class="lede">Each round picks a random case from the sets chosen in Options. ${olDiff==='full'?`Full mode starts from a random scramble: find the shortest first face (${cnOn()?'any color':'white'}), predict the bottom and the case, all within 15 seconds.`:`Find the ${cnOn()?'bottom':'white'} ${olG.has('EG-1')||olG.has('EG-2')?'face':'layer'} solution first, then track where the top corners go during it.`}</p><button class="btn yellow" id="olGo">Start a round</button></div>`; return; }
   let h=`<div class="row" style="justify-content:space-between"><span class="label">Show the cube as</span><div class="seg" role="group" aria-label="How to show the cube" id="olView">${[['scramble','Scramble'],['net','Net'],['3d','3D']].map(([v,l])=>`<button aria-pressed="${olView===v}" data-olv="${v}">${l}</button>`).join('')}</div></div>`;
-  const scrTxt = ol.scr||'Generating…', cm=ol.cm, shown=cnShow(ol.st,cm), botName=CNAME[cm.D], c0=h.length;
+  const pre=!ol.armed&&!ol.done, scrTxt = ol.scr||'Generating…', cm=ol.cm, shown=pre?Array(24).fill('X'):cnShow(ol.st,cm), botName=CNAME[cm.D], c0=h.length;
   if(olView==='scramble'){
     h+=`<div class="olscrbox"><span class="label">${holdTxt(cm)}</span><div class="scramble olScr">${esc(scrTxt)}</div></div>`;
     if(ol.done) h+=`<div class="netwrap">${netSVG(shown)}</div>`;
-  } else if(olView==='net') h+=`<div class="netwrap">${netSVG(shown)}</div><p class="stats" style="text-align:center">${ol.full?'Top face is drawn above the front.':`${botName[0].toUpperCase()+botName.slice(1)} is the bottom face.`}</p>`;
+  } else if(olView==='net') h+=`<div class="netwrap"${pre?' style="opacity:.55"':''}>${netSVG(shown)}</div><p class="stats" style="text-align:center">${ol.full?'Top face is drawn above the front.':`${botName[0].toUpperCase()+botName.slice(1)} is the bottom face.`}</p>`;
   else h+=`<div class="stage3d" id="ol3d" aria-label="3D cube, drag to turn it"></div><p class="stats" style="text-align:center">Drag to turn it.${ol.full?'':` ${botName[0].toUpperCase()+botName.slice(1)} is on the bottom.`}</p>`;
   // left column: the cube (hidden once time is up); right column: timer, answers, result
   const L=h.slice(0,c0)+`<div class="olcube">${h.slice(c0)}</div>`; h='';
   if(!ol.armed && !ol.done){
-    h+=`<div class="row" style="justify-content:center"><button class="btn yellow" id="olArm" ${ol.scr?'':'disabled'}>Scrambled — start the ${ol.limit/1000}s</button></div>${olCtl(true)}`;
-    $('#olStage').innerHTML=olWrap(L,h); const a3=$('#ol3d'); if(a3){ OL3D.mount(a3, cnShow(ol.st,ol.cm), ol.fresh3d, false, true); ol.fresh3d=false; } return;
+    h+=`${olView==='scramble'?'':`<p class="lede" style="text-align:center">The cube appears when you tap Start, and the clock starts with it.</p>`}<div class="row" style="justify-content:center"><button class="btn yellow" id="olArm" ${olView!=='scramble'||ol.scr?'':'disabled'}>${olView==='scramble'?'Scrambled, start':'Start'} the ${ol.limit/1000}s</button></div><span class="stats kbhint" style="text-align:center">or press space</span>${olCtl(true)}`;
+    $('#olStage').innerHTML=olWrap(L,h); const a3=$('#ol3d'); if(a3) OL3D.mount(a3, shown, true, false, false); return;
   }
   h+=`<div class="countbar" id="olBar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${OL_TIERS[ol.tier].name}</b> · <span id="olSec"></span></span>${ol.done?'':olCtl(true)}</div>${olView==='scramble'?'':`<span class="stats olscrline" style="min-width:0;overflow-wrap:anywhere">Scramble: <span class="mono olScr">${esc(scrTxt)}</span></span>`}`;
   if(!ol.done){
@@ -3193,7 +3194,7 @@ $('#olStage').addEventListener('click', e=>{
   if(e.target.closest('#olGo')){ if(!ol) olSess={n:0,c:0,s:0}; olNew(); return; }
   const x=e.target.closest('[data-olx]'); if(x){ if(x.dataset.olx==='skip') olSkip(); else olEnd(); return; }
   if(e.target.closest('#olArm')){ olArm(); return; }
-  const v=e.target.closest('[data-olv]'); if(v){ olView=v.dataset.olv; D.prefs.olView=olView; save(); if(ol&&!ol.armed&&olView!=='scramble'){ ol.armed=true; ol.t0=performance.now(); } renderOl(); return; }
+  const v=e.target.closest('[data-olv]'); if(v){ olView=v.dataset.olv; D.prefs.olView=olView; save(); renderOl(); return; }
   const g=e.target.closest('[data-pg]'); if(g){ ol.pickG=g.dataset.pg; ol.pickSet=null; renderOl(); return; }
   const s=e.target.closest('[data-ps]'); if(s){ ol.pickSet=s.dataset.ps; renderOl(); return; }
   const p=e.target.closest('[data-pick]'); if(p){ ol.answer=p.dataset.pick; ol.done=true; ol.tEnd=performance.now(); ol.botGuess=BYID[ol.answer].g; const hit=ol.ids.includes(ol.answer); touchDay(); D.ol.n++; if(hit) D.ol.c++; olSess.n++; if(hit) olSess.c++; D.ol.by=D.ol.by||{}; const bt=D.ol.by[ol.tier]=D.ol.by[ol.tier]||{n:0,c:0}; bt.n++; if(hit) bt.c++;
@@ -3203,6 +3204,10 @@ $('#olStage').addEventListener('click', e=>{
     else ol.ids.forEach(i=>{ if(D.ol.miss[i]){ D.ol.miss[i]--; if(!D.ol.miss[i]) delete D.ol.miss[i]; } });
     save(); olStats(); renderOl(); }
 });
+document.addEventListener('keydown', e=>{ if($('#v-onelook').hidden || !$('#sheet').hidden || e.target.matches('input, select, textarea') || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if(e.key==='Escape'){ if(ol){ e.preventDefault(); olEnd(); } return; }
+  if(e.code!=='Space') return; e.preventDefault(); const a=document.activeElement; if(a && a!==document.body && a.blur) a.blur();
+  if(!ol){ olSess={n:0,c:0,s:0}; olNew(); } else if(!ol.armed && !ol.done) olArm(); else if(ol.done) olNew(); });
 function olStats(){ const by=D.ol.by||{}, pc=(x)=>`${x.c}/${x.n} (${Math.round(x.c/x.n*100)}%)`;
   const parts=Object.keys(OL_TIERS).filter(t=>by[t]&&by[t].n).map(t=>`${OL_TIERS[t].name} ${pc(by[t])}`);
   if(D.ol.bot&&D.ol.bot.n) parts.push(`Bottom calls ${pc(D.ol.bot)}`);
@@ -5691,18 +5696,19 @@ const O3 = (() => {
       render(); return; }
     const r = newPredict(k);
     if (!r){ ol = null; $('#o3Stage').innerHTML = `<p class="lede" style="text-align:center">No cases match. Mark some as Learning in the Learn tab, or change Cases to include in Options.</p><button class="btn yellow" id="o3Go">Try again</button>`; return; }
-    ol = Object.assign(my, r, {t0:0, armed: view!=='scramble', done:false, scr:null, pickSet:null, pickSub:null, limit:TIERS[r.tier].sec*1000, fresh3d:true});
-    if (ol.armed) ol.t0 = performance.now();
-    Scr.forState(r.st).then(scr=>{ if (ol!==my) return; my.scr = scr || ''; document.querySelectorAll('#o3Stage .o3Scr').forEach(el=>el.textContent = my.scr || 'Couldn\'t build a scramble. Use the net or 3D view.'); const b = $('#o3Arm'); if (b) b.disabled = !my.scr; });
+    ol = Object.assign(my, r, {t0:0, armed:false, done:false, scr:null, pickSet:null, pickSub:null, limit:TIERS[r.tier].sec*1000, fresh3d:true});
+    Scr.forState(r.st).then(scr=>{ if (ol!==my) return; my.scr = scr || ''; document.querySelectorAll('#o3Stage .o3Scr').forEach(el=>el.textContent = my.scr || 'Couldn\'t build a scramble. Use the net or 3D view.'); const b = $('#o3Arm'); if (b && view==='scramble') b.disabled = !my.scr; });
     render(); }
 
   // ---- drawing ----
   const holdLine = cm => `${cap(CNAME[cm.U])} on top, ${CNAME[cm.F]} in front.`;
   const viewSeg = () => `<div class="row" style="justify-content:space-between"><span class="label">Show the cube as</span><div class="seg" role="group" aria-label="How to show the cube">${[['scramble','Scramble'],['net','Net'],['3d','3D']].map(([v,l])=>`<button aria-pressed="${view===v}" data-o3v="${v}">${l}</button>`).join('')}</div></div>`;
-  function cubeHTML(){ const shown = ol.st.map(v=>ol.cm[v]), scr = ol.scr===null ? 'Building a scramble…' : (ol.scr || 'Couldn\'t build a scramble. Use the net or 3D view.');
+  const preStart = () => ol && !ol.armed && !ol.done;
+  const shownNow = () => preStart() ? Array(54).fill('X') : ol.st.map(v=>ol.cm[v]);
+  function cubeHTML(){ const shown = shownNow(), scr = ol.scr===null ? 'Building a scramble…' : (ol.scr || 'Couldn\'t build a scramble. Use the net or 3D view.');
     const what = ol.k==='pll' || ol.k==='pll2' ? 'F2L is solved; the top is the case.' : 'The last pair goes in the front-right slot.';
     if (view==='scramble') return `<div class="olscrbox"><span class="label">${holdLine(ol.cm)}</span><div class="scramble o3Scr">${esc(scr)}</div><span class="stats">${what}</span></div>${ol.done ? `<div class="netwrap">${netSVG(shown)}</div>` : ''}`;
-    if (view==='net') return `<div class="netwrap">${netSVG(shown)}</div><p class="stats" style="text-align:center">${cap(CNAME[ol.cm.U])} on top, ${CNAME[ol.cm.F]} in front. ${what}</p>`;
+    if (view==='net') return `<div class="netwrap"${preStart() ? ' style="opacity:.55"' : ''}>${netSVG(shown)}</div><p class="stats" style="text-align:center">${cap(CNAME[ol.cm.U])} on top, ${CNAME[ol.cm.F]} in front. ${what}</p>`;
     return `<div class="stage3d" id="o33d" aria-label="3D cube, drag to turn it"></div><p class="stats" style="text-align:center">Drag to turn it. ${what}</p>`; }
   const caseBtn = o => `<button data-o3p="${o.id}">${topSVG(o, o.state, {arrows:[]})}<span>${esc(o.name)}</span></button>`;
   const skipBtn = x => `<button data-o3p="${x.id}"><span style="font-family:var(--f-body);padding:18px 2px">${esc(x.name)}</span></button>`;
@@ -5740,7 +5746,7 @@ const O3 = (() => {
     // left column: the cube (hidden once time is up); right column: timer, answers, result
     const L = viewSeg() + `<div class="olcube">${cubeHTML()}</div>`;
     const grid = R => `<div class="olgrid${ol.gone && !ol.done ? ' gone' : ''}" id="o3Grid"><div class="olL">${L}</div><div class="olR">${R}</div></div>`;
-    if (!ol.armed && !ol.done){ box.innerHTML = grid(`<div class="row" style="justify-content:center"><button class="btn yellow" id="o3Arm" ${ol.scr ? '' : 'disabled'}>Scrambled, start the ${ol.limit/1000}s</button></div>${ctl(true)}`); mount3d(); return; }
+    if (!ol.armed && !ol.done){ box.innerHTML = grid(`${view==='scramble' ? '' : '<p class="lede" style="text-align:center">The cube appears when you tap Start, and the clock starts with it.</p>'}<div class="row" style="justify-content:center"><button class="btn yellow" id="o3Arm" ${view!=='scramble' || ol.scr ? '' : 'disabled'}>${view==='scramble' ? 'Scrambled, start' : 'Start'} the ${ol.limit/1000}s</button></div><span class="stats kbhint" style="text-align:center">or press space</span>${ctl(true)}`); mount3d(); return; }
     let h = `<div class="countbar" id="o3Bar"><i></i></div><div class="row" style="justify-content:space-between"><span class="stats"><b>${TIERS[ol.tier].name}</b> · <span id="o3Sec"></span></span>${ol.done ? '' : ctl(true)}</div>`;
     if (!ol.done) h += picker(ol.k, ol);
     else { const ok = ol.ids.includes(ol.answer), right = ok ? ol.answer : ol.right, rc = BYID[right], f = ol.from;
@@ -5754,12 +5760,13 @@ const O3 = (() => {
         ${rc ? statusSeg(rc) : ''}<div class="row"><button class="btn yellow" id="o3Go">Next round</button><button class="btn alt" data-o3x="end">End</button></div>`; }
     box.innerHTML = grid(h); mount3d();
     if (!ol.done) count(); else { const b = $('#o3Bar'); b.firstChild.style.transform = 'scaleX(0)'; $('#o3Sec').textContent = 'Took '+((ol.tEnd-ol.t0)/1000).toFixed(1)+'s'; } }
-  function mount3d(){ const b = $('#o33d'); if (b && ol){ Cube3D.mount(b, ol.st.map(v=>ol.cm[v]), ol.fresh3d, true, true); ol.fresh3d = false; } }
+  function mount3d(){ const b = $('#o33d'); if (!b || !ol) return; if (preStart()){ Cube3D.mount(b, shownNow(), true, true, false); return; } Cube3D.mount(b, shownNow(), ol.fresh3d, true, true); ol.fresh3d = false; }
   function count(){ cancelAnimationFrame(raf); const f = () => { if (!ol || ol.done || !ol.armed || ol.k==='solve') return; const el = $('#o3Bar'); if (!el) return; const p = Math.min(1, (performance.now()-ol.t0)/ol.limit);
     el.firstChild.style.transform = `scaleX(${1-p})`; $('#o3Sec').textContent = p>=1 ? 'Time is up. Answer from memory.' : Math.ceil((1-p)*ol.limit/1000)+'s';
     if (p>=1){ el.classList.add('over'); ol.gone = true; const g = $('#o3Grid'); if (g) g.classList.add('gone'); } else raf = requestAnimationFrame(f); }; f(); }
   const stop = () => { cancelAnimationFrame(raf); raf = 0; };
-  function arm(){ if (!ol || ol.armed || ol.done || !ol.scr) return; ol.armed = true; ol.t0 = performance.now(); render(); }
+  // every view waits for Start: Scramble once you've scrambled, Net and 3D show a blank cube until the clock starts
+  function arm(){ if (!ol || ol.armed || ol.done || (view==='scramble' && !ol.scr)) return; ol.armed = true; ol.fresh3d = true; ol.t0 = performance.now(); render(); }
   function answer(id){ if (!ol || ol.done) return; ol.answer = id; ol.done = true; ol.tEnd = performance.now(); stop();
     const S = store(), hit = ol.ids.includes(id); touchDay(); S.n = (S.n||0)+1; if (hit) S.c = (S.c||0)+1; sess.n++; if (hit) sess.c++;
     S.by = S.by || {}; const bk = S.by[ol.k] = S.by[ol.k] || {n:0, c:0}; bk.n++; if (hit) bk.c++;
@@ -5803,7 +5810,7 @@ const O3 = (() => {
     if (e.target.closest('#o3Arm')){ arm(); return; }
     const x = e.target.closest('[data-o3x]'); if (x){ if (x.dataset.o3x==='skip') skip(); else end(); return; }
     const d = e.target.closest('[data-o3do]'); if (d){ solveStep(d.dataset.o3do); return; }
-    const v = e.target.closest('[data-o3v]'); if (v){ view = v.dataset.o3v; savePrefs(); if (ol && !ol.armed && view!=='scramble'){ ol.armed = true; ol.t0 = performance.now(); } render(); return; }
+    const v = e.target.closest('[data-o3v]'); if (v){ view = v.dataset.o3v; savePrefs(); render(); return; }
     const ps = e.target.closest('[data-o3ps]'); if (ps && ol){ ol.pickSet = ps.dataset.o3ps; ol.pickSub = null; render(); return; }
     const sb = e.target.closest('[data-o3sub]'); if (sb && ol){ ol.pickSub = +sb.dataset.o3sub; render(); return; }
     const p = e.target.closest('[data-o3p]'); if (p && ol){ if (ol.k==='solve') solvePick(p.dataset.o3p); else answer(p.dataset.o3p); } });
