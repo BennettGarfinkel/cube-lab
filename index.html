@@ -1540,7 +1540,7 @@ function makeSV(X){
     $('#sNameNow').textContent = cur().name;
     const del = $('#sDelSess'), only = ss.length < 2; del.disabled = only; if (delArm!==D.cur){ delArm = null; del.textContent = 'Delete this session'; }
     $('#sDelNote').textContent = only ? "You need at least one session, so the only one can't be deleted." : nn ? `Its ${nn} solve${nn===1?'':'s'} go${nn===1?'es':''} with it. You can undo right after.` : '';
-    $('#sSess').innerHTML = ss.map(s=>`<option value="${s.id}">${esc(s.name)}${s.comp?' · Comp':''} (${s.solves.length})</option>`).join(''); $('#sSess').value = D.cur;
+    $('#sSess').innerHTML = ss.map(s=>`<option value="${s.id}">${esc(s.name)} (${s.comp?'Comp, ':''}${s.solves.length})</option>`).join(''); $('#sSess').value = D.cur;
     const n = cur().solves.length, r = $('#sRound'); r.hidden = !c; if (c) r.textContent = `Round ${Math.floor(n/5)+1} · solve ${n%5+1} of 5`; }
   function renderType(){ const c = isComp(); $('#sType').innerHTML = [['p','Practice'],['c','Competition']].map(([v,l])=>`<button aria-pressed="${(v==='c')===c}" data-stype="${v}">${l}</button>`).join('');
     $('#sTypeNote').textContent = c ? 'WCA rules: DNFs count, inspection on, rounds of 5.' : 'DNFs are left out of averages.'; }
@@ -2315,7 +2315,7 @@ function renderProgress(){
   renderNext();
   { const gs = [$('#groups'), $('#prog')], old = gs.map(barsOf); queueMicrotask(()=>gs.forEach((g,i)=>growBars(g, old[i]))); }
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>isOn(status(c.id))).length, b=cs.filter(c=>status(c.id)==='learning').length;
-    return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}" title="${a}/${n} learned · ${mOf(cs)} mastered · ${b} learning"><strong>${g}</strong><div class="bar"><i style="width:${mOf(cs)/n*100}%"></i><b style="width:${(a-mOf(cs))/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
+    return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}" title="${a}/${n} learned, ${mOf(cs)} mastered, ${b} learning"><strong>${g}</strong><div class="bar"><i style="width:${mOf(cs)/n*100}%"></i><b style="width:${(a-mOf(cs))/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
   $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + SETS.filter(s=>CASES.some(c=>c.g===learnGroup&&c.set===s)).map(set=>{ const cs=CASES.filter(c=>c.g===learnGroup&&c.set===set), n=cs.length;
     const a=cs.filter(c=>isOn(status(c.id))).length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="pset"><span>${SET_NAME[set]||set}<i>${a}/${n}</i></span><div class="bar"><i style="width:${mOf(cs)/n*100}%"></i><b style="width:${(a-mOf(cs))/n*100}%"></b><em style="width:${b/n*100}%"></em></div></div>`; }).join('');
@@ -4818,7 +4818,7 @@ function renderProgress(){
   renderNext();
   { const gs = [$('#groups'), $('#prog')], old = gs.map(barsOf); queueMicrotask(()=>gs.forEach((g,i)=>growBars(g, old[i]))); }
   $('#groups').innerHTML = GROUPS.map(g=>{ const cs=CASES.filter(c=>c.g===g), n=cs.length, a=cs.filter(c=>isOn(status(c.id))).length, b=cs.filter(c=>status(c.id)==='learning').length;
-    return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}" title="${a}/${n} learned · ${mOf(cs)} mastered · ${b} learning"><strong>${g}</strong><div class="bar"><i style="width:${mOf(cs)/n*100}%"></i><b style="width:${(a-mOf(cs))/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
+    return `<button class="gsum" data-g="${g}" aria-pressed="${g===learnGroup}" title="${a}/${n} learned, ${mOf(cs)} mastered, ${b} learning"><strong>${g}</strong><div class="bar"><i style="width:${mOf(cs)/n*100}%"></i><b style="width:${(a-mOf(cs))/n*100}%"></b><em style="width:${b/n*100}%"></em></div><span>${a}/${n} learned</span></button>`; }).join('');
   $('#prog').innerHTML = `<span class="label psethead">${esc(learnGroup)} sets</span>` + GSETS[learnGroup].map(set=>{ const cs=CASES.filter(c=>c.set===set), n=cs.length;
     const a=cs.filter(c=>isOn(status(c.id))).length, b=cs.filter(c=>status(c.id)==='learning').length;
     return `<div class="pset"><span>${SET_SHORT[set]||set}<i>${a}/${n}</i></span><div class="bar"><i style="width:${mOf(cs)/n*100}%"></i><b style="width:${(a-mOf(cs))/n*100}%"></b><em style="width:${b/n*100}%"></em></div></div>`; }).join('');
