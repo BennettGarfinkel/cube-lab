@@ -130,12 +130,16 @@ button.gsum[aria-pressed="false"] strong{color:var(--muted)}
 .status.learned{background:color-mix(in srgb,var(--good) 20%,transparent);color:var(--good)}
 .status.mastered{background:var(--mast);color:#fff;letter-spacing:0;padding:4px 7px 4px 6px}.status.mastered::before{content:'★';margin-right:2px;font-size:9.5px}
 .case .status.mastered{font-size:10.5px;padding:4px 6px 4px 5px}
-.spill{align-self:flex-start;justify-self:start;border:0;border-radius:999px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;background:var(--chip);color:var(--ink);cursor:pointer;white-space:nowrap}
-.spill.down{color:var(--warn)}
-.sugg{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding:9px 11px;border-radius:10px;background:var(--chip);font-size:13px}
-.sugg p{margin:0;flex:1;min-width:160px;color:var(--muted);line-height:1.35}.sugg p b{color:var(--ink)}
-.sugg button{border:0;border-radius:8px;padding:6px 11px;font:inherit;font-weight:700;cursor:pointer}
-.sugg .go{background:var(--ink);color:var(--surface)}.sugg .no{background:transparent;color:var(--muted)}
+.sugg,.spill{--sc:var(--good)}.sugg.to-mastered,.spill.to-mastered{--sc:var(--mast)}.sugg.down,.spill.down{--sc:var(--warn)}
+.spill{align-self:flex-start;justify-self:start;display:inline-flex;align-items:center;gap:5px;border:0;border-left:3px solid var(--sc);border-radius:0 999px 999px 0;padding:3px 9px 3px 7px;font:inherit;font-size:11.5px;font-weight:700;background:var(--chip);color:var(--sc);cursor:pointer;white-space:nowrap}
+.spill .status{font-size:10px;padding:2px 6px}.spill .q{margin-left:-3px}.spill .status.mastered::before{font-size:8.5px}
+.sugg{margin-top:10px;padding:9px 11px 9px 10px;border-left:3px solid var(--sc);background:var(--chip);font-size:13px}
+.sugg .sflow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700}.sugg .sflow .arr{color:var(--sc);font-size:15px;line-height:1}.sugg .sflow .to{color:var(--muted);font-weight:400}
+.sugg .status{pointer-events:none}
+.sugg p{margin:6px 0 8px;color:var(--muted);line-height:1.35}
+.sugg .sbtns{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.sugg button{border:0;border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.sugg .go{background:color-mix(in srgb,var(--sc) 22%,transparent);color:var(--sc)}.sugg .no{background:transparent;color:var(--muted)}
 details.more summary{font-size:12px;color:var(--muted);cursor:pointer;list-style:none}
 details.more summary::-webkit-details-marker{display:none}
 details.more summary::before{content:"+ "}details.more[open] summary::before{content:"− "}
@@ -2195,6 +2199,7 @@ function dropRes(id, k){ const cs = D.cstat[id]; if (!cs || k >= (cs.rn||0)) ret
 function insRes(id, k, dnf){ const cs = D.cstat[id] || (D.cstat[id] = {n:0, d:0}); const r = cs.r||0; k = Math.min(k, cs.rn||0);
   cs.r = (((r >> k) << (k+1)) | (dnf ? 1<<k : 0) | (r & ((1<<k)-1))) & RMASK; cs.rn = Math.min(12, (cs.rn||0) + 1); }
 const dnfsIn = (cs, n) => { let x = 0; for (let i=0; i<n; i++) x += ((cs.r||0) >> i) & 1; return x; };
+const medLast = (id, n) => { const t = D.times[id]||[]; if (t.length < n) return null; const b = t.slice(-n).sort((x,y)=>x-y), m = n>>1; return n%2 ? b[m] : (b[m-1]+b[m])/2; };
 const meanLast = (id, n) => { const t = D.times[id]||[]; if (t.length < n) return null; return t.slice(-n).reduce((a,b)=>a+b,0) / n; };
 // your usual speed in a group: the mean case average over its learned + mastered cases (cached for one tick)
 let GB = null;
@@ -2206,18 +2211,22 @@ function suggest(c){ const s = status(c.id), cs = D.cstat[c.id]; if (!cs || !cs.
   if (s==='learning'){ if (cs.rn >= 5 && !dnfsIn(cs, 5) && meanLast(c.id, 5)!==null) return {to:'learned', why:'5 clean solves in a row.'}; return null; }
   if (s==='learned'){ if (cs.rn < 10 || dnfsIn(cs, 10)) return null; const m = meanLast(c.id, 10), b = groupBase(c.g);
     if (m===null || b===null || m > b) return null;
-    return {to:'mastered', why:`10 clean solves in a row, averaging ${m.toFixed(2)}s vs your ${c.g} average of ${b.toFixed(2)}s.`}; }
-  if (s==='mastered'){ const w = Math.min(10, cs.rn), d = dnfsIn(cs, w); if (d >= 2) return {to:'learned', why:`${d} DNFs in your last ${w} solves.`};
-    const m = cs.rn >= 5 ? meanLast(c.id, 5) : null, b = groupBase(c.g);
-    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Last 5 average ${m.toFixed(2)}s, well above your ${c.g} average of ${b.toFixed(2)}s.`}; }
+    return {to:'mastered', why:`10 clean solves in a row, averaging ${m.toFixed(2)}s vs your ${c.g} usual of ${b.toFixed(2)}s.`}; }
+  // moving back down only looks at solves since it was marked Mastered, and uses a median so one fumble can't trigger it
+  if (s==='mastered'){ const since = cs.n - (cs.sc||0); if (since < 5) return null;
+    const w = Math.min(10, cs.rn, since), d = dnfsIn(cs, w); if (d >= 2) return {to:'learned', why:`${d} DNFs in your last ${w} solves.`};
+    const m = medLast(c.id, 5), b = groupBase(c.g);
+    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Median of your last 5 solves is ${m.toFixed(2)}s, vs your ${c.g} usual of ${b.toFixed(2)}s.`}; }
   return null; }
 const ST_CAP = s => s[0].toUpperCase() + s.slice(1);
-function suggBox(c){ const s = suggest(c); if (!s) return ''; const up = s.to==='mastered' || status(c.id)==='learning';
-  return `<div class="sugg"><p><b>${up ? 'Ready for' : 'Move back to'} ${ST_CAP(s.to)}?</b> ${esc(s.why)}</p><button class="go" data-sgo="${c.id}" data-to="${s.to}">Mark ${s.to}</button><button class="no" data-sno="${c.id}">Not yet</button></div>`; }
+const stChip = st => `<span class="status ${st}">${st}</span>`;
+function suggBox(c){ const s = suggest(c); if (!s) return ''; const from = status(c.id), up = s.to==='mastered' || from==='learning';
+  return `<div class="sugg ${up ? 'up' : 'down'} to-${s.to}" role="group" aria-label="${up ? 'Ready for' : 'Move back to'} ${s.to}?"><div class="sflow"><span class="arr" aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(from)}<span class="to" aria-hidden="true">→</span>${stChip(s.to)}</div>
+    <p>${esc(s.why)}</p><div class="sbtns"><button class="no" data-sno="${c.id}">Keep ${from}</button><button class="go" data-sgo="${c.id}" data-to="${s.to}">Move to ${s.to}</button></div></div>`; }
 function suggPill(c){ const s = suggest(c); if (!s) return ''; const up = s.to==='mastered' || status(c.id)==='learning';
-  return `<button class="spill ${up ? 'up' : 'down'}" data-sgo="${c.id}" data-to="${s.to}" title="${esc(s.why)}" aria-label="Suggested: mark ${esc(c.full)} ${s.to}. ${esc(s.why)}">${up ? '↑' : '↓'} Mark ${s.to}?</button>`; }
+  return `<button class="spill ${up ? 'up' : 'down'} to-${s.to}" data-sgo="${c.id}" data-to="${s.to}" title="${esc(s.why)}" aria-label="Suggested: move ${esc(c.full)} to ${s.to}. ${esc(s.why)}"><span aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(s.to)}<span class="q" aria-hidden="true">?</span></button>`; }
 // a status change clears any "Not yet" and drops suggestions already on screen for that case
-function stChanged(id){ const cs = D.cstat[id]; if (cs) delete cs.sx; document.querySelectorAll(`[data-sgo="${id}"]`).forEach(x=>(x.closest('.sugg')||x).remove()); }
+function stChanged(id){ const cs = D.cstat[id]; if (cs){ delete cs.sx; cs.sc = cs.n; } document.querySelectorAll(`[data-sgo="${id}"]`).forEach(x=>(x.closest('.sugg')||x).remove()); }
 function stRefresh(c){ renderProgress();
   const card = document.querySelector(`#learnSets .case[data-id="${c.id}"]`); if (card) refreshCard(card, c);
   if (caseId===c.id) renderCasePage();
@@ -2401,7 +2410,7 @@ const shortHint = (c, nd) => { if (!nd.long) return ''; const s = shorterAlt(c);
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
-  const r = recAvg(c.id), rb = B.recG[c.g] || B.rec; if (r!==null && rb) parts.push({k:'rec', v:clamp(r/rb), w:1, you:r, usual:rb});
+  const r = recAvg(c.id), rb = B.recG[c.g] || B.rec; if (r!==null && rb) parts.push({k:'rec', v:clamp(r/rb), w:.5, you:r, usual:rb});   // flashcard recognition counts half as much as execution
   // execution speed as TPS (moves / your time on this alg), so a long alg you turn fast isn't marked weak
   const tp = tpsOf(c), tb = B.tpsG[c.g] || B.tps;
   if (tp && tb) parts.push({k:'tps', v:clamp(tb/tp), w:1.2, you:tp, usual:tb});
@@ -2411,14 +2420,14 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
   const miss = rl.length >= 5 ? (rl.split('m').length-1)/rl.length : cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length + Math.max(cd.h + cd.m, rl.length);
   let score = parts.length ? parts.reduce((x,p)=>x+p.v*p.w,0) / parts.reduce((x,p)=>x+p.w,0) : null;
-  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(D.times[c.id]); }
-  const far = parts.filter(p=>(p.k==='rec' || p.k==='tps' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
-  let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .34 || far ? 'weak' : score <= .95 ? 'strong' : 'ok';
+  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + .7*miss; score *= trendOf(D.times[c.id]); }
+  const far = parts.filter(p=>p.k==='rec' ? p.v >= 1.7 : (p.k==='tps' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
+  let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .45 || far ? 'weak' : score <= .95 ? 'strong' : 'ok';
   // the single biggest reason, in words
   // what pushed the score up most: a big DNF or miss rate, a measure 40%+ off, or else the largest share of the score
   let worst = null; if (tier === 'weak'){ const W = parts.reduce((x,p)=>x+p.w,0) || 1;
-    const cand = parts.filter(p=>p.v>1).map(p=>({...p, c:(p.v-1)*p.w/W})); if (dnf) cand.push({k:'dnf', c:2*dnf}); if (miss) cand.push({k:'miss', c:1.2*miss});
-    worst = dnf >= .15 ? {k:'dnf'} : miss >= .34 ? {k:'miss'} : far || cand.sort((x,y)=>y.c-x.c)[0] || null; }
+    const cand = parts.filter(p=>p.v>1).map(p=>({...p, c:(p.v-1)*p.w/W})); if (dnf) cand.push({k:'dnf', c:2*dnf}); if (miss) cand.push({k:'miss', c:.7*miss});
+    worst = dnf >= .15 ? {k:'dnf'} : miss >= .45 ? {k:'miss'} : far || cand.sort((x,y)=>y.c-x.c)[0] || null; }
   const why = !worst ? '' : worst.k==='dnf' ? `${Math.round(dnf*100)}% DNF in the case timer` : worst.k==='miss' ? `missed ${Math.round(miss*100)}% of ${rl.length >= 5 ? 'your last '+rl.length+' tries at naming it' : 'flashcards'}`
     : worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='tps' ? `executing at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}`
     : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
@@ -4659,6 +4668,7 @@ function dropRes(id, k){ const cs = D.cstat[id]; if (!cs || k >= (cs.rn||0)) ret
 function insRes(id, k, dnf){ const cs = D.cstat[id] || (D.cstat[id] = {n:0, d:0}); const r = cs.r||0; k = Math.min(k, cs.rn||0);
   cs.r = (((r >> k) << (k+1)) | (dnf ? 1<<k : 0) | (r & ((1<<k)-1))) & RMASK; cs.rn = Math.min(12, (cs.rn||0) + 1); }
 const dnfsIn = (cs, n) => { let x = 0; for (let i=0; i<n; i++) x += ((cs.r||0) >> i) & 1; return x; };
+const medLast = (id, n) => { const t = D.times[id]||[]; if (t.length < n) return null; const b = t.slice(-n).sort((x,y)=>x-y), m = n>>1; return n%2 ? b[m] : (b[m-1]+b[m])/2; };
 const meanLast = (id, n) => { const t = D.times[id]||[]; if (t.length < n) return null; return t.slice(-n).reduce((a,b)=>a+b,0) / n; };
 // your usual speed in a group: the mean case average over its learned + mastered cases (cached for one tick)
 let GB = null;
@@ -4670,18 +4680,22 @@ function suggest(c){ const s = status(c.id), cs = D.cstat[c.id]; if (!cs || !cs.
   if (s==='learning'){ if (cs.rn >= 5 && !dnfsIn(cs, 5) && meanLast(c.id, 5)!==null) return {to:'learned', why:'5 clean solves in a row.'}; return null; }
   if (s==='learned'){ if (cs.rn < 10 || dnfsIn(cs, 10)) return null; const m = meanLast(c.id, 10), b = groupBase(c.g);
     if (m===null || b===null || m > b) return null;
-    return {to:'mastered', why:`10 clean solves in a row, averaging ${m.toFixed(2)}s vs your ${c.g} average of ${b.toFixed(2)}s.`}; }
-  if (s==='mastered'){ const w = Math.min(10, cs.rn), d = dnfsIn(cs, w); if (d >= 2) return {to:'learned', why:`${d} DNFs in your last ${w} solves.`};
-    const m = cs.rn >= 5 ? meanLast(c.id, 5) : null, b = groupBase(c.g);
-    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Last 5 average ${m.toFixed(2)}s, well above your ${c.g} average of ${b.toFixed(2)}s.`}; }
+    return {to:'mastered', why:`10 clean solves in a row, averaging ${m.toFixed(2)}s vs your ${c.g} usual of ${b.toFixed(2)}s.`}; }
+  // moving back down only looks at solves since it was marked Mastered, and uses a median so one fumble can't trigger it
+  if (s==='mastered'){ const since = cs.n - (cs.sc||0); if (since < 5) return null;
+    const w = Math.min(10, cs.rn, since), d = dnfsIn(cs, w); if (d >= 2) return {to:'learned', why:`${d} DNFs in your last ${w} solves.`};
+    const m = medLast(c.id, 5), b = groupBase(c.g);
+    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Median of your last 5 solves is ${m.toFixed(2)}s, vs your ${c.g} usual of ${b.toFixed(2)}s.`}; }
   return null; }
 const ST_CAP = s => s[0].toUpperCase() + s.slice(1);
-function suggBox(c){ const s = suggest(c); if (!s) return ''; const up = s.to==='mastered' || status(c.id)==='learning';
-  return `<div class="sugg"><p><b>${up ? 'Ready for' : 'Move back to'} ${ST_CAP(s.to)}?</b> ${esc(s.why)}</p><button class="go" data-sgo="${c.id}" data-to="${s.to}">Mark ${s.to}</button><button class="no" data-sno="${c.id}">Not yet</button></div>`; }
+const stChip = st => `<span class="status ${st}">${st}</span>`;
+function suggBox(c){ const s = suggest(c); if (!s) return ''; const from = status(c.id), up = s.to==='mastered' || from==='learning';
+  return `<div class="sugg ${up ? 'up' : 'down'} to-${s.to}" role="group" aria-label="${up ? 'Ready for' : 'Move back to'} ${s.to}?"><div class="sflow"><span class="arr" aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(from)}<span class="to" aria-hidden="true">→</span>${stChip(s.to)}</div>
+    <p>${esc(s.why)}</p><div class="sbtns"><button class="no" data-sno="${c.id}">Keep ${from}</button><button class="go" data-sgo="${c.id}" data-to="${s.to}">Move to ${s.to}</button></div></div>`; }
 function suggPill(c){ const s = suggest(c); if (!s) return ''; const up = s.to==='mastered' || status(c.id)==='learning';
-  return `<button class="spill ${up ? 'up' : 'down'}" data-sgo="${c.id}" data-to="${s.to}" title="${esc(s.why)}" aria-label="Suggested: mark ${esc(c.full)} ${s.to}. ${esc(s.why)}">${up ? '↑' : '↓'} Mark ${s.to}?</button>`; }
+  return `<button class="spill ${up ? 'up' : 'down'} to-${s.to}" data-sgo="${c.id}" data-to="${s.to}" title="${esc(s.why)}" aria-label="Suggested: move ${esc(c.full)} to ${s.to}. ${esc(s.why)}"><span aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(s.to)}<span class="q" aria-hidden="true">?</span></button>`; }
 // a status change clears any "Not yet" and drops suggestions already on screen for that case
-function stChanged(id){ const cs = D.cstat[id]; if (cs) delete cs.sx; document.querySelectorAll(`[data-sgo="${id}"]`).forEach(x=>(x.closest('.sugg')||x).remove()); }
+function stChanged(id){ const cs = D.cstat[id]; if (cs){ delete cs.sx; cs.sc = cs.n; } document.querySelectorAll(`[data-sgo="${id}"]`).forEach(x=>(x.closest('.sugg')||x).remove()); }
 function stRefresh(c){ renderProgress();
   const card = document.querySelector(`#learnSets .case[data-id="${c.id}"]`); if (card) refreshCard(card, c);
   if (caseId===c.id) renderCasePage();
@@ -4896,7 +4910,7 @@ const shortHint = (c, nd) => { if (!nd.long) return ''; const s = shorterAlt(c);
 const trendOf = t => { if (!t || t.length < 8) return 1; const last = t.slice(-4), prev = t.slice(-12, -4); const m = a => a.reduce((x,y)=>x+y,0)/a.length; return Math.min(1.2, Math.max(.85, m(last)/m(prev))); };
 function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.cache[key]) return B.cache[key];
   const clamp = x => Math.min(2.5, Math.max(.5, x)), parts = [];
-  const r = recAvg(c.id), rb = B.recG[c.g] || B.rec; if (r!==null && rb) parts.push({k:'rec', v:clamp(r/rb), w:1, you:r, usual:rb});
+  const r = recAvg(c.id), rb = B.recG[c.g] || B.rec; if (r!==null && rb) parts.push({k:'rec', v:clamp(r/rb), w:.5, you:r, usual:rb});   // flashcard recognition counts half as much as execution
   // execution speed as TPS (moves / your time on this alg), so a long alg you turn fast isn't marked weak
   const tp = tpsOf(c), tb = B.tpsG[c.g] || B.tps;
   if (tp && tb) parts.push({k:'tps', v:clamp(tb/tp), w:1.2, you:tp, usual:tb});
@@ -4906,13 +4920,13 @@ function need(c, focus){ const B = needBase(), key = c.id + (focus||''); if (B.c
   const miss = rl.length >= 5 ? (rl.split('m').length-1)/rl.length : cd.h+cd.m >= 3 ? cd.m/(cd.h+cd.m) : 0;
   const n = (D.times[c.id]||[]).length + (D.recog[c.id]||[]).length + Math.max(cd.h + cd.m, rl.length);
   let score = parts.length ? parts.reduce((x,p)=>x+p.v*p.w,0) / parts.reduce((x,p)=>x+p.w,0) : null;
-  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + 1.2*miss; score *= trendOf(D.times[c.id]); }
-  const far = parts.filter(p=>(p.k==='rec' || p.k==='tps' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
-  let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .34 || far ? 'weak' : score <= .95 ? 'strong' : 'ok';
+  if (score!==null || dnf || miss){ score = (score===null ? 1 : score) + 2*dnf + .7*miss; score *= trendOf(D.times[c.id]); }
+  const far = parts.filter(p=>p.k==='rec' ? p.v >= 1.7 : (p.k==='tps' || p.k==='full') && p.v >= 1.4).sort((x,y)=>y.v-x.v)[0];
+  let tier = null; if (score!==null && n >= 5) tier = score >= 1.3 || dnf >= .15 || miss >= .45 || far ? 'weak' : score <= .95 ? 'strong' : 'ok';
   // what pushed the score up most: a big DNF or miss rate, a measure 40%+ off, or else the largest share of the score
   let worst = null; if (tier === 'weak'){ const W = parts.reduce((x,p)=>x+p.w,0) || 1;
-    const cand = parts.filter(p=>p.v>1).map(p=>({...p, c:(p.v-1)*p.w/W})); if (dnf) cand.push({k:'dnf', c:2*dnf}); if (miss) cand.push({k:'miss', c:1.2*miss});
-    worst = dnf >= .15 ? {k:'dnf'} : miss >= .34 ? {k:'miss'} : far || cand.sort((x,y)=>y.c-x.c)[0] || null; }
+    const cand = parts.filter(p=>p.v>1).map(p=>({...p, c:(p.v-1)*p.w/W})); if (dnf) cand.push({k:'dnf', c:2*dnf}); if (miss) cand.push({k:'miss', c:.7*miss});
+    worst = dnf >= .15 ? {k:'dnf'} : miss >= .45 ? {k:'miss'} : far || cand.sort((x,y)=>y.c-x.c)[0] || null; }
   const why = !worst ? '' : worst.k==='dnf' ? `${Math.round(dnf*100)}% DNF in the case timer` : worst.k==='miss' ? `missed ${Math.round(miss*100)}% of ${rl.length >= 5 ? 'your last '+rl.length+' tries at naming it' : 'flashcards'}`
     : worst.k==='rec' ? `recognition ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s` : worst.k==='tps' ? `executing at ${worst.you.toFixed(1)} TPS vs your usual ${worst.usual.toFixed(1)}`
     : `case time ${worst.you.toFixed(2)}s vs your usual ${worst.usual.toFixed(2)}s`;
