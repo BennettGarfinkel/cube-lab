@@ -1,6 +1,6 @@
 // Cube Lab service worker: keeps the app on the device so it opens with no internet.
-// Updates are quiet. Each time the app opens online, the newest page downloads in the
-// background, and the next launch uses it. Nothing interrupts a session.
+// The saved page opens right away. The newest page downloads in the background, and the
+// worker tells the page which build it got, so the page can offer a one-tap update.
 const CACHE = 'cube-lab-v1';
 const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
 const FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap';
@@ -27,14 +27,30 @@ self.addEventListener('activate', e => {
   })());
 });
 
-// Download the newest page into the cache without making anyone wait for it
+// Download the newest page into the cache and read its build stamp (data-build on <html>)
 async function refreshPage() {
   try {
     const r = await fetch(new Request('/', { cache: 'no-cache' }));
-    if (r.ok) await (await caches.open(CACHE)).put('/', r);
-    return r;
+    if (!r.ok) return null;
+    const head = (await r.clone().text()).slice(0, 4000);
+    await (await caches.open(CACHE)).put('/', r.clone());
+    const m = head.match(/data-build="([^"]*)"/);
+    return { res: r, build: m ? m[1] : null };
   } catch (err) { return null; }
 }
+
+// Tell every open copy of the app which build is now saved
+async function announce(got) {
+  if (!got || !got.build) return;
+  for (const c of await self.clients.matchAll({ type: 'window' })) c.postMessage({ type: 'build', build: got.build });
+}
+
+// The page asks for a check when it opens, comes back to the front, or taps Check for updates
+self.addEventListener('message', e => {
+  if (!e.data || e.data.type !== 'check') return;
+  const port = e.ports && e.ports[0];
+  e.waitUntil(refreshPage().then(got => { if (port) port.postMessage({ build: got ? got.build : null }); }));
+});
 
 self.addEventListener('fetch', e => {
   const req = e.request;
@@ -46,8 +62,9 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
       const cached = await caches.match('/');
       const fresh = refreshPage();
-      if (cached) { e.waitUntil(fresh); return cached; }
-      return (await fresh) || new Response('Cube Lab is offline and has not been saved on this device yet. Open it once with internet first.',
+      if (cached) { e.waitUntil(fresh.then(announce)); return cached; }
+      const got = await fresh;
+      return (got && got.res) || new Response('Cube Lab is offline and has not been saved on this device yet. Open it once with internet first.',
         { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
     })());
     return;

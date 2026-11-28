@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-build="dev" data-built="">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -442,6 +442,10 @@ body.focus .stage .timer{border-top-color:transparent}
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:40;background:var(--ink);color:var(--bg);border-radius:12px;padding:10px 10px 10px 16px;display:flex;align-items:center;gap:14px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
 .toast span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .toast button{border:0;background:color-mix(in srgb,var(--bg) 18%,transparent);color:var(--bg);font-weight:700;border-radius:8px;padding:6px 12px}
+.upd{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:41;background:var(--ink);color:var(--bg);border-radius:12px;padding:8px 8px 8px 16px;display:flex;align-items:center;gap:10px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px)}
+.upd[hidden]{display:none}.upd span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.upd .go{border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;border-radius:8px;padding:7px 14px}
+.upd .x{border:0;background:none;color:var(--bg);opacity:.7;font-size:20px;line-height:1;padding:4px 6px}
 #sList > div{cursor:pointer}
 #sList > div:hover{background:color-mix(in srgb,var(--chip) 50%,transparent)}
 #sList > div[aria-expanded="true"]{border-bottom:0}
@@ -859,6 +863,11 @@ window.CubeLabHost = {
       <p class="msg" id="pasteMsg" aria-live="polite"></p>
     </details>
     </div>
+    <div class="setgroup">
+      <span class="glabel">About</span>
+      <div class="srow"><span class="slabel appVer">Version</span><span class="stats">Cube Lab checks for a new version each time you open it or come back to it. When one is ready, a bar at the bottom lets you switch to it.</span>
+        <div class="row updRow"><button class="btn alt sm updCheck">Check for updates</button><span class="msg updMsg" aria-live="polite"></span></div></div>
+    </div>
   </section>
 </div>
 
@@ -1091,6 +1100,11 @@ window.CubeLabHost = {
       <div class="row"><input id="pasteIn3" class="textin" placeholder="R U2 F' R2 U' F R' U2 B L2" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Scramble to solve"><button class="btn sm" id="pasteGo">Solve</button></div>
       <p class="msg" id="pasteMsg" aria-live="polite"></p>
     </details>
+    </div>
+    <div class="setgroup">
+      <span class="glabel">About</span>
+      <div class="srow"><span class="slabel appVer">Version</span><span class="stats">Cube Lab checks for a new version each time you open it or come back to it. When one is ready, a bar at the bottom lets you switch to it.</span>
+        <div class="row updRow"><button class="btn alt sm updCheck">Check for updates</button><span class="msg updMsg" aria-live="polite"></span></div></div>
     </div>
   </section>
 </div>
@@ -6146,7 +6160,6 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
 
 })();
 </script>
-<script>document.querySelectorAll('#v-prefs').forEach(v=>v.insertAdjacentHTML('beforeend','<p class="stats" style="text-align:center;opacity:.7;margin-top:8px">Build 2026-11-25a</p>'));</script>
 <script>CubeLab.ready();</script>
 <script>
 // Offline: save the app on this device and keep its data from being cleared. The browser bar matches the theme.
@@ -6157,9 +6170,73 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
     meta.content = (t === 'dark' || (t !== 'light' && mq.matches)) ? '#0C0D10' : '#F5F5F2'; };
   sync(); new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   if (mq.addEventListener) mq.addEventListener('change', sync);
-  if ('serviceWorker' in navigator && window.isSecureContext)
-    addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+})();
+// Updates: the service worker downloads the newest page and reports its build. If it's newer than the
+// one running, a bar offers to switch. Checks on open and whenever the app comes back to the front,
+// since a home-screen app on iPhone usually resumes instead of relaunching.
+(() => {
+  const root = document.documentElement, BUILD = root.dataset.build || 'dev', BUILT = root.dataset.built;
+  const canSW = 'serviceWorker' in navigator && window.isSecureContext;
+  let ready = null, dismissed = null, bar = null, lastCheck = 0;
+  const when = BUILT ? new Date(BUILT) : null;
+  const verText = BUILD === 'dev' ? 'Version: development copy'
+    : 'Version ' + BUILD + (when && !isNaN(when) ? ', from ' + when.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '');
+  document.querySelectorAll('.appVer').forEach(el => { el.textContent = verText; });
+  if (!canSW) { document.querySelectorAll('.updRow').forEach(el => { el.hidden = true; }); return; }
+
+  const busy = () => !!document.querySelector('.timer.running');
+  function showBar() {
+    if (!ready || ready === dismissed) return;
+    if (busy()) { setTimeout(showBar, 5000); return; }  // never pop up over a running solve
+    if (!bar) {
+      bar = document.createElement('div'); bar.className = 'upd'; bar.setAttribute('role', 'status');
+      bar.innerHTML = '<span>New version ready</span><button type="button" class="go">Update</button><button type="button" class="x" aria-label="Not now">×</button>';
+      bar.querySelector('.go').addEventListener('click', () => location.reload());
+      bar.querySelector('.x').addEventListener('click', () => { dismissed = ready; bar.hidden = true; });
+      document.body.appendChild(bar);
+    }
+    bar.hidden = false;
+  }
+  function saw(build) {
+    if (!build || build === 'dev' || BUILD === 'dev' || build === BUILD) return false;
+    ready = build; showBar();
+    document.querySelectorAll('.updCheck').forEach(b => { b.textContent = 'Update now'; });
+    return true;
+  }
+  // Ask the service worker to fetch the newest page; resolves to its build, or null when offline
+  async function ask() {
+    const reg = await navigator.serviceWorker.ready, sw = reg.active;
+    if (!sw) return null;
+    return new Promise(res => {
+      const ch = new MessageChannel(), t = setTimeout(() => res(null), 12000);
+      ch.port1.onmessage = e => { clearTimeout(t); res(e.data && e.data.build); };
+      sw.postMessage({ type: 'check' }, [ch.port2]);
+    });
+  }
+  async function check() {
+    lastCheck = Date.now();
+    try { (await navigator.serviceWorker.getRegistration())?.update().catch(() => {}); } catch (e) {}
+    try { return await ask(); } catch (e) { return null; }
+  }
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'build') saw(e.data.build); });
+  addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    check().then(saw);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && Date.now() - lastCheck > 60000) check().then(saw);
+  });
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('.updCheck'); if (!b) return;
+    if (ready) { location.reload(); return; }
+    const msg = b.parentElement.querySelector('.updMsg');
+    msg.className = 'msg updMsg'; msg.textContent = 'Checking...'; b.disabled = true;
+    const build = await check(); b.disabled = false;
+    if (!build) { msg.textContent = "Couldn't reach Cube Lab. Check your connection and try again."; msg.classList.add('err'); }
+    else if (saw(build)) { msg.textContent = 'New version downloaded.'; msg.classList.add('ok'); }
+    else { msg.textContent = "You're on the newest version."; msg.classList.add('ok'); }
+  });
 })();
 </script>
 </body>

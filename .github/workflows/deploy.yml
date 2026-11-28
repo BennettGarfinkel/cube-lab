@@ -17,6 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Stamp the page with this commit, so installed copies can tell a new version is out
+      - name: Stamp build
+        run: |
+          sed -i "0,/data-build=\"dev\" data-built=\"\"/s//data-build=\"${GITHUB_SHA::7}\" data-built=\"$(git log -1 --format=%cI)\"/" index.html
+          grep -m1 -o 'data-build="[^"]*" data-built="[^"]*"' index.html
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
