@@ -446,6 +446,11 @@ body.focus .stage .timer{border-top-color:transparent}
 .upd[hidden]{display:none}.upd span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .upd .go{border:0;background:var(--accent);color:var(--accent-ink);font-weight:700;border-radius:8px;padding:7px 14px}
 .upd .x{border:0;background:none;color:var(--bg);opacity:.7;font-size:20px;line-height:1;padding:4px 6px}
+.ptr{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:42;width:38px;height:38px;margin-left:-19px;border-radius:50%;background:var(--surface);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.15);display:flex;align-items:center;justify-content:center;color:var(--ink);pointer-events:none;opacity:0;transform:translateY(-60px)}
+.ptr svg{width:18px;height:18px;transition:transform .15s}.ptr.armed svg{transform:rotate(180deg)}
+.ptr.back{transition:transform .25s,opacity .25s}
+.ptr.spin svg{animation:ptrspin .8s linear infinite}@keyframes ptrspin{to{transform:rotate(360deg)}}
+.ptr .pmsg{position:absolute;top:44px;white-space:nowrap;font-size:12.5px;font-weight:600;color:var(--muted)}
 #sList > div{cursor:pointer}
 #sList > div:hover{background:color-mix(in srgb,var(--chip) 50%,transparent)}
 #sList > div[aria-expanded="true"]{border-bottom:0}
@@ -865,7 +870,7 @@ window.CubeLabHost = {
     </div>
     <div class="setgroup">
       <span class="glabel">About</span>
-      <div class="srow"><span class="slabel appVer">Version</span><span class="stats">Cube Lab checks for a new version each time you open it or come back to it. When one is ready, a bar at the bottom lets you switch to it.</span>
+      <div class="srow"><span class="slabel appVer">Version</span><span class="stats">Cube Lab checks for a new version each time you open it or come back to it. When one is ready, a bar at the bottom lets you switch to it. You can also pull down from the top of any page to check and reload.</span>
         <div class="row updRow"><button class="btn alt sm updCheck">Check for updates</button><span class="msg updMsg" aria-live="polite"></span></div></div>
     </div>
   </section>
@@ -1103,7 +1108,7 @@ window.CubeLabHost = {
     </div>
     <div class="setgroup">
       <span class="glabel">About</span>
-      <div class="srow"><span class="slabel appVer">Version</span><span class="stats">Cube Lab checks for a new version each time you open it or come back to it. When one is ready, a bar at the bottom lets you switch to it.</span>
+      <div class="srow"><span class="slabel appVer">Version</span><span class="stats">Cube Lab checks for a new version each time you open it or come back to it. When one is ready, a bar at the bottom lets you switch to it. You can also pull down from the top of any page to check and reload.</span>
         <div class="row updRow"><button class="btn alt sm updCheck">Check for updates</button><span class="msg updMsg" aria-live="polite"></span></div></div>
     </div>
   </section>
@@ -6185,7 +6190,9 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
   document.querySelectorAll('.appVer').forEach(el => { el.textContent = verText; });
   if (!canSW) { document.querySelectorAll('.updRow').forEach(el => { el.hidden = true; }); return; }
 
-  const busy = () => !!document.querySelector('.timer.running');
+  // A solve, inspection or timed drill is in progress
+  const busy = () => document.body.classList.contains('focus') || !!document.querySelector('.timer.running,.timer.holding,.timer.ready,.timer.insp')
+    || [...document.querySelectorAll('.countbar')].some(el => el.offsetParent !== null);
   function showBar() {
     if (!ready || ready === dismissed) return;
     if (busy()) { setTimeout(showBar, 5000); return; }  // never pop up over a running solve
@@ -6227,6 +6234,48 @@ CubeLab.register('3', {exportData:()=>JSON.parse(JSON.stringify(D)), importData:
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && Date.now() - lastCheck > 60000) check().then(saw);
   });
+  // Pull down from the top to check for a new version and reload. Not on timers, the 3D cube, charts or
+  // form fields, not while a sheet is open, and never during a solve or timed drill.
+  (() => {
+    const PULL = 70, MAXD = 110, SKIP = '.timer,.stage3d,canvas,.chartwrap,input,textarea,select,.sheet,[role="dialog"]';
+    const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+    const SPIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9"/></svg>';
+    let el = null, y0 = 0, x0 = 0, d = 0, pulling = false, live = false, working = false;
+    const ind = () => { if (!el) { el = document.createElement('div'); el.className = 'ptr'; el.setAttribute('aria-live', 'polite');
+      el.innerHTML = ARROW + '<span class="pmsg"></span>'; document.body.appendChild(el); } return el; };
+    const place = (dist, op) => { const i = ind(); i.style.transform = 'translateY(' + (dist - 60) + 'px)'; i.style.opacity = op; };
+    const reset = () => { if (!el) return; el.classList.add('back'); place(0, 0);
+      setTimeout(() => { if (!working && el) { el.className = 'ptr'; el.innerHTML = ARROW + '<span class="pmsg"></span>'; } }, 260); };
+    const sheetOpen = () => !!document.querySelector('.sheet:not([hidden])');
+    document.addEventListener('touchstart', e => {
+      live = pulling = false;
+      if (working || e.touches.length !== 1 || window.scrollY > 0 || busy() || sheetOpen() || e.target.closest(SKIP)) return;
+      live = true; y0 = e.touches[0].clientY; x0 = e.touches[0].clientX; d = 0;
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      if (!live) return;
+      const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
+      if (!pulling) {
+        if (dy < 0 || window.scrollY > 0 || Math.abs(dx) > Math.abs(dy)) { if (Math.abs(dx) > 10 || dy < -10) live = false; return; }
+        if (dy < 10) return;
+        pulling = true; ind().className = 'ptr';
+      }
+      e.preventDefault();
+      d = Math.min(MAXD, Math.max(0, (dy - 10) * 0.55));
+      place(d, Math.min(1, d / PULL)); el.classList.toggle('armed', d >= PULL);
+    }, { passive: false });
+    const end = async () => {
+      if (!live) return; live = false;
+      if (!pulling) return; pulling = false;
+      if (d < PULL) { reset(); return; }
+      working = true; el.className = 'ptr spin back'; el.innerHTML = SPIN + '<span class="pmsg"></span>'; place(56, 1);
+      const build = await check();
+      if (build) { location.reload(); return; }
+      el.className = 'ptr back'; el.innerHTML = ARROW + '<span class="pmsg">Offline. Showing the saved copy.</span>';
+      setTimeout(() => { working = false; reset(); }, 1800);
+    };
+    document.addEventListener('touchend', end); document.addEventListener('touchcancel', () => { if (pulling) { pulling = live = false; reset(); } else live = false; });
+  })();
   document.addEventListener('click', async e => {
     const b = e.target.closest('.updCheck'); if (!b) return;
     if (ready) { location.reload(); return; }

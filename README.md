@@ -37,7 +37,7 @@ Cube Lab is a trainer for the 2x2 and 3x3 Rubik's Cube. A switch at the top chan
 
 Cube Lab is an installable web app. Open it once with internet, then add it to your home screen. After that it opens and works with no connection, and your progress stays on the device. On iPhone, tap Share in Safari and then Add to Home Screen. On Android, open the Chrome menu and tap Install app (or Add to Home screen).
 
-Each time Cube Lab opens or comes back to the front with internet, it downloads the newest version in the background. When one is ready, a bar at the bottom offers to switch with one tap; it never appears during a running solve. Settings shows which version you have and has a Check for updates button.
+Each time Cube Lab opens or comes back to the front with internet, it downloads the newest version in the background. When one is ready, a bar at the bottom offers to switch with one tap; it never appears during a running solve. You can also pull down from the top of the page to check and reload. Settings shows which version you have and has a Check for updates button.
 
 ## Algorithm credits
 
