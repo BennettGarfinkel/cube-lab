@@ -137,6 +137,8 @@ button.gsum[aria-pressed="false"] strong{color:var(--muted)}
 .sugg .sflow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-weight:700}.sugg .sflow .arr{color:var(--sc);font-size:15px;line-height:1}.sugg .sflow .to{color:var(--muted);font-weight:400}
 .sugg .status{pointer-events:none}
 .sugg p{margin:6px 0 8px;color:var(--muted);line-height:1.35}
+.sugg .slast{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:-2px 0 9px;font-size:12px;color:var(--muted)}.sugg .slast span{margin-right:2px}
+.sugg .slast b{font-family:var(--f-mono);font-size:11.5px;font-weight:600;padding:1px 4px;border-radius:6px;background:var(--surface);color:var(--ink)}.sugg .slast b.slow{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
 .sugg .sbtns{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
 .sugg button{border:0;border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
 .sugg .go{background:color-mix(in srgb,var(--sc) 22%,transparent);color:var(--sc)}.sugg .no{background:transparent;color:var(--muted)}
@@ -2216,13 +2218,13 @@ function suggest(c){ const s = status(c.id), cs = D.cstat[c.id]; if (!cs || !cs.
   if (s==='mastered'){ const since = cs.n - (cs.sc||0); if (since < 5) return null;
     const w = Math.min(10, cs.rn, since), d = dnfsIn(cs, w); if (d >= 2) return {to:'learned', why:`${d} DNFs in your last ${w} solves.`};
     const m = medLast(c.id, 5), b = groupBase(c.g);
-    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Median of your last 5 solves is ${m.toFixed(2)}s, vs your ${c.g} usual of ${b.toFixed(2)}s.`}; }
+    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Median of your last 5 solves is ${m.toFixed(2)}s, vs your ${c.g} usual of ${b.toFixed(2)}s.`, last:(D.times[c.id]||[]).slice(-5).reverse(), slow:b*1.25}; }
   return null; }
 const ST_CAP = s => s[0].toUpperCase() + s.slice(1);
 const stChip = st => `<span class="status ${st}">${st}</span>`;
 function suggBox(c){ const s = suggest(c); if (!s) return ''; const from = status(c.id), up = s.to==='mastered' || from==='learning';
   return `<div class="sugg ${up ? 'up' : 'down'} to-${s.to}" role="group" aria-label="${up ? 'Ready for' : 'Move back to'} ${s.to}?"><div class="sflow"><span class="arr" aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(from)}<span class="to" aria-hidden="true">→</span>${stChip(s.to)}</div>
-    <p>${esc(s.why)}</p><div class="sbtns"><button class="no" data-sno="${c.id}">Keep ${from}</button><button class="go" data-sgo="${c.id}" data-to="${s.to}">Move to ${s.to}</button></div></div>`; }
+    <p>${esc(s.why)}</p>${s.last ? `<div class="slast" aria-label="Last 5 solves, newest first. Highlighted ones are more than 25% over your usual"><span>Last 5</span>${s.last.map(t=>`<b class="${t > s.slow ? 'slow' : ''}">${t.toFixed(2)}</b>`).join('')}</div>` : ''}<div class="sbtns"><button class="no" data-sno="${c.id}">Keep ${from}</button><button class="go" data-sgo="${c.id}" data-to="${s.to}">Move to ${s.to}</button></div></div>`; }
 function suggPill(c){ const s = suggest(c); if (!s) return ''; const up = s.to==='mastered' || status(c.id)==='learning';
   return `<button class="spill ${up ? 'up' : 'down'} to-${s.to}" data-sgo="${c.id}" data-to="${s.to}" title="${esc(s.why)}" aria-label="Suggested: move ${esc(c.full)} to ${s.to}. ${esc(s.why)}"><span aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(s.to)}<span class="q" aria-hidden="true">?</span></button>`; }
 // a status change clears any "Not yet" and drops suggestions already on screen for that case
@@ -4685,13 +4687,13 @@ function suggest(c){ const s = status(c.id), cs = D.cstat[c.id]; if (!cs || !cs.
   if (s==='mastered'){ const since = cs.n - (cs.sc||0); if (since < 5) return null;
     const w = Math.min(10, cs.rn, since), d = dnfsIn(cs, w); if (d >= 2) return {to:'learned', why:`${d} DNFs in your last ${w} solves.`};
     const m = medLast(c.id, 5), b = groupBase(c.g);
-    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Median of your last 5 solves is ${m.toFixed(2)}s, vs your ${c.g} usual of ${b.toFixed(2)}s.`}; }
+    if (m!==null && b!==null && m > b*1.25) return {to:'learned', why:`Median of your last 5 solves is ${m.toFixed(2)}s, vs your ${c.g} usual of ${b.toFixed(2)}s.`, last:(D.times[c.id]||[]).slice(-5).reverse(), slow:b*1.25}; }
   return null; }
 const ST_CAP = s => s[0].toUpperCase() + s.slice(1);
 const stChip = st => `<span class="status ${st}">${st}</span>`;
 function suggBox(c){ const s = suggest(c); if (!s) return ''; const from = status(c.id), up = s.to==='mastered' || from==='learning';
   return `<div class="sugg ${up ? 'up' : 'down'} to-${s.to}" role="group" aria-label="${up ? 'Ready for' : 'Move back to'} ${s.to}?"><div class="sflow"><span class="arr" aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(from)}<span class="to" aria-hidden="true">→</span>${stChip(s.to)}</div>
-    <p>${esc(s.why)}</p><div class="sbtns"><button class="no" data-sno="${c.id}">Keep ${from}</button><button class="go" data-sgo="${c.id}" data-to="${s.to}">Move to ${s.to}</button></div></div>`; }
+    <p>${esc(s.why)}</p>${s.last ? `<div class="slast" aria-label="Last 5 solves, newest first. Highlighted ones are more than 25% over your usual"><span>Last 5</span>${s.last.map(t=>`<b class="${t > s.slow ? 'slow' : ''}">${t.toFixed(2)}</b>`).join('')}</div>` : ''}<div class="sbtns"><button class="no" data-sno="${c.id}">Keep ${from}</button><button class="go" data-sgo="${c.id}" data-to="${s.to}">Move to ${s.to}</button></div></div>`; }
 function suggPill(c){ const s = suggest(c); if (!s) return ''; const up = s.to==='mastered' || status(c.id)==='learning';
   return `<button class="spill ${up ? 'up' : 'down'} to-${s.to}" data-sgo="${c.id}" data-to="${s.to}" title="${esc(s.why)}" aria-label="Suggested: move ${esc(c.full)} to ${s.to}. ${esc(s.why)}"><span aria-hidden="true">${up ? '↑' : '↓'}</span>${stChip(s.to)}<span class="q" aria-hidden="true">?</span></button>`; }
 // a status change clears any "Not yet" and drops suggestions already on screen for that case
